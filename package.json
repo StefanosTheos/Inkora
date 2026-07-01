@@ -1,0 +1,37 @@
+{
+  "name": "inkora",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Inkora — tattoo discovery, inspiration, visualization & booking marketplace (monorepo)",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:mobile": "turbo run dev --filter=@inkora/mobile",
+    "dev:web": "turbo run dev --filter=@inkora/web",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push",
+    "gen:types": "supabase gen types typescript --local > packages/data-access/src/db/database.types.ts"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.0",
+    "typescript": "^5.6.0",
+    "prettier": "^3.3.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@supabase/supabase-js": "2.45.4",
+      "metro-cache-key": "0.80.12",
+      "react": "18.2.0",
+      "react-dom": "18.2.0",
+      "react-native-screens": "3.31.1",
+      "react-native-safe-area-context": "4.10.5",
+      "@shopify/flash-list": "1.6.4"
+    }
+  }
+}

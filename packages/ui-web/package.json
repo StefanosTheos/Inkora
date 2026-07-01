@@ -1,0 +1,16 @@
+{
+  "name": "@inkora/ui-web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "🖥️ WEB-ONLY component library (shadcn/ui + Tailwind). Cannot be imported by mobile.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@inkora/design-tokens": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@inkora/domain",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure TS domain layer: types, enums, zod schemas, navigation route table, state machines. NO React, NO Supabase, NO platform deps — must run in web, native, and Deno Edge Functions.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./navigation": "./src/navigation/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  }
+}

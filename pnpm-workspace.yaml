@@ -1,0 +1,6 @@
+# pnpm workspace definition.
+# NOTE: `ai` is a top-level package (AI tattoo-preview PLACEHOLDER only — no ML/inference).
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "ai"

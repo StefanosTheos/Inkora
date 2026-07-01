@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-native",
+    "lib": ["ESNext", "DOM"],
+    "noEmit": true,
+    "types": ["nativewind/types", "node"]
+  },
+  "include": ["app", "src", "*.ts", "nativewind-env.d.ts"]
+}
