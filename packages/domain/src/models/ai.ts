@@ -26,3 +26,24 @@ export interface AiPreviewInput {
   styleId?: StyleId;
   placement?: string;
 }
+
+// ---------------------------------------------------------------- placeholder UX helpers
+export const AI_PREVIEW_STATUS_LABEL: Record<AiPreviewStatus, string> = {
+  draft: "Draft",
+  queued: "Preparing",
+  processing: "Rendering",
+  completed: "Ready",
+  failed: "Failed",
+};
+
+/** Body areas offered in the AI-preview composer. */
+export const AI_PLACEMENTS = ["Forearm", "Upper arm", "Hand", "Leg", "Calf", "Back", "Chest", "Ribs", "Neck", "Ankle"];
+
+/** Shown wherever a result would appear — the MVP never generates an image. */
+export const AI_PREVIEW_DISCLAIMER =
+  "AI tattoo preview is coming soon. This is a placeholder — no image is generated yet.";
+
+/** True while the preview has no result to show (always true in the MVP). */
+export function isPreviewPending(p: Pick<AiPreview, "status" | "resultImagePath">): boolean {
+  return p.resultImagePath == null && p.status !== "failed";
+}
