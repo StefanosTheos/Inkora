@@ -47,10 +47,12 @@ export async function updateProfileLocation(
   // Adding the country disambiguates common city names (e.g. "Athens").
   const query = country?.trim() ? `${city.trim()}, ${country.trim()}` : city;
   const coords = await geocodeCity(query);
-  const { error } = await client
-    .from("profiles")
-    .update({ city: city.trim(), latitude: coords?.lat ?? null, longitude: coords?.lng ?? null })
-    .eq("id", uid);
+  const { error } = await client.from("profiles").update({ city: city.trim() }).eq("id", uid);
   if (error) return { ok: false, error: toAppError(error) };
+  // Coordinates are private (owner-only).
+  const { error: pErr } = await client
+    .from("profiles_private")
+    .upsert({ id: uid, latitude: coords?.lat ?? null, longitude: coords?.lng ?? null }, { onConflict: "id" });
+  if (pErr) return { ok: false, error: toAppError(pErr) };
   return { ok: true, value: coords };
 }

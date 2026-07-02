@@ -1167,15 +1167,12 @@ export type Database = {
         Row: {
           avatar_path: string | null
           bio: string | null
-          birthdate: string | null
           city: string | null
           created_at: string
           deleted_at: string | null
           display_name: string
           id: string
           is_active: boolean
-          latitude: number | null
-          longitude: number | null
           onboarded_at: string | null
           pronouns: string | null
           search_radius_km: number
@@ -1185,15 +1182,12 @@ export type Database = {
         Insert: {
           avatar_path?: string | null
           bio?: string | null
-          birthdate?: string | null
           city?: string | null
           created_at?: string
           deleted_at?: string | null
           display_name: string
           id: string
           is_active?: boolean
-          latitude?: number | null
-          longitude?: number | null
           onboarded_at?: string | null
           pronouns?: string | null
           search_radius_km?: number
@@ -1203,15 +1197,12 @@ export type Database = {
         Update: {
           avatar_path?: string | null
           bio?: string | null
-          birthdate?: string | null
           city?: string | null
           created_at?: string
           deleted_at?: string | null
           display_name?: string
           id?: string
           is_active?: boolean
-          latitude?: number | null
-          longitude?: number | null
           onboarded_at?: string | null
           pronouns?: string | null
           search_radius_km?: number
@@ -1219,6 +1210,38 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      profiles_private: {
+        Row: {
+          birthdate: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          updated_at: string
+        }
+        Insert: {
+          birthdate?: string | null
+          id: string
+          latitude?: number | null
+          longitude?: number | null
+          updated_at?: string
+        }
+        Update: {
+          birthdate?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_private_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       promotions: {
         Row: {
@@ -1951,6 +1974,7 @@ export type Database = {
           created_at: string
           expires_at: string | null
           id: string
+          idempotency_key: string | null
           profile_id: string
           status: string
           used_at: string | null
@@ -1962,6 +1986,7 @@ export type Database = {
           created_at?: string
           expires_at?: string | null
           id?: string
+          idempotency_key?: string | null
           profile_id: string
           status?: string
           used_at?: string | null
@@ -1973,6 +1998,7 @@ export type Database = {
           created_at?: string
           expires_at?: string | null
           id?: string
+          idempotency_key?: string | null
           profile_id?: string
           status?: string
           used_at?: string | null
@@ -2176,13 +2202,14 @@ export type Database = {
       }
       redeem_referral: { Args: { p_code: string }; Returns: undefined }
       redeem_voucher: {
-        Args: { p_voucher: string }
+        Args: { p_idempotency_key?: string; p_voucher: string }
         Returns: {
           code: string
           cost_points: number
           created_at: string
           expires_at: string | null
           id: string
+          idempotency_key: string | null
           profile_id: string
           status: string
           used_at: string | null

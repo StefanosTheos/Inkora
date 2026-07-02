@@ -30,7 +30,7 @@ export function RewardsView() {
     if (balance < v.costPoints) { alert("Not enough points."); return; }
     if (!confirm(`Spend ${v.costPoints} points on “${v.title}”?`)) return;
     try {
-      const code = await redeemVoucher(client, v.id);
+      const code = await redeemVoucher(client, v.id, `${v.id}-${Date.now()}`);
       await Promise.all([rewardKeys.account, rewardKeys.redemptions, rewardKeys.history, rewardKeys.vouchers].map((k) => qc.invalidateQueries({ queryKey: k })));
       alert(`Redeemed! Code: ${code}`);
     } catch (e) { alert((e as Error).message); }

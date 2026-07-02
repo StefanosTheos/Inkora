@@ -73,9 +73,12 @@ export async function listMyRedemptions(client: InkoraClient): Promise<VoucherRe
   }));
 }
 
-/** Redeem a voucher (spends points). Returns the generated code. */
-export async function redeemVoucher(client: InkoraClient, voucherId: string): Promise<string> {
-  const { data, error } = await client.rpc("redeem_voucher", { p_voucher: voucherId });
+/**
+ * Redeem a voucher (spends points). Returns the generated code.
+ * Pass a stable `idempotencyKey` so a retry/double-tap can't double-spend.
+ */
+export async function redeemVoucher(client: InkoraClient, voucherId: string, idempotencyKey?: string): Promise<string> {
+  const { data, error } = await client.rpc("redeem_voucher", { p_voucher: voucherId, p_idempotency_key: idempotencyKey });
   if (error) throw toAppError(error);
   return (data as { code: string } | null)?.code ?? "";
 }

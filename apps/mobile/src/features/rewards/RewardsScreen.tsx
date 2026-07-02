@@ -42,7 +42,7 @@ export function RewardsScreen() {
         text: "Redeem",
         onPress: async () => {
           try {
-            const code = await redeemVoucher(supabase, v.id);
+            const code = await redeemVoucher(supabase, v.id, `${v.id}-${Date.now()}`);
             await Promise.all([
               qc.invalidateQueries({ queryKey: rewardKeys.account }),
               qc.invalidateQueries({ queryKey: rewardKeys.redemptions }),

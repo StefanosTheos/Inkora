@@ -1,3 +1,4 @@
+import "./crypto-polyfill"; // WebCrypto (subtle.digest + TextEncoder) for PKCE S256 on Hermes
 import "react-native-url-polyfill/auto"; // required for supabase-js in React Native
 import type { Database } from "@inkora/data-access";
 import { createClient } from "@supabase/supabase-js";

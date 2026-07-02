@@ -27,14 +27,20 @@ export async function completeOnboarding(client: InkoraClient, input: Onboarding
       display_name: input.displayName,
       username: input.username ?? null,
       city: input.city ?? null,
-      latitude: input.latitude ?? null,
-      longitude: input.longitude ?? null,
       search_radius_km: input.searchRadiusKm ?? 25,
       onboarded_at: new Date().toISOString(),
     })
     .eq("id", uid);
+  if (error) return { ok: false, error: toAppError(error) };
 
-  return error ? { ok: false, error: toAppError(error) } : { ok: true, value: undefined };
+  // Precise coordinates live in the owner-only profiles_private table.
+  if (input.latitude != null || input.longitude != null) {
+    const { error: pErr } = await client
+      .from("profiles_private")
+      .upsert({ id: uid, latitude: input.latitude ?? null, longitude: input.longitude ?? null }, { onConflict: "id" });
+    if (pErr) return { ok: false, error: toAppError(pErr) };
+  }
+  return { ok: true, value: undefined };
 }
 
 /**

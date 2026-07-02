@@ -130,7 +130,7 @@ export async function fetchMyLocation(client: InkoraClient): Promise<{ lat: numb
   const { data: userRes } = await client.auth.getUser();
   const uid = userRes.user?.id;
   if (!uid) return null;
-  const { data } = await client.from("profiles").select("latitude, longitude").eq("id", uid).maybeSingle();
+  const { data } = await client.from("profiles_private").select("latitude, longitude").eq("id", uid).maybeSingle();
   const lat = (data as { latitude: number | null } | null)?.latitude;
   const lng = (data as { longitude: number | null } | null)?.longitude;
   return lat != null && lng != null ? { lat, lng } : null;
