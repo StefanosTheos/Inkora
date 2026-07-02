@@ -55,6 +55,7 @@ function AppointmentView_({ appt, meId }: { appt: AppointmentView; meId: string 
     <main className="mx-auto max-w-2xl px-4 py-6">
       <h1 className="text-2xl font-bold">{appt.counterparty.name}</h1>
       <p className="mt-1 text-sm text-zinc-500">{isArtist ? "Client" : "Artist"} · {APPOINTMENT_STATUS_LABEL[appt.status]}</p>
+      {appt.studioName && <p className="text-sm font-semibold text-[#E5484D]">🏠 Booked via {appt.studioName}</p>}
       <div className="mt-4 space-y-1 rounded-xl bg-zinc-50 p-4">
         <p>🗓 {fmtDateTime(appt.scheduledStart)} – {fmtDateTime(appt.scheduledEnd)}</p>
         {appt.priceAmount != null && <p>🏷 {money(appt.priceAmount)}</p>}
@@ -83,6 +84,7 @@ function RequestView({ req, meId }: { req: AppointmentRequestView; meId: string 
       <h1 className="mt-1 text-2xl font-bold">{req.title}</h1>
       {req.description && <p className="mt-2 text-zinc-700">{req.description}</p>}
       <div className="mt-3 flex flex-wrap gap-2 text-sm">
+        {req.studioName && <Tag>🏠 {req.studioName}</Tag>}
         {req.placement && <Tag>{req.placement}</Tag>}
         {req.approxSize && <Tag>{req.approxSize}</Tag>}
         {req.isColor != null && <Tag>{req.isColor ? "Color" : "Black & grey"}</Tag>}

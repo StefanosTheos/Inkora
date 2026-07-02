@@ -106,6 +106,8 @@ export interface AppointmentRequestView {
   id: AppointmentRequestId;
   clientId: ProfileId;
   artistId: ArtistId;
+  studioId: StudioId | null;
+  studioName: string | null; // set when the request was made through a studio
   counterparty: CounterpartyRef; // the OTHER party, resolved per viewer
   title: string;
   description: string | null;
@@ -126,6 +128,8 @@ export interface AppointmentView {
   requestId: AppointmentRequestId | null;
   clientId: ProfileId;
   artistId: ArtistId;
+  studioId: StudioId | null;
+  studioName: string | null; // set when booked through a studio
   counterparty: CounterpartyRef;
   scheduledStart: string;
   scheduledEnd: string;

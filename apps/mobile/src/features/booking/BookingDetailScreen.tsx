@@ -86,6 +86,7 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
       </View>
 
       <View style={s.infoCard}>
+        {appt.studioName ? <InfoRow icon="home-outline" label={`Booked via ${appt.studioName}`} /> : null}
         <InfoRow icon="calendar-outline" label={fmtDate(appt.scheduledStart)} />
         <InfoRow icon="time-outline" label={`${fmtTime(appt.scheduledStart)} – ${fmtTime(appt.scheduledEnd)}`} />
         {appt.priceAmount != null ? <InfoRow icon="pricetag-outline" label={money(appt.priceAmount)} /> : null}
@@ -161,6 +162,7 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
       {req.description ? <Text style={s.reqBody}>{req.description}</Text> : null}
 
       <View style={s.tagRow}>
+        {req.studioName ? <Tag text={`🏠 ${req.studioName}`} /> : null}
         {req.placement ? <Tag text={req.placement} /> : null}
         {req.approxSize ? <Tag text={req.approxSize} /> : null}
         {req.isColor != null ? <Tag text={req.isColor ? "Color" : "Black & grey"} /> : null}

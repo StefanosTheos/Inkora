@@ -622,6 +622,7 @@ export type Database = {
           id: string
           last_message_at: string | null
           last_message_preview: string | null
+          studio_id: string | null
           type: Database["public"]["Enums"]["conversation_type"]
         }
         Insert: {
@@ -630,6 +631,7 @@ export type Database = {
           id?: string
           last_message_at?: string | null
           last_message_preview?: string | null
+          studio_id?: string | null
           type?: Database["public"]["Enums"]["conversation_type"]
         }
         Update: {
@@ -638,6 +640,7 @@ export type Database = {
           id?: string
           last_message_at?: string | null
           last_message_preview?: string | null
+          studio_id?: string | null
           type?: Database["public"]["Enums"]["conversation_type"]
         }
         Relationships: [
@@ -646,6 +649,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_studio_id_fkey"
+            columns: ["studio_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
             referencedColumns: ["id"]
           },
         ]
@@ -2217,6 +2227,7 @@ export type Database = {
         }[]
       }
       start_direct_conversation: { Args: { p_other: string }; Returns: string }
+      start_studio_conversation: { Args: { p_studio: string }; Returns: string }
     }
     Enums: {
       ai_preview_status:

@@ -1,5 +1,5 @@
 "use client";
-import { createBookingRequest, useArtistProfile } from "@inkora/data-access";
+import { createBookingRequest, useArtistProfile, useStudioProfile } from "@inkora/data-access";
 import type { BookingRequestInput } from "@inkora/domain";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -8,10 +8,15 @@ import { getSupabaseBrowser } from "../../lib/supabase-browser";
 const PLACEMENTS = ["Forearm", "Upper arm", "Leg", "Back", "Chest", "Ribs", "Hand", "Neck", "Other"];
 const SIZES = ["XS (< 5cm)", "S (5–10cm)", "M (10–20cm)", "L (20cm+)"];
 
-export function RequestForm({ artistId }: { artistId: string }) {
+export function RequestForm({ artistId, studioSlug }: { artistId?: string; studioSlug?: string }) {
   const client = getSupabaseBrowser();
   const router = useRouter();
-  const profile = useArtistProfile(client, artistId);
+  const isStudio = !!studioSlug;
+  const studio = useStudioProfile(client, studioSlug ?? "");
+  const [chosenArtist, setChosenArtist] = useState<string>(""); // "" = studio decides
+  const effectiveArtistId = isStudio ? (chosenArtist || studio.data?.ownerId || "") : (artistId ?? "");
+  const artistProfile = useArtistProfile(client, isStudio ? "" : (artistId ?? ""));
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [placement, setPlacement] = useState("");
@@ -22,12 +27,16 @@ export function RequestForm({ artistId }: { artistId: string }) {
   const [budgetMax, setBudgetMax] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const heading = isStudio ? (studio.data ? `Request booking · ${studio.data.name}` : "Request booking") : (artistProfile.data ? `Request booking · ${artistProfile.data.displayName}` : "Request booking");
+
   async function submit() {
     if (!title.trim()) { alert("Describe what you want to get."); return; }
+    if (!effectiveArtistId) { alert("Pick an artist or let the studio choose."); return; }
     setBusy(true);
     try {
       const input: BookingRequestInput = {
-        artistId: artistId as BookingRequestInput["artistId"],
+        artistId: effectiveArtistId as BookingRequestInput["artistId"],
+        studioId: (isStudio ? studio.data?.id : undefined) as BookingRequestInput["studioId"],
         title: title.trim(),
         description: description.trim() || null,
         placement: placement || null,
@@ -47,8 +56,18 @@ export function RequestForm({ artistId }: { artistId: string }) {
 
   return (
     <main className="mx-auto max-w-xl px-4 py-6">
-      <h1 className="text-2xl font-bold">Request booking{profile.data ? ` · ${profile.data.displayName}` : ""}</h1>
+      <h1 className="text-2xl font-bold">{heading}</h1>
       <div className="mt-4 space-y-3">
+        {isStudio && (
+          <Field label="Preferred artist">
+            <select value={chosenArtist} onChange={(e) => setChosenArtist(e.target.value)} className="w-full rounded-lg border px-3 py-2">
+              <option value="">Let the studio choose</option>
+              {(studio.data?.roster ?? []).map((r) => (
+                <option key={r.id} value={r.id}>{r.displayName}{r.styles.length ? ` — ${r.styles.slice(0, 2).join(", ")}` : ""}</option>
+              ))}
+            </select>
+          </Field>
+        )}
         <Field label="What do you want to get?">
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Fine-line wildflower on forearm" className="w-full rounded-lg border px-3 py-2" />
         </Field>

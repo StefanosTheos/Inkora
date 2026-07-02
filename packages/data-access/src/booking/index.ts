@@ -1,6 +1,6 @@
 import type {
   AppointmentId, AppointmentRequestId, AppointmentRequestView, AppointmentView, ArtistId,
-  BookingRequestInput, CounterpartyRef, OfferInput, OfferView, ProfileId,
+  BookingRequestInput, CounterpartyRef, OfferInput, OfferView, ProfileId, StudioId,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 import type { InkoraClient } from "../client/types";
@@ -27,34 +27,38 @@ interface OfferRow {
   message: string | null; status: string; expires_at: string | null; created_at: string;
 }
 interface ReqRow {
-  id: string; client_id: string; artist_id: string;
+  id: string; client_id: string; artist_id: string; studio_id: string | null;
   title: string; description: string | null; placement: string | null; approx_size: string | null;
   is_color: boolean | null; budget_min: number | null; budget_max: number | null;
   preferred_dates: string[] | null; reference_paths: string[] | null;
   status: string; created_at: string;
   client: { id: string; display_name: string; avatar_path: string | null } | null;
   artist: { id: string; profiles: { display_name: string; avatar_path: string | null } | null } | null;
+  studio: { name: string } | null;
   offers: OfferRow[] | null;
 }
 interface ApptRow {
-  id: string; request_id: string | null; client_id: string; artist_id: string;
+  id: string; request_id: string | null; client_id: string; artist_id: string; studio_id: string | null;
   scheduled_start: string; scheduled_end: string; status: string;
   price_amount: number | null; deposit_amount: number | null; deposit_paid: boolean;
   location_note: string | null; notes: string | null; cancellation_reason: string | null;
   client: { id: string; display_name: string; avatar_path: string | null } | null;
   artist: { id: string; profiles: { display_name: string; avatar_path: string | null } | null } | null;
+  studio: { name: string } | null;
 }
 
 const REQ_SELECT =
-  "id, client_id, artist_id, title, description, placement, approx_size, is_color, budget_min, budget_max, preferred_dates, reference_paths, status, created_at, " +
+  "id, client_id, artist_id, studio_id, title, description, placement, approx_size, is_color, budget_min, budget_max, preferred_dates, reference_paths, status, created_at, " +
   "client:profiles!appointment_requests_client_id_fkey(id, display_name, avatar_path), " +
   "artist:artists!appointment_requests_artist_id_fkey(id, profiles!inner(display_name, avatar_path)), " +
+  "studio:studios(name), " +
   "offers(id, request_id, artist_id, proposed_start, proposed_end, price_amount, deposit_amount, currency_code, message, status, expires_at, created_at)";
 
 const APPT_SELECT =
-  "id, request_id, client_id, artist_id, scheduled_start, scheduled_end, status, price_amount, deposit_amount, deposit_paid, location_note, notes, cancellation_reason, " +
+  "id, request_id, client_id, artist_id, studio_id, scheduled_start, scheduled_end, status, price_amount, deposit_amount, deposit_paid, location_note, notes, cancellation_reason, " +
   "client:profiles!appointments_client_id_fkey(id, display_name, avatar_path), " +
-  "artist:artists!appointments_artist_id_fkey(id, profiles!inner(display_name, avatar_path))";
+  "artist:artists!appointments_artist_id_fkey(id, profiles!inner(display_name, avatar_path)), " +
+  "studio:studios(name)";
 
 // ------------------------------------------------------------------ mapping
 function mapOffer(o: OfferRow): OfferView {
@@ -93,6 +97,8 @@ function mapReq(row: ReqRow, meId: string): AppointmentRequestView {
     id: row.id as AppointmentRequestId,
     clientId: row.client_id as ProfileId,
     artistId: row.artist_id as ArtistId,
+    studioId: (row.studio_id as StudioId | null) ?? null,
+    studioName: row.studio?.name ?? null,
     counterparty: counterparty(row, meId),
     title: row.title,
     description: row.description,
@@ -114,6 +120,8 @@ function mapAppt(row: ApptRow, meId: string): AppointmentView {
     requestId: (row.request_id as AppointmentRequestId | null) ?? null,
     clientId: row.client_id as ProfileId,
     artistId: row.artist_id as ArtistId,
+    studioId: (row.studio_id as StudioId | null) ?? null,
+    studioName: row.studio?.name ?? null,
     counterparty: counterparty(row, meId),
     scheduledStart: row.scheduled_start,
     scheduledEnd: row.scheduled_end,

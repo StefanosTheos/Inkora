@@ -38,6 +38,8 @@ function mapMessage(row: MsgRow): Message {
 interface ConvRow {
   id: string;
   type: string;
+  studio_id: string | null;
+  studios: { name: string; logo_path: string | null } | null;
   last_message_at: string | null;
   last_message_preview: string | null;
   conversation_participants: { profile_id: string; last_read_at: string | null; profiles: { display_name: string; avatar_path: string | null } | null }[] | null;
@@ -48,7 +50,7 @@ export async function listConversations(client: InkoraClient): Promise<Conversat
   const me = userRes.user?.id;
   const { data, error } = await client
     .from("conversations")
-    .select("id, type, last_message_at, last_message_preview, conversation_participants(profile_id, last_read_at, profiles(display_name, avatar_path))")
+    .select("id, type, studio_id, studios(name, logo_path), last_message_at, last_message_preview, conversation_participants(profile_id, last_read_at, profiles(display_name, avatar_path))")
     .order("last_message_at", { ascending: false, nullsFirst: false });
   if (error) throw toAppError(error);
   return ((data ?? []) as unknown as ConvRow[]).map((c) => {
@@ -56,12 +58,13 @@ export async function listConversations(client: InkoraClient): Promise<Conversat
     const mine = parts.find((p) => p.profile_id === me);
     const other = parts.find((p) => p.profile_id !== me);
     const unread = c.last_message_at != null && (mine?.last_read_at == null || c.last_message_at > mine.last_read_at);
+    // A studio-tagged conversation shows the STUDIO's identity, not the owner's.
     return {
       id: c.id as ConversationId,
       type: c.type as ConversationType,
       otherId: (other?.profile_id as ProfileId | null) ?? null,
-      otherName: other?.profiles?.display_name ?? "Conversation",
-      otherAvatarPath: other?.profiles?.avatar_path ?? null,
+      otherName: c.studios?.name ?? other?.profiles?.display_name ?? "Conversation",
+      otherAvatarPath: c.studios ? c.studios.logo_path : (other?.profiles?.avatar_path ?? null),
       lastMessagePreview: c.last_message_preview,
       lastMessageAt: c.last_message_at,
       unread,
@@ -127,6 +130,13 @@ export async function getOtherReadAt(client: InkoraClient, conversationId: strin
 
 export async function startDirectConversation(client: InkoraClient, otherId: string): Promise<ConversationId> {
   const { data, error } = await client.rpc("start_direct_conversation", { p_other: otherId });
+  if (error) throw toAppError(error);
+  return data as ConversationId;
+}
+
+/** Start/open the conversation that represents a studio (with its owner). */
+export async function startStudioConversation(client: InkoraClient, studioId: string): Promise<ConversationId> {
+  const { data, error } = await client.rpc("start_studio_conversation", { p_studio: studioId });
   if (error) throw toAppError(error);
   return data as ConversationId;
 }

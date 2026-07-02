@@ -65,6 +65,7 @@ export function AppointmentCard({ appt, onPress }: { appt: AppointmentView; onPr
       <Avatar path={appt.counterparty.avatarPath} name={appt.counterparty.name} />
       <View style={{ flex: 1 }}>
         <Text style={s.cardName}>{appt.counterparty.name}</Text>
+        {appt.studioName ? <Text style={s.cardStudio}>🏠 {appt.studioName}</Text> : null}
         <Text style={s.cardSub}>{fmtDateTime(appt.scheduledStart)}</Text>
         {appt.priceAmount != null ? <Text style={s.cardPrice}>{money(appt.priceAmount)}</Text> : null}
       </View>
@@ -80,7 +81,7 @@ export function RequestCard({ req, onPress }: { req: AppointmentRequestView; onP
       <Avatar path={req.counterparty.avatarPath} name={req.counterparty.name} />
       <View style={{ flex: 1 }}>
         <Text style={s.cardName} numberOfLines={1}>{req.title}</Text>
-        <Text style={s.cardSub} numberOfLines={1}>{req.counterparty.name}</Text>
+        <Text style={s.cardSub} numberOfLines={1}>{req.studioName ? `🏠 ${req.studioName} · ${req.counterparty.name}` : req.counterparty.name}</Text>
         {latest && latest.status === "pending" ? <Text style={s.cardPrice}>New offer · {money(latest.priceAmount, latest.currencyCode)}</Text> : null}
       </View>
       <StatusChip status={req.status} label={REQUEST_STATUS_LABEL[req.status]} />
@@ -108,6 +109,7 @@ const s = StyleSheet.create({
   body: { padding: 16, gap: 10 },
   card: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#F4F4F5", backgroundColor: "#fff" },
   cardName: { fontWeight: "800", fontSize: 15, color: "#18181B" },
+  cardStudio: { color: "#E5484D", fontSize: 12, fontWeight: "700", marginTop: 2 },
   cardSub: { color: "#71717A", fontSize: 13, marginTop: 2 },
   cardPrice: { color: "#E5484D", fontWeight: "700", fontSize: 13, marginTop: 2 },
   emptyWrap: { alignItems: "center", marginTop: 56, paddingHorizontal: 32, gap: 12 },

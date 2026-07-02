@@ -36,6 +36,7 @@ export function BookingsList() {
                 <Link href={`/booking/${a.id}`} className="flex items-center justify-between rounded-xl border p-3 hover:bg-zinc-50">
                   <div>
                     <p className="font-bold">{a.counterparty.name}</p>
+                    {a.studioName && <p className="text-xs font-semibold text-[#E5484D]">🏠 {a.studioName}</p>}
                     <p className="text-sm text-zinc-500">{fmtDateTime(a.scheduledStart)} · {money(a.priceAmount)}</p>
                   </div>
                   <span className="text-xs font-semibold text-zinc-500">{APPOINTMENT_STATUS_LABEL[a.status]}</span>
@@ -52,7 +53,7 @@ export function BookingsList() {
                 <Link href={`/booking/${r.id}`} className="flex items-center justify-between rounded-xl border p-3 hover:bg-zinc-50">
                   <div>
                     <p className="font-bold">{r.title}</p>
-                    <p className="text-sm text-zinc-500">{r.counterparty.name}</p>
+                    <p className="text-sm text-zinc-500">{r.studioName ? `🏠 ${r.studioName} · ${r.counterparty.name}` : r.counterparty.name}</p>
                   </div>
                   <span className="text-xs font-semibold text-zinc-500">{REQUEST_STATUS_LABEL[r.status]}</span>
                 </Link>

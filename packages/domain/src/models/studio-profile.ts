@@ -1,4 +1,4 @@
-import type { ArtistId, StudioId } from "../ids";
+import type { ArtistId, ProfileId, StudioId } from "../ids";
 
 export interface StudioRosterArtist {
   id: ArtistId;
@@ -6,10 +6,14 @@ export interface StudioRosterArtist {
   avatarPath: string | null;
   headline: string | null;
   ratingAvg: number;
+  ratingCount: number;
+  styles: string[]; // style slugs
 }
 
 export interface StudioProfile {
   id: StudioId;
+  /** The studio owner's profile id — used as the target of the Message CTA. */
+  ownerId: ProfileId;
   name: string;
   slug: string;
   bio: string | null;
@@ -21,5 +25,7 @@ export interface StudioProfile {
   longitude: number;
   /** { mon: [["11:00","19:00"]], ... } */
   openingHours: Record<string, string[][]>;
+  /** Union of the roster's style slugs (studio "specialties"). */
+  styles: string[];
   roster: StudioRosterArtist[];
 }
