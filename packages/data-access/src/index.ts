@@ -17,5 +17,6 @@ export * from "./messaging"; // conversations, realtime chat, uploads, typing, r
 export * from "./booking"; // requests, offers, appointments, open slots, artist approval flow
 export * from "./notifications"; // realtime in-app inbox + unread count
 export * from "./rewards"; // points engine, vouchers, referrals, profile completion
+export * from "./dashboard"; // user dashboard: profile summary, saved artists/designs, journey
 export * from "./auth"; // AuthProvider, useAuth, roles, profile/onboarding, role elevation
 export { QueryProvider } from "./providers/query-provider";
