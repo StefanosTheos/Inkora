@@ -6,7 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useToast } from "../../components/Toast";
@@ -59,16 +59,16 @@ export function EditProfileScreen() {
         qc.invalidateQueries({ queryKey: rewardKeys.account }),
       ]);
     } catch (e) {
-      Alert.alert("Upload failed", (e as Error).message);
+      toast.show((e as Error).message, "error");
     } finally {
       setUploadingAvatar(false);
     }
   }
 
   async function save() {
-    if (!displayName.trim()) { Alert.alert("Name required", "Please enter a display name."); return; }
+    if (!displayName.trim()) { toast.show("Please enter a display name", "error"); return; }
     if (username.trim() && !USERNAME_RE.test(username.trim())) {
-      Alert.alert("Invalid username", "Use 3–30 lowercase letters, numbers or underscores.");
+      toast.show("Username: 3–30 lowercase letters, numbers or underscores", "error");
       return;
     }
     setSaving(true);
@@ -82,7 +82,7 @@ export function EditProfileScreen() {
       toast.show("Profile updated");
     } catch (e) {
       const msg = (e as Error).message;
-      Alert.alert("Couldn’t save", /username/i.test(msg) ? "That username is taken or invalid." : msg);
+      toast.show(/username/i.test(msg) ? "That username is taken or invalid." : msg, "error");
     } finally {
       setSaving(false);
     }

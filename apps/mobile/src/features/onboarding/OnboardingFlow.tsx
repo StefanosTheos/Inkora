@@ -5,7 +5,8 @@ import {
 import type { RecommendedArtist, StyleCard, StylePreference } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, type DimensionValue, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, type DimensionValue, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
 
@@ -99,6 +100,7 @@ function Results({
   onRestart: () => void;
 }) {
   const { refresh } = useAuth();
+  const toast = useToast();
   const finish = useFinishOnboarding(supabase);
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("");
@@ -113,7 +115,7 @@ function Results({
     const res = await finish.mutateAsync(weights);
     if (!res.ok) {
       setBusy(false);
-      Alert.alert("Could not save", res.error.message);
+      toast.show(res.error.message, "error");
       return;
     }
     await refresh(); // flips isOnboarded → root gate routes to Home

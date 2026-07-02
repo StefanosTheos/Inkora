@@ -1,11 +1,13 @@
 import { useAuth } from "@inkora/data-access";
 import { Link } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useToast } from "../../src/components/Toast";
 import { env } from "../../src/lib/env";
 
 export default function SignInScreen() {
   const { signInWithPassword, signInWithGoogle, signInWithApple } = useAuth();
+  const toast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -15,7 +17,7 @@ export default function SignInScreen() {
     setBusy(true);
     const res = await fn();
     setBusy(false);
-    if (!res.ok && res.error) Alert.alert("Sign in failed", res.error.message);
+    if (!res.ok && res.error) toast.show(res.error.message, "error");
   }
 
   return (

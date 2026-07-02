@@ -5,8 +5,9 @@ import type { PortfolioImage, ReviewItem, StudioRosterArtist } from "@inkora/dom
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
 
@@ -22,6 +23,7 @@ const TABS: { key: Tab; label: string }[] = [
 
 export function StudioProfileScreen({ slug }: { slug: string }) {
   const router = useRouter();
+  const toast = useToast();
   const insets = useSafeAreaInsets();
   const studio = useStudioProfile(supabase, slug);
   const artistIds = useMemo(() => (studio.data?.roster ?? []).map((r) => r.id), [studio.data]);
@@ -115,7 +117,7 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
               const cid = await startStudioConversation(supabase, st.id);
               router.push(`/chats/${cid}`);
             } catch (e) {
-              Alert.alert("Could not start chat", (e as Error).message);
+              toast.show((e as Error).message, "error");
             }
           }}
         >

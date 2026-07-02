@@ -8,9 +8,10 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
 
@@ -24,6 +25,7 @@ const img = (p?: string | null) => (p ? publicStorageUrl(env.SUPABASE_URL, p) : 
 export function ChatThreadScreen({ conversationId }: { conversationId: string }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const toast = useToast();
   const { ctx } = useAuth();
   const meId = ctx.userId;
   const chat = useChat(supabase, conversationId, meId);
@@ -71,13 +73,13 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
       const path = await uploadChatFile(supabase, conversationId, buf, asset.mimeType ?? "image/jpeg", ext);
       chat.sendImage(path);
     } catch (e) {
-      Alert.alert("Upload failed", (e as Error).message);
+      toast.show((e as Error).message, "error");
     }
   }
 
   async function startRecording() {
     const perm = await Audio.requestPermissionsAsync();
-    if (!perm.granted) { Alert.alert("Microphone needed", "Enable mic access to send voice messages."); return; }
+    if (!perm.granted) { toast.show("Enable mic access to send voice messages", "error"); return; }
     await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
     const { recording: rec } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
     recStart.current = Date.now();
@@ -95,7 +97,7 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
       const path = await uploadChatFile(supabase, conversationId, buf, "audio/m4a", "m4a");
       chat.sendVoice(path, durationMs);
     } catch (e) {
-      Alert.alert("Upload failed", (e as Error).message);
+      toast.show((e as Error).message, "error");
     }
   }
 

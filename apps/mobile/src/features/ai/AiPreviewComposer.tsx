@@ -8,9 +8,10 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useToast } from "../../components/Toast";
 import { supabase } from "../../lib/supabase";
 
 const STYLES = MOCK_PREVIEW_EXAMPLES.map((e) => ({ slug: e.styleSlug, label: e.label }));
@@ -19,6 +20,7 @@ export function AiPreviewComposer() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
+  const toast = useToast();
 
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -33,7 +35,7 @@ export function AiPreviewComposer() {
   }
 
   async function generate() {
-    if (!photoUri) { Alert.alert("Add a photo", "Upload a photo of where you want the tattoo."); return; }
+    if (!photoUri) { toast.show("Upload a photo of where you want the tattoo", "error"); return; }
     setSubmitting(true);
     try {
       // Upload the source photo (private bucket). NO generation happens.
@@ -50,7 +52,7 @@ export function AiPreviewComposer() {
       await qc.invalidateQueries({ queryKey: aiKeys.list });
       router.replace(`/create/${preview.id}`);
     } catch (e) {
-      Alert.alert("Could not create preview", (e as Error).message);
+      toast.show((e as Error).message, "error");
       setSubmitting(false);
     }
   }

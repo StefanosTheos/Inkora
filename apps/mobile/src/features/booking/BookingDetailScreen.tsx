@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../../components/Toast";
 import { supabase } from "../../lib/supabase";
 import { MonthCalendar } from "./components/MonthCalendar";
 import { Avatar, fmtDate, fmtDateTime, fmtTime, money, StatusChip } from "./components/ui";
@@ -54,6 +55,7 @@ export function BookingDetailScreen({ id }: { id: string }) {
 // ============================================================ APPOINTMENT
 function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string }) {
   const qc = useQueryClient();
+  const toast = useToast();
   const isArtist = appt.artistId === meId;
   const [busy, setBusy] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
@@ -66,7 +68,7 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
       await qc.invalidateQueries({ queryKey: bookingKeys.appointments });
       await qc.invalidateQueries({ queryKey: bookingKeys.appointment(appt.id) });
     } catch (e) {
-      Alert.alert("Something went wrong", (e as Error).message);
+      toast.show((e as Error).message, "error");
     } finally {
       setBusy(false);
     }
@@ -126,6 +128,7 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
 // ============================================================ REQUEST
 function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: string }) {
   const qc = useQueryClient();
+  const toast = useToast();
   const isArtist = req.artistId === meId;
   const [busy, setBusy] = useState(false);
 
@@ -138,7 +141,7 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     try { await fn(); await invalidate(); }
-    catch (e) { Alert.alert("Something went wrong", (e as Error).message); }
+    catch (e) { toast.show((e as Error).message, "error"); }
     finally { setBusy(false); }
   }
 
@@ -233,6 +236,7 @@ function OfferCard({ offer, isArtist, busy, onAccept, onDecline, onWithdraw }: {
 }
 
 function ArtistOfferComposer({ req, onSent }: { req: AppointmentRequestView; onSent: () => Promise<void> }) {
+  const toast = useToast();
   const [duration, setDuration] = useState(120);
   const [price, setPrice] = useState("");
   const [message, setMessage] = useState("");
@@ -240,7 +244,7 @@ function ArtistOfferComposer({ req, onSent }: { req: AppointmentRequestView; onS
   const [busy, setBusy] = useState(false);
 
   async function send() {
-    if (!picked || !price) { Alert.alert("Add a time and price", "Pick a slot and enter a price to send your offer."); return; }
+    if (!picked || !price) { toast.show("Pick a slot and enter a price to send your offer", "error"); return; }
     setBusy(true);
     try {
       await createOffer(supabase, {
@@ -252,7 +256,7 @@ function ArtistOfferComposer({ req, onSent }: { req: AppointmentRequestView; onS
       });
       await onSent();
     } catch (e) {
-      Alert.alert("Could not send offer", (e as Error).message);
+      toast.show((e as Error).message, "error");
     } finally {
       setBusy(false);
     }

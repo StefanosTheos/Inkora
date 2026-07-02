@@ -9,10 +9,11 @@ import {
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
+import { useToast } from "../../components/Toast";
 import { Chip } from "../discovery/components";
 
 const img = (p?: string | null) => (p ? publicStorageUrl(env.SUPABASE_URL, p) : undefined);
@@ -29,6 +30,7 @@ const COMPLEXITY: Complexity[] = ["simple", "medium", "complex"];
 
 export function ArtistProfileScreen({ id }: { id: string }) {
   const router = useRouter();
+  const toast = useToast();
   const insets = useSafeAreaInsets();
   const profile = useArtistProfile(supabase, id);
   const portfolio = useArtistPortfolio(supabase, id);
@@ -128,7 +130,7 @@ export function ArtistProfileScreen({ id }: { id: string }) {
               const cid = await startDirectConversation(supabase, a.id);
               router.push(`/chats/${cid}`);
             } catch (e) {
-              Alert.alert("Could not start chat", (e as Error).message);
+              toast.show((e as Error).message, "error");
             }
           }}
         >

@@ -5,12 +5,14 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useToast } from "../../components/Toast";
 import { supabase } from "../../lib/supabase";
 
 export function AccountSettingsScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const { ctx, signOut } = useAuth();
+  const toast = useToast();
   const settings = useAccountSettings(supabase);
 
   const [email, setEmail] = useState("");
@@ -43,7 +45,7 @@ export function AccountSettingsScreen() {
       await updateMyProfile(supabase, { searchRadiusKm: clamped });
       await qc.invalidateQueries({ queryKey: dashboardKeys.accountSettings });
     } catch (e) {
-      Alert.alert("Couldn’t update", (e as Error).message);
+      toast.show((e as Error).message, "error");
     }
   }
   async function toggle(kind: "push" | "email", value: boolean) {
@@ -52,7 +54,7 @@ export function AccountSettingsScreen() {
       await setNotificationPrefs(supabase, { [kind]: value });
       await qc.invalidateQueries({ queryKey: dashboardKeys.accountSettings });
     } catch (e) {
-      Alert.alert("Couldn’t update", (e as Error).message);
+      toast.show((e as Error).message, "error");
     }
   }
   function confirmDelete() {

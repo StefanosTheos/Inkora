@@ -12,9 +12,10 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
 import { MonthCalendar } from "./components/MonthCalendar";
@@ -30,6 +31,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const { ctx } = useAuth();
+  const toast = useToast();
   const isStudio = !!studioSlug;
 
   const studioQ = useStudioProfile(supabase, studioSlug ?? "");
@@ -86,14 +88,14 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
         setRefs((r) => [...r, { uri: asset.uri, path }]);
       }
     } catch (e) {
-      Alert.alert("Upload failed", (e as Error).message);
+      toast.show((e as Error).message, "error");
     } finally {
       setUploading(false);
     }
   }
 
   async function submit() {
-    if (!effectiveArtistId) { Alert.alert("Please choose an option", "Pick an artist or let the studio decide."); return; }
+    if (!effectiveArtistId) { toast.show("Pick an artist or let the studio decide", "error"); return; }
     setSubmitting(true);
     try {
       const input: BookingRequestInput = {
@@ -117,7 +119,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
       await qc.invalidateQueries({ queryKey: bookingKeys.clientRequests });
       router.replace(`/booking/${id}`);
     } catch (e) {
-      Alert.alert("Could not send request", (e as Error).message);
+      toast.show((e as Error).message, "error");
       setSubmitting(false);
     }
   }
