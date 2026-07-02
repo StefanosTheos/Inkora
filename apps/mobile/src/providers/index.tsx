@@ -3,6 +3,7 @@ import React from "react";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ToastProvider } from "../components/Toast";
 import { mobileOAuth } from "../lib/oauth-adapter";
+import { queryClient } from "../lib/query-client";
 import { supabase } from "../lib/supabase";
 
 /**
@@ -14,7 +15,7 @@ import { supabase } from "../lib/supabase";
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <ErrorBoundary>
-      <QueryProvider>
+      <QueryProvider client={queryClient}>
         <AuthProvider client={supabase} oauth={mobileOAuth}>
           <ToastProvider>{children}</ToastProvider>
         </AuthProvider>
