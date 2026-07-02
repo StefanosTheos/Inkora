@@ -1,6 +1,7 @@
 import type { ArtistId, IdeaId, JourneyEntry, JourneyEntryId, ProfileId } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 import type { InkoraClient } from "../client/types";
+import type { Json } from "../db/database.types";
 import { toAppError } from "../errors";
 
 // ------------------------------------------------------------------ profile summary
@@ -9,6 +10,7 @@ export interface ProfileSummary {
   username: string | null;
   avatarPath: string | null;
   city: string | null;
+  bio: string | null;
   memberSince: string; // ISO
 }
 export async function getProfileSummary(client: InkoraClient): Promise<ProfileSummary | null> {
@@ -17,7 +19,7 @@ export async function getProfileSummary(client: InkoraClient): Promise<ProfileSu
   if (!me) return null;
   const { data, error } = await client
     .from("profiles")
-    .select("display_name, username, avatar_path, city, created_at")
+    .select("display_name, username, avatar_path, city, bio, created_at")
     .eq("id", me)
     .maybeSingle();
   if (error) throw toAppError(error);
@@ -27,8 +29,71 @@ export async function getProfileSummary(client: InkoraClient): Promise<ProfileSu
     username: data.username,
     avatarPath: data.avatar_path,
     city: data.city,
+    bio: data.bio,
     memberSince: data.created_at,
   };
+}
+
+/** Patch the caller's profile (RLS restricts to their own row). */
+export async function updateMyProfile(
+  client: InkoraClient,
+  fields: { displayName?: string; username?: string | null; city?: string | null; bio?: string | null; avatarPath?: string | null; searchRadiusKm?: number },
+): Promise<void> {
+  const { data: userRes } = await client.auth.getUser();
+  const me = userRes.user?.id;
+  if (!me) throw toAppError({ message: "unauthenticated" });
+  const patch: Record<string, unknown> = {};
+  if (fields.displayName !== undefined) patch.display_name = fields.displayName.trim();
+  if (fields.username !== undefined) patch.username = fields.username?.trim() || null;
+  if (fields.city !== undefined) patch.city = fields.city?.trim() || null;
+  if (fields.bio !== undefined) patch.bio = fields.bio?.trim() || null;
+  if (fields.avatarPath !== undefined) patch.avatar_path = fields.avatarPath;
+  if (fields.searchRadiusKm !== undefined) patch.search_radius_km = Math.min(500, Math.max(1, Math.round(fields.searchRadiusKm)));
+  const { error } = await client.from("profiles").update(patch).eq("id", me);
+  if (error) throw toAppError(error);
+}
+
+/** Upload a new avatar to the public `avatars` bucket; returns the bucket-qualified path. */
+export async function uploadAvatar(client: InkoraClient, body: ArrayBuffer | Blob, contentType: string, ext: string): Promise<string> {
+  const { data: userRes } = await client.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) throw toAppError({ message: "unauthenticated" });
+  const objectPath = `${uid}/${Date.now()}.${ext}`; // folder must be the uid (RLS)
+  const { error } = await client.storage.from("avatars").upload(objectPath, body, { contentType, upsert: false });
+  if (error) throw toAppError(error);
+  return `avatars/${objectPath}`;
+}
+
+// ------------------------------------------------------------------ account settings
+export interface AccountSettings {
+  searchRadiusKm: number;
+  pushEnabled: boolean;
+  emailEnabled: boolean;
+}
+export async function getAccountSettings(client: InkoraClient): Promise<AccountSettings> {
+  const { data: userRes } = await client.auth.getUser();
+  const me = userRes.user?.id;
+  if (!me) throw toAppError({ message: "unauthenticated" });
+  const { data: prof } = await client.from("profiles").select("search_radius_km").eq("id", me).maybeSingle();
+  const { data: prefs } = await client.from("notification_preferences").select("channels").eq("profile_id", me).maybeSingle();
+  const channels = (prefs?.channels ?? {}) as Record<string, unknown>;
+  return {
+    searchRadiusKm: prof?.search_radius_km ?? 25,
+    pushEnabled: channels["push"] !== false,
+    emailEnabled: channels["email"] !== false,
+  };
+}
+
+export async function setNotificationPrefs(client: InkoraClient, patch: { push?: boolean; email?: boolean }): Promise<void> {
+  const { data: userRes } = await client.auth.getUser();
+  const me = userRes.user?.id;
+  if (!me) throw toAppError({ message: "unauthenticated" });
+  const { data } = await client.from("notification_preferences").select("channels").eq("profile_id", me).maybeSingle();
+  const channels = { ...((data?.channels as Record<string, unknown>) ?? {}), ...patch };
+  const { error } = await client
+    .from("notification_preferences")
+    .upsert({ profile_id: me, channels: channels as unknown as Json }, { onConflict: "profile_id" });
+  if (error) throw toAppError(error);
 }
 
 // ------------------------------------------------------------------ saved artists
@@ -115,7 +180,11 @@ export const dashboardKeys = {
   savedArtists: ["saved-artists"] as const,
   savedDesigns: ["saved-designs"] as const,
   journey: ["journey"] as const,
+  accountSettings: ["account-settings"] as const,
 };
+export function useAccountSettings(client: InkoraClient) {
+  return useQuery({ queryKey: dashboardKeys.accountSettings, queryFn: () => getAccountSettings(client) });
+}
 export function useProfileSummary(client: InkoraClient) {
   return useQuery({ queryKey: dashboardKeys.profile, queryFn: () => getProfileSummary(client) });
 }

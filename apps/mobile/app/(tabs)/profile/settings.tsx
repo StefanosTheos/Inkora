@@ -1,9 +1,6 @@
-import { View, Text } from "react-native";
+// Route: /profile/settings — edit profile (name, username, city, bio, photo).
+import { EditProfileScreen } from "../../../src/features/dashboard/EditProfileScreen";
 
-export default function SettingsScreen() {
-  return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ fontWeight: "700" }}>Settings (coming soon)</Text>
-    </View>
-  );
+export default function EditProfileRoute() {
+  return <EditProfileScreen />;
 }

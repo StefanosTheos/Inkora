@@ -1,5 +1,5 @@
 import { useAuth } from "@inkora/data-access";
-import { Slot, SplashScreen } from "expo-router";
+import { SplashScreen, Stack } from "expo-router";
 import { useEffect } from "react";
 import { AppProviders } from "../src/providers";
 import { useProtectedRoute } from "../src/lib/use-protected-route";
@@ -13,7 +13,14 @@ function Gate() {
   useEffect(() => {
     if (status !== "loading") void SplashScreen.hideAsync();
   }, [status]);
-  return <Slot />;
+  // A root Stack keeps (tabs) mounted when a sibling route (e.g. /rewards,
+  // /bookings, /profile/settings) is pushed, so Back returns to the active
+  // tab instead of re-mounting the tabs at Home.
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(modals)" options={{ presentation: "modal" }} />
+    </Stack>
+  );
 }
 
 export default function RootLayout() {

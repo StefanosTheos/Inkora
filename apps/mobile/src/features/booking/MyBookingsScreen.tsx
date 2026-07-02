@@ -30,7 +30,11 @@ export function MyBookingsScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
-      <Text style={s.title}>My bookings</Text>
+      <View style={s.header}>
+        <Pressable onPress={() => router.back()} hitSlop={10}><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
+        <Text style={s.title}>My bookings</Text>
+        <View style={{ width: 26 }} />
+      </View>
       <View style={s.tabs}>
         <TabButton label={`Upcoming${appts.length ? ` (${appts.length})` : ""}`} active={tab === "upcoming"} onPress={() => setTab("upcoming")} />
         <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => setTab("requests")} />
@@ -100,7 +104,8 @@ function Empty({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: str
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
-  title: { fontSize: 28, fontWeight: "800", paddingHorizontal: 16, paddingVertical: 8 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 },
+  title: { fontSize: 22, fontWeight: "800" },
   tabs: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 4 },
   tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: "#F4F4F5" },
   tabActive: { backgroundColor: "#18181B" },

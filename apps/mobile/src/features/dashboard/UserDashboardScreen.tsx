@@ -47,7 +47,7 @@ export function UserDashboardScreen() {
         {/* Header */}
         <View style={s.topbar}>
           <Text style={s.topTitle}>You</Text>
-          <Pressable hitSlop={10} onPress={() => router.push("/profile/settings")}>
+          <Pressable hitSlop={10} onPress={() => router.push("/profile/account")}>
             <Ionicons name="settings-outline" size={24} color="#18181B" />
           </Pressable>
         </View>
@@ -159,7 +159,8 @@ export function UserDashboardScreen() {
         <View style={s.settingsCard}>
           <SettingRow icon="notifications-outline" label="Notifications" onPress={() => router.push("/notifications")} />
           <SettingRow icon="gift-outline" label="Rewards & referrals" onPress={() => router.push("/rewards")} />
-          <SettingRow icon="settings-outline" label="Account settings" onPress={() => router.push("/profile/settings")} />
+          <SettingRow icon="person-outline" label="Edit profile" onPress={() => router.push("/profile/settings")} />
+          <SettingRow icon="settings-outline" label="Account settings" onPress={() => router.push("/profile/account")} />
           {isArtist && <SettingRow icon="briefcase-outline" label="Artist dashboard" onPress={() => router.push("/artist-dashboard")} />}
           <SettingRow icon="log-out-outline" label="Sign out" danger onPress={signOut} />
         </View>

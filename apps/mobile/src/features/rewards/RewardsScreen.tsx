@@ -62,6 +62,11 @@ export function RewardsScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
+      <View style={s.topHeader}>
+        <Pressable onPress={() => router.back()} hitSlop={10}><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
+        <Text style={s.topTitle}>Rewards</Text>
+        <View style={{ width: 26 }} />
+      </View>
       <ScrollView contentContainerStyle={s.body}>
         {/* Balance hero */}
         <View style={s.hero}>
@@ -228,6 +233,8 @@ function HistoryRow({ t }: { t: RewardTransaction }) {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
+  topHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
+  topTitle: { fontSize: 18, fontWeight: "800" },
   body: { padding: 16, gap: 10, paddingBottom: 48 },
   muted: { color: "#A1A1AA" },
   hero: { backgroundColor: "#18181B", borderRadius: 24, padding: 24, alignItems: "center", gap: 8 },
