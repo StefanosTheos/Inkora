@@ -3,8 +3,10 @@ import {
   bookingKeys, createBookingRequest, publicStorageUrl, uploadBookingReference, useArtistAvailability,
   useArtistProfile, useStudioProfile, useStudioRosterAvailability,
 } from "@inkora/data-access";
-import { type BookingRequestInput, DAY_LABELS, type StudioRosterArtist } from "@inkora/domain";
+import { useAuth } from "@inkora/data-access";
+import { type ArtistId, type BookingRequestInput, DAY_LABELS, type StudioRosterArtist } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
+import { analytics } from "../../lib/analytics";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -27,6 +29,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
+  const { ctx } = useAuth();
   const isStudio = !!studioSlug;
 
   const studioQ = useStudioProfile(supabase, studioSlug ?? "");
@@ -107,6 +110,10 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
         referencePaths: refs.map((r) => r.path),
       };
       const id = await createBookingRequest(supabase, input);
+      analytics.capture(
+        { name: "booking_requested", props: { artistId: effectiveArtistId as ArtistId, hasReference: refs.length > 0, budgetSet: !!(budgetMin || budgetMax) } },
+        ctx,
+      );
       await qc.invalidateQueries({ queryKey: bookingKeys.clientRequests });
       router.replace(`/booking/${id}`);
     } catch (e) {

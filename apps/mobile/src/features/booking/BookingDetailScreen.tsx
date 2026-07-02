@@ -90,7 +90,6 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
         <InfoRow icon="calendar-outline" label={fmtDate(appt.scheduledStart)} />
         <InfoRow icon="time-outline" label={`${fmtTime(appt.scheduledStart)} – ${fmtTime(appt.scheduledEnd)}`} />
         {appt.priceAmount != null ? <InfoRow icon="pricetag-outline" label={money(appt.priceAmount)} /> : null}
-        {appt.depositAmount != null ? <InfoRow icon="card-outline" label={`${money(appt.depositAmount)} deposit ${appt.depositPaid ? "· paid" : "· due"}`} /> : null}
         {appt.locationNote ? <InfoRow icon="location-outline" label={appt.locationNote} /> : null}
       </View>
 
@@ -221,7 +220,6 @@ function OfferCard({ offer, isArtist, busy, onAccept, onDecline, onWithdraw }: {
         {!pending && <StatusChip status={offer.status} label={offer.status[0]!.toUpperCase() + offer.status.slice(1)} />}
       </View>
       {offer.proposedStart ? <Text style={s.offerLine}>🗓 {fmtDateTime(offer.proposedStart)}</Text> : null}
-      {offer.depositAmount != null ? <Text style={s.offerLine}>💳 {money(offer.depositAmount, offer.currencyCode)} deposit</Text> : null}
       {offer.message ? <Text style={s.offerMsg}>{offer.message}</Text> : null}
       {pending && !isArtist && (
         <View style={s.actions}>
@@ -237,7 +235,6 @@ function OfferCard({ offer, isArtist, busy, onAccept, onDecline, onWithdraw }: {
 function ArtistOfferComposer({ req, onSent }: { req: AppointmentRequestView; onSent: () => Promise<void> }) {
   const [duration, setDuration] = useState(120);
   const [price, setPrice] = useState("");
-  const [deposit, setDeposit] = useState("");
   const [message, setMessage] = useState("");
   const [picked, setPicked] = useState<{ start: string; end: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -251,7 +248,6 @@ function ArtistOfferComposer({ req, onSent }: { req: AppointmentRequestView; onS
         proposedStart: picked.start,
         proposedEnd: picked.end,
         priceAmount: Number(price),
-        depositAmount: deposit ? Number(deposit) : null,
         message: message.trim() || null,
       });
       await onSent();
@@ -277,16 +273,9 @@ function ArtistOfferComposer({ req, onSent }: { req: AppointmentRequestView; onS
       <Text style={s.label}>Propose a time</Text>
       <SlotPicker artistId={req.artistId} durationMinutes={duration} onPick={(start, end) => setPicked({ start, end })} selectedStart={picked?.start} />
 
-      <View style={s.row}>
-        <View style={s.flex1}>
-          <Text style={s.label}>Price (€)</Text>
-          <TextInput style={s.input} keyboardType="number-pad" value={price} onChangeText={setPrice} placeholder="0" />
-        </View>
-        <View style={s.flex1}>
-          <Text style={s.label}>Deposit (€)</Text>
-          <TextInput style={s.input} keyboardType="number-pad" value={deposit} onChangeText={setDeposit} placeholder="optional" />
-        </View>
-      </View>
+      <Text style={s.label}>Price estimate (€)</Text>
+      <TextInput style={s.input} keyboardType="number-pad" value={price} onChangeText={setPrice} placeholder="0" />
+      <Text style={s.priceNote}>An indicative quote — payment is arranged directly with the client, not through Inkora.</Text>
       <Text style={s.label}>Message</Text>
       <TextInput style={[s.input, s.multiline]} value={message} onChangeText={setMessage} placeholder="Anything the client should know" multiline />
 
@@ -389,6 +378,7 @@ const s = StyleSheet.create({
   offerMsg: { fontSize: 14, color: "#3F3F46", fontStyle: "italic", marginTop: 4 },
   composer: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 16, padding: 14, gap: 8 },
   label: { fontWeight: "700", fontSize: 13, color: "#52525B", marginTop: 8 },
+  priceNote: { color: "#A1A1AA", fontSize: 12, marginTop: 4 },
   input: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, marginTop: 4 },
   multiline: { minHeight: 72, textAlignVertical: "top" },
   row: { flexDirection: "row", gap: 10 },

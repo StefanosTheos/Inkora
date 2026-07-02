@@ -8,7 +8,13 @@ export function NotificationBell({ color = "#18181B" }: { color?: string }) {
   const router = useRouter();
   const { unread } = useNotifications(supabase);
   return (
-    <Pressable hitSlop={10} onPress={() => router.push("/notifications")} style={s.wrap}>
+    <Pressable
+      hitSlop={10}
+      onPress={() => router.push("/notifications")}
+      style={s.wrap}
+      accessibilityRole="button"
+      accessibilityLabel={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+    >
       <Ionicons name="notifications-outline" size={24} color={color} />
       {unread > 0 && (
         <View style={s.badge}>

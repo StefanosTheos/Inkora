@@ -59,7 +59,6 @@ function AppointmentView_({ appt, meId }: { appt: AppointmentView; meId: string 
       <div className="mt-4 space-y-1 rounded-xl bg-zinc-50 p-4">
         <p>🗓 {fmtDateTime(appt.scheduledStart)} – {fmtDateTime(appt.scheduledEnd)}</p>
         {appt.priceAmount != null && <p>🏷 {money(appt.priceAmount)}</p>}
-        {appt.depositAmount != null && <p>💳 {money(appt.depositAmount)} deposit {appt.depositPaid ? "· paid" : "· due"}</p>}
       </div>
       {active && (
         <div className="mt-4 flex flex-wrap gap-2">
@@ -126,7 +125,6 @@ function OfferCard({ offer, isArtist, busy, onAccept, onDecline, onWithdraw }: {
         {!pending && <span className="text-xs font-semibold text-zinc-500">{offer.status}</span>}
       </div>
       {offer.proposedStart && <p className="text-sm text-zinc-600">🗓 {fmtDateTime(offer.proposedStart)}</p>}
-      {offer.depositAmount != null && <p className="text-sm text-zinc-600">💳 {money(offer.depositAmount, offer.currencyCode)} deposit</p>}
       {offer.message && <p className="mt-1 text-sm italic text-zinc-600">{offer.message}</p>}
       {pending && !isArtist && (
         <div className="mt-3 flex gap-2">
@@ -145,7 +143,6 @@ function OfferComposer({ requestId }: { requestId: string }) {
   const [start, setStart] = useState("");
   const [duration, setDuration] = useState(120);
   const [price, setPrice] = useState("");
-  const [deposit, setDeposit] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -158,10 +155,10 @@ function OfferComposer({ requestId }: { requestId: string }) {
       await createOffer(client, {
         requestId: requestId as AppointmentRequestView["id"],
         proposedStart: startIso, proposedEnd: endIso,
-        priceAmount: Number(price), depositAmount: deposit ? Number(deposit) : null, message: message || null,
+        priceAmount: Number(price), message: message || null,
       });
       await qc.invalidateQueries({ queryKey: bookingKeys.request(requestId) });
-      setStart(""); setPrice(""); setDeposit(""); setMessage("");
+      setStart(""); setPrice(""); setMessage("");
     } catch (e) {
       alert((e as Error).message);
     } finally {
@@ -180,10 +177,8 @@ function OfferComposer({ requestId }: { requestId: string }) {
           <option value={60}>1 hour</option><option value={120}>2 hours</option><option value={180}>3 hours</option><option value={360}>Full day</option>
         </select>
       </label>
-      <div className="flex gap-2">
-        <input placeholder="Price €" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full rounded-lg border px-3 py-2" />
-        <input placeholder="Deposit €" inputMode="numeric" value={deposit} onChange={(e) => setDeposit(e.target.value)} className="w-full rounded-lg border px-3 py-2" />
-      </div>
+      <input placeholder="Price estimate €" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full rounded-lg border px-3 py-2" />
+      <p className="text-xs text-zinc-500">An indicative quote — payment is arranged directly with the client, not through Inkora.</p>
       <textarea placeholder="Message" value={message} onChange={(e) => setMessage(e.target.value)} className="block w-full rounded-lg border px-3 py-2" />
       <button disabled={busy} className="rounded-lg bg-[#E5484D] px-4 py-2 font-semibold text-white" onClick={send}>{busy ? "Sending…" : "Send offer"}</button>
     </div>

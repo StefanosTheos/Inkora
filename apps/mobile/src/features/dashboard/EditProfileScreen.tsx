@@ -9,6 +9,7 @@ import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
 
@@ -18,6 +19,7 @@ const img = (p?: string | null) => (p ? publicStorageUrl(env.SUPABASE_URL, p) : 
 export function EditProfileScreen() {
   const router = useRouter();
   const qc = useQueryClient();
+  const toast = useToast();
   const profile = useProfileSummary(supabase);
 
   const [displayName, setDisplayName] = useState("");
@@ -77,7 +79,7 @@ export function EditProfileScreen() {
         qc.invalidateQueries({ queryKey: rewardKeys.completion }),
         qc.invalidateQueries({ queryKey: rewardKeys.account }),
       ]);
-      Alert.alert("Saved", "Your profile has been updated.");
+      toast.show("Profile updated");
     } catch (e) {
       const msg = (e as Error).message;
       Alert.alert("Couldn’t save", /username/i.test(msg) ? "That username is taken or invalid." : msg);

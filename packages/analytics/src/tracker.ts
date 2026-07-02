@@ -8,4 +8,21 @@ export interface AnalyticsTracker {
   reset(): void; // on sign-out
 }
 
-// TODO: implement PostHog adapters in each app; no PII in props.
+/**
+ * Dev/no-op tracker implementing the same interface. Apps use this until a
+ * PostHog adapter is wired — swapping the implementation needs no call-site changes.
+ * TODO: implement PostHog (web + RN) adapters; no PII in props.
+ */
+export function createConsoleTracker(enabled = true): AnalyticsTracker {
+  return {
+    capture(event, ctx) {
+      if (enabled) console.log(`[analytics] ${event.name}`, event.props, { userId: ctx.userId });
+    },
+    identify(userId, traits) {
+      if (enabled) console.log("[analytics] identify", userId, traits);
+    },
+    reset() {
+      if (enabled) console.log("[analytics] reset");
+    },
+  };
+}
