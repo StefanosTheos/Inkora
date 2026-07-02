@@ -10,7 +10,7 @@ import { useState } from "react";
 import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
 
 const STYLES = MOCK_PREVIEW_EXAMPLES.map((e) => ({ slug: e.styleSlug, label: e.label }));
@@ -58,7 +58,7 @@ export function AiPreviewComposer() {
   return (
     <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={[s.header, { paddingTop: insets.top + 6 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={10}><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
         <Text style={s.headerTitle}>New preview</Text>
         <View style={{ width: 26 }} />
       </View>

@@ -129,7 +129,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
   return (
     <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={[s.header, { paddingTop: insets.top + 6 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={10}><Ionicons name="close" size={26} color="#18181B" /></Pressable>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={26} color="#18181B" /></Pressable>
         <Text style={s.headerTitle}>{isStudio ? studio?.name ?? "Request booking" : "Request booking"}</Text>
         <View style={{ width: 26 }} />
       </View>

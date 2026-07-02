@@ -31,7 +31,7 @@ export function MyBookingsScreen() {
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <View style={s.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10}><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
         <Text style={s.title}>My bookings</Text>
         <View style={{ width: 26 }} />
       </View>

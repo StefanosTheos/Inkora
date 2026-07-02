@@ -144,7 +144,6 @@ function StyleTile({ card, reaction, onClick }: { card: StyleCard; reaction: Onb
   const ring = reaction === "love" ? "ring-2 ring-[#E5484D]" : reaction === "like" ? "ring-2 ring-pink-300" : "";
   return (
     <button onClick={onClick} className={`relative aspect-[3/4] overflow-hidden rounded-xl bg-[#1F1B2E] text-left ${ring}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       {uri ? <img src={uri} alt={card.name} className="absolute inset-0 h-full w-full object-cover" /> : null}
       <span className="absolute inset-x-0 bottom-0 bg-black/40 p-2 text-sm font-bold text-white">{card.name}</span>
       {reaction !== "skip" && (

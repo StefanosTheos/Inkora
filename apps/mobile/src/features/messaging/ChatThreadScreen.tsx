@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { getChatSignedUrl, publicStorageUrl, uploadChatFile, useAuth, useChat, useConversations } from "@inkora/data-access";
-import { type Message, messageKind } from "@inkora/domain";
+import { type ArtistId, type ConversationId, type Message, messageKind } from "@inkora/domain";
+import { analytics } from "../../lib/analytics";
 import { Audio, type AVPlaybackStatus } from "expo-av";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -49,7 +50,16 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
     const now = Date.now();
     if (now - lastTyping.current > 1500) { chat.sendTyping(); lastTyping.current = now; }
   };
-  const onSend = () => { if (text.trim()) { chat.sendText(text.trim()); setText(""); } };
+  const onSend = () => {
+    if (!text.trim()) return;
+    const isFirst = chat.messages.length === 0;
+    chat.sendText(text.trim());
+    setText("");
+    analytics.capture({ name: "message_sent", props: { conversationId: conversationId as ConversationId } }, ctx);
+    if (isFirst && conv?.otherId) {
+      analytics.capture({ name: "first_message_sent", props: { conversationId: conversationId as ConversationId, artistId: conv.otherId as unknown as ArtistId } }, ctx);
+    }
+  };
 
   async function pickImage() {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
@@ -92,7 +102,7 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
   return (
     <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={[s.header, { paddingTop: insets.top + 6 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={10}><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
         <View style={s.headerAvatar}>
           {avatarUrl ? (
             <Image source={{ uri: avatarUrl }} style={s.headerAvatarImg} contentFit="cover" />
@@ -134,13 +144,13 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
       )}
 
       <View style={[s.composer, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-        <Pressable onPress={() => setShowActions((v) => !v)} hitSlop={8}><Ionicons name="add-circle-outline" size={26} color="#71717A" /></Pressable>
-        <Pressable onPress={pickImage} hitSlop={8}><Ionicons name="image-outline" size={24} color="#71717A" /></Pressable>
+        <Pressable onPress={() => setShowActions((v) => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel="More actions"><Ionicons name="add-circle-outline" size={26} color="#71717A" /></Pressable>
+        <Pressable onPress={pickImage} hitSlop={8} accessibilityRole="button" accessibilityLabel="Attach photo"><Ionicons name="image-outline" size={24} color="#71717A" /></Pressable>
         <TextInput style={s.input} placeholder={recording ? "Recording…" : "Message"} value={text} onChangeText={onChange} multiline editable={!recording} />
         {text.trim().length > 0 ? (
-          <Pressable onPress={onSend} hitSlop={8}><Ionicons name="send" size={22} color="#E5484D" /></Pressable>
+          <Pressable onPress={onSend} hitSlop={8} accessibilityRole="button" accessibilityLabel="Send message"><Ionicons name="send" size={22} color="#E5484D" /></Pressable>
         ) : (
-          <Pressable onPress={recording ? stopRecording : startRecording} hitSlop={8}>
+          <Pressable onPress={recording ? stopRecording : startRecording} hitSlop={8} accessibilityRole="button" accessibilityLabel={recording ? "Stop recording" : "Record voice message"}>
             <Ionicons name={recording ? "stop-circle" : "mic"} size={26} color={recording ? "#E5484D" : "#71717A"} />
           </Pressable>
         )}

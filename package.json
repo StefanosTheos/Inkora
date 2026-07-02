@@ -12,7 +12,7 @@
     "dev:mobile": "turbo run dev --filter=@inkora/mobile",
     "dev:web": "turbo run dev --filter=@inkora/web",
     "build": "turbo run build",
-    "lint": "turbo run lint",
+    "lint": "eslint .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "db:reset": "supabase db reset",
@@ -22,7 +22,12 @@
   "devDependencies": {
     "turbo": "^2.1.0",
     "typescript": "^5.6.0",
-    "prettier": "^3.3.0"
+    "prettier": "^3.3.0",
+    "eslint": "^9.13.0",
+    "@eslint/js": "^9.13.0",
+    "typescript-eslint": "^8.10.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "globals": "^15.11.0"
   },
   "pnpm": {
     "overrides": {

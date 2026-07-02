@@ -28,7 +28,7 @@ export function NotificationsScreen() {
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <View style={s.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10}><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
         <Text style={s.title}>Notifications</Text>
         {unread > 0 ? (
           <Pressable onPress={() => void markAllRead()} hitSlop={8}><Text style={s.markAll}>Mark all</Text></Pressable>

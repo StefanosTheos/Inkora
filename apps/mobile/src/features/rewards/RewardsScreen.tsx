@@ -14,11 +14,13 @@ import {
   ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useToast } from "../../components/Toast";
 import { supabase } from "../../lib/supabase";
 
 export function RewardsScreen() {
   const router = useRouter();
   const qc = useQueryClient();
+  const toast = useToast();
   const { account, isLoading } = useRewards(supabase);
   const history = useRewardHistory(supabase);
   const vouchers = useVouchers(supabase);
@@ -35,7 +37,7 @@ export function RewardsScreen() {
   const prog = tierProgress(account?.lifetimeEarned ?? 0);
 
   async function onRedeem(v: Voucher) {
-    if (balance < v.costPoints) { Alert.alert("Not enough points", `You need ${v.costPoints - balance} more points for this.`); return; }
+    if (balance < v.costPoints) { toast.show(`You need ${v.costPoints - balance} more points for this`, "error"); return; }
     Alert.alert("Redeem reward?", `Spend ${v.costPoints} points on “${v.title}”?`, [
       { text: "Cancel", style: "cancel" },
       {
@@ -49,9 +51,9 @@ export function RewardsScreen() {
               qc.invalidateQueries({ queryKey: rewardKeys.history }),
               qc.invalidateQueries({ queryKey: rewardKeys.vouchers }),
             ]);
-            Alert.alert("Redeemed 🎉", `Your code: ${code}\nFind it under “Your rewards”.`);
+            toast.show(`Redeemed! Code ${code} — see Your rewards`);
           } catch (e) {
-            Alert.alert("Couldn’t redeem", (e as Error).message);
+            toast.show((e as Error).message, "error");
           }
         },
       },
@@ -63,7 +65,7 @@ export function RewardsScreen() {
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <View style={s.topHeader}>
-        <Pressable onPress={() => router.back()} hitSlop={10}><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
         <Text style={s.topTitle}>Rewards</Text>
         <View style={{ width: 26 }} />
       </View>
@@ -177,6 +179,7 @@ function RedemptionRow({ r }: { r: VoucherRedemption }) {
 }
 
 function ReferralCard({ code, invited, earned, onRedeemed }: { code: string; invited: number; earned: number; onRedeemed: () => void }) {
+  const toast = useToast();
   const [entry, setEntry] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -189,11 +192,11 @@ function ReferralCard({ code, invited, earned, onRedeemed }: { code: string; inv
     try {
       await redeemReferral(supabase, entry.trim());
       setEntry("");
-      Alert.alert("Nice! 🎉", "Referral applied — points added.");
+      toast.show("Referral applied — points added");
       onRedeemed();
     } catch (e) {
       const msg = (e as Error).message;
-      Alert.alert("Couldn’t apply code", /invalid_code/.test(msg) ? "That code doesn’t exist." : /already_referred/.test(msg) ? "You’ve already used a referral." : /self/.test(msg) ? "You can’t use your own code." : msg);
+      toast.show(/invalid_code/.test(msg) ? "That code doesn’t exist." : /already_referred/.test(msg) ? "You’ve already used a referral." : /self/.test(msg) ? "You can’t use your own code." : msg, "error");
     } finally {
       setBusy(false);
     }

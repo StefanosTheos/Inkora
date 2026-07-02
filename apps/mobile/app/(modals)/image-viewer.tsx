@@ -3,7 +3,7 @@ import { publicStorageUrl } from "@inkora/data-access";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { env } from "../../src/lib/env";
 
@@ -13,7 +13,7 @@ export default function ImageViewerModal() {
   const uri = path ? publicStorageUrl(env.SUPABASE_URL, path) : undefined;
   return (
     <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
-      <Pressable style={s.close} onPress={() => router.back()} hitSlop={12}>
+      <Pressable style={s.close} onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
         <Ionicons name="close" size={28} color="#fff" />
       </Pressable>
       {uri ? <Image source={{ uri }} style={s.img} contentFit="contain" /> : <Text style={s.missing}>Image unavailable</Text>}

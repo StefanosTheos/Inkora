@@ -6,7 +6,6 @@
 // Must be imported before the Supabase client is created (see supabase.ts).
 import * as ExpoCrypto from "expo-crypto";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const g = globalThis as any;
 
 // --- TextEncoder (minimal UTF-8) -------------------------------------------
