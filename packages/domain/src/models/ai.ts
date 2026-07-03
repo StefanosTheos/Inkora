@@ -1,5 +1,5 @@
-import type { AiPreviewId, IdeaId, ProfileId, StyleId } from "../ids";
 import type { AiPreviewStatus } from "../enums";
+import type { AiPreviewId, IdeaId, ProfileId, StyleId } from "../ids";
 
 /**
  * AI tattoo-preview model. PLACEHOLDER ONLY in the MVP — captures the full input

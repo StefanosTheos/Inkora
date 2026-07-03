@@ -5,6 +5,7 @@ import {
 } from "@inkora/data-access";
 import type { HomeArtist } from "@inkora/domain";
 import Link from "next/link";
+
 import { env } from "../../lib/env";
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 

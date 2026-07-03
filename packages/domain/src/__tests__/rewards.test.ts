@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { TIER_THRESHOLD, tierProgress } from "../models/rewards";
 
 describe("tierProgress", () => {

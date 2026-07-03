@@ -1,6 +1,7 @@
 import type {
   AppointmentId, AppointmentStatus, ConversationId, Message, Notification, ProfileId,
 } from "@inkora/domain";
+
 import type { ChannelName } from "./channels";
 
 export interface RealtimeEventMap {

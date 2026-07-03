@@ -8,10 +8,11 @@ import { useRouter } from "expo-router";
 import { useCallback } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
-import { ArtistCard, CategoryCard, IdeaTile, PromoCard, SearchBar, SectionHeader, StudioCard } from "./components";
 import { NotificationBell } from "../notifications/NotificationBell";
+import { ArtistCard, CategoryCard, IdeaTile, PromoCard, SearchBar, SectionHeader, StudioCard } from "./components";
 
 const img = (path?: string | null) => (path ? publicStorageUrl(env.SUPABASE_URL, path) : undefined);
 

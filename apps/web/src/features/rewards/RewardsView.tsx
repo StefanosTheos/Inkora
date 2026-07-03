@@ -8,6 +8,7 @@ import {
 } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 
 export function RewardsView() {

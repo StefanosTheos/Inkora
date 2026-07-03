@@ -3,6 +3,7 @@ import { AI_PREVIEW_STATUS_LABEL, type AiPreviewStatus } from "@inkora/domain";
 import { Image, type ImageStyle } from "expo-image";
 import { useEffect, useState } from "react";
 import { type StyleProp, StyleSheet, Text, View } from "react-native";
+
 import { supabase } from "../../lib/supabase";
 
 const TONE: Record<AiPreviewStatus, { bg: string; fg: string }> = {

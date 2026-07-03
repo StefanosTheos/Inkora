@@ -1,6 +1,7 @@
 import type { AuthContext as DomainAuthContext, ProfileId } from "@inkora/domain";
 import type { Session } from "@supabase/supabase-js";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
 import { rolesFromAccessToken } from "./jwt";

@@ -2,6 +2,7 @@
 import { useNotifications } from "@inkora/data-access";
 import { NOTIFICATION_ICON, notificationHref } from "@inkora/domain";
 import { useRouter } from "next/navigation";
+
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 
 export function NotificationsList() {

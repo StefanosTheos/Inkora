@@ -1,5 +1,6 @@
 import type { ArtistId, IdeaId, JourneyEntry, JourneyEntryId, ProfileId } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
+
 import type { InkoraClient } from "../client/types";
 import type { Json } from "../db/database.types";
 import { toAppError } from "../errors";

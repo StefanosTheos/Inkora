@@ -1,5 +1,5 @@
-import type { ConversationId, MessageId, ProfileId } from "../ids";
 import type { ConversationType, MessageType } from "../enums";
+import type { ConversationId, MessageId, ProfileId } from "../ids";
 
 export interface ConversationSummary {
   id: ConversationId;

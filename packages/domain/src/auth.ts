@@ -1,5 +1,5 @@
-import type { ProfileId } from "./ids";
 import type { UserRole } from "./enums";
+import type { ProfileId } from "./ids";
 
 /**
  * Normalized auth context, derived from the Supabase session + the `app_roles`

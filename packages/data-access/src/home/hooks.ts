@@ -1,5 +1,6 @@
-import type { Page, IdeaCard } from "@inkora/domain";
+import type { IdeaCard,Page } from "@inkora/domain";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+
 import type { InkoraClient } from "../client/types";
 import {
   fetchFeaturedArtists, fetchIdeaFeedPage, fetchMyLocation, fetchNearbyStudios,

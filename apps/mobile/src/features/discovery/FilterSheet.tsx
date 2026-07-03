@@ -1,5 +1,6 @@
 import type { ArtistSearchParams, StyleCard } from "@inkora/domain";
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+
 import { Chip } from "./components";
 
 const DISTANCES = [5, 10, 25, 50];

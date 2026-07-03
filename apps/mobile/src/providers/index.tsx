@@ -1,5 +1,6 @@
 import { AuthProvider, QueryProvider } from "@inkora/data-access";
 import React from "react";
+
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ToastProvider } from "../components/Toast";
 import { mobileOAuth } from "../lib/oauth-adapter";

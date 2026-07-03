@@ -6,6 +6,7 @@ import {
 import { type OnboardingReaction, REACTION_WEIGHTS, type StyleCard } from "@inkora/domain";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+
 import { env } from "../../lib/env";
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 
@@ -25,7 +26,7 @@ export function OnboardingFlow() {
   const [country, setCountry] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const styles = deck.data ?? [];
+  const styles = useMemo(() => deck.data ?? [], [deck.data]);
   const weights = useMemo(() => {
     const w: Record<string, number> = {};
     for (const [id, r] of Object.entries(reactions)) w[id] = REACTION_WEIGHTS[r];

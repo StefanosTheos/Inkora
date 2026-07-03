@@ -1,6 +1,7 @@
 "use client";
 import type { Database } from "@inkora/data-access";
 import { createBrowserClient } from "@supabase/ssr";
+
 import { env } from "./env";
 
 /**

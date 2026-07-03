@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
@@ -49,11 +50,11 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
         {/* Header */}
         <View style={s.header}>
           <View style={s.logo}>
-            {img(st.logoPath) ? <Image source={{ uri: img(st.logoPath) }} style={s.logoImg} contentFit="cover" /> : (
+            {img(st.logoPath) ? <Image source={{ uri: img(st.logoPath) }} style={s.logoImg} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" /> : (
               <Text style={s.logoInitial}>{st.name.charAt(0).toUpperCase()}</Text>
             )}
           </View>
-          <Text style={s.name}>{st.name}</Text>
+          <Text style={s.name} accessibilityRole="header">{st.name}</Text>
           <Text style={s.meta}>
             {avgRating > 0 ? `★ ${avgRating.toFixed(1)} · ` : ""}{roster.length} artist{roster.length === 1 ? "" : "s"}
             {st.city ? ` · ${st.city}` : ""}
@@ -69,9 +70,16 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
         )}
 
         {/* Tab bar */}
-        <View style={s.tabBar}>
+        <View style={s.tabBar} accessibilityRole="tablist">
           {TABS.map((t) => (
-            <Pressable key={t.key} style={[s.tabItem, tab === t.key && s.tabItemActive]} onPress={() => setTab(t.key)}>
+            <Pressable
+              key={t.key}
+              style={[s.tabItem, tab === t.key && s.tabItemActive]}
+              onPress={() => setTab(t.key)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: tab === t.key }}
+              accessibilityLabel={t.key === "artists" ? `Artists, ${roster.length}` : t.label}
+            >
               <Text style={[s.tabText, tab === t.key && s.tabTextActive]}>
                 {t.key === "artists" ? `Artists (${roster.length})` : t.label}
               </Text>
@@ -100,7 +108,7 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
                   </View>
                 );
               })}
-              <Pressable style={s.directionsRow} onPress={openDirections}>
+              <Pressable style={s.directionsRow} onPress={openDirections} accessibilityRole="button" accessibilityLabel="Get directions, opens in Maps">
                 <Text style={s.directionsText}>📍 Get directions</Text>
               </Pressable>
             </View>
@@ -112,6 +120,8 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
       <View style={[s.cta, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <Pressable
           style={s.ctaSecondary}
+          accessibilityRole="button"
+          accessibilityLabel={`Message ${st.name}`}
           onPress={async () => {
             try {
               const cid = await startStudioConversation(supabase, st.id);
@@ -125,6 +135,8 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
         </Pressable>
         <Pressable
           style={s.ctaPrimary}
+          accessibilityRole="button"
+          accessibilityLabel={`Request a booking at ${st.name}`}
           onPress={() => router.push({ pathname: "/booking-request", params: { studioSlug: st.slug } })}
         >
           <Text style={s.ctaPrimaryText}>Request booking</Text>
@@ -136,9 +148,9 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
 
 function ArtistCard({ artist, onPress }: { artist: StudioRosterArtist; onPress: () => void }) {
   return (
-    <Pressable style={s.artistCard} onPress={onPress}>
+    <Pressable style={s.artistCard} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${artist.displayName}'s profile`}>
       <View style={s.avatar}>
-        {img(artist.avatarPath) ? <Image source={{ uri: img(artist.avatarPath) }} style={s.avatarImg} contentFit="cover" /> : (
+        {img(artist.avatarPath) ? <Image source={{ uri: img(artist.avatarPath) }} style={s.avatarImg} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" /> : (
           <Text style={s.avatarInitial}>{artist.displayName.charAt(0).toUpperCase()}</Text>
         )}
       </View>
@@ -166,7 +178,7 @@ function PortfolioGrid({ images, loading }: { images: PortfolioImage[]; loading:
     <View style={s.grid}>
       {images.map((im) => (
         <View key={im.id} style={s.gridItem}>
-          <Image source={{ uri: img(im.imagePath) }} style={s.gridImg} contentFit="cover" />
+          <Image source={{ uri: img(im.imagePath) }} style={s.gridImg} contentFit="cover" accessibilityRole="image" accessibilityLabel="Portfolio tattoo piece" />
         </View>
       ))}
     </View>

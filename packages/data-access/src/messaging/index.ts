@@ -2,10 +2,11 @@ import type {
   ConversationId, ConversationSummary, ConversationType, Message, MessageAttachment, MessageId, ProfileId,
 } from "@inkora/domain";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import type { Json } from "../db/database.types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
+
 import type { InkoraClient } from "../client/types";
+import type { Json } from "../db/database.types";
 import { toAppError } from "../errors";
 
 const BUCKET = "chat-attachments";

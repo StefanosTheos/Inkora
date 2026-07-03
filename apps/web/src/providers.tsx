@@ -1,6 +1,7 @@
 "use client";
 import { AuthProvider, QueryProvider } from "@inkora/data-access";
 import React from "react";
+
 import { webOAuth } from "./lib/oauth-adapter";
 import { getSupabaseBrowser } from "./lib/supabase-browser";
 

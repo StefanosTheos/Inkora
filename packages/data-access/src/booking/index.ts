@@ -3,6 +3,7 @@ import type {
   BookingRequestInput, CounterpartyRef, OfferInput, OfferView, ProfileId, StudioId,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
+
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
 

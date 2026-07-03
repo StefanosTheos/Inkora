@@ -8,8 +8,8 @@
  * Notification, RewardAccount, JourneyEntry, AiPreview, DeviceToken.
  */
 import type {
-  ArtistDetail, ArtistSummary, Message, Page, PageParams,
-  ConversationId, ConversationSummary,
+  ArtistDetail, ArtistSummary,   ConversationId, ConversationSummary,
+Message, Page, PageParams,
 } from "@inkora/domain";
 
 export interface Repository<T, Filter> {

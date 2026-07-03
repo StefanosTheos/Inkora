@@ -1,4 +1,5 @@
 import type { AuthContext, ProfileId } from "@inkora/domain";
+
 import type { AnalyticsEvent } from "./events";
 
 /** Platform-injected (PostHog web SDK vs RN SDK), same interface both apps. */

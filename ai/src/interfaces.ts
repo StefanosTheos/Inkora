@@ -1,4 +1,4 @@
-import type { AiPreview, AiPreviewInput, AiPreviewId } from "@inkora/domain";
+import type { AiPreview, AiPreviewId,AiPreviewInput } from "@inkora/domain";
 
 /**
  * The AI preview service boundary. The MVP ships a mock implementation.

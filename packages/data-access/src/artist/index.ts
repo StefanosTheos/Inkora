@@ -2,6 +2,7 @@ import type {
   ArtistId, ArtistOffer, ArtistProfile, AvailabilitySlot, PortfolioImage, PortfolioImageId, ReviewId, ReviewItem, StudioId,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
+
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
 

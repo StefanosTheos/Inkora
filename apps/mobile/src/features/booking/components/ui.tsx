@@ -1,8 +1,9 @@
+import { publicStorageUrl } from "@inkora/data-access";
 import type { AppointmentStatus, OfferStatus, RequestStatus } from "@inkora/domain";
 import { formatAmount, statusTone } from "@inkora/domain";
 import { Image } from "expo-image";
 import { StyleSheet, Text, View } from "react-native";
-import { publicStorageUrl } from "@inkora/data-access";
+
 import { env } from "../../../lib/env";
 
 // Currency + date/time formatters (re-exported from the domain so screens have

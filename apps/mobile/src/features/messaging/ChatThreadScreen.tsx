@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { getChatSignedUrl, publicStorageUrl, uploadChatFile, useAuth, useChat, useConversations } from "@inkora/data-access";
 import { type ArtistId, type ConversationId, type Message, messageKind } from "@inkora/domain";
-import { analytics } from "../../lib/analytics";
 import { Audio, type AVPlaybackStatus } from "expo-av";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -11,7 +10,9 @@ import {
   ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useToast } from "../../components/Toast";
+import { analytics } from "../../lib/analytics";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
 
@@ -50,12 +51,12 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
   const onChange = (t: string) => {
     setText(t);
     const now = Date.now();
-    if (now - lastTyping.current > 1500) { chat.sendTyping(); lastTyping.current = now; }
+    if (now - lastTyping.current > 1500) { void chat.sendTyping(); lastTyping.current = now; }
   };
   const onSend = () => {
     if (!text.trim()) return;
     const isFirst = chat.messages.length === 0;
-    chat.sendText(text.trim());
+    void chat.sendText(text.trim());
     setText("");
     analytics.capture({ name: "message_sent", props: { conversationId: conversationId as ConversationId } }, ctx);
     if (isFirst && conv?.otherId) {
@@ -71,7 +72,7 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
       const buf = await (await fetch(asset.uri)).arrayBuffer();
       const ext = asset.mimeType?.includes("png") ? "png" : "jpg";
       const path = await uploadChatFile(supabase, conversationId, buf, asset.mimeType ?? "image/jpeg", ext);
-      chat.sendImage(path);
+      void chat.sendImage(path);
     } catch (e) {
       toast.show((e as Error).message, "error");
     }
@@ -95,7 +96,7 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
     try {
       const buf = await (await fetch(uri)).arrayBuffer();
       const path = await uploadChatFile(supabase, conversationId, buf, "audio/m4a", "m4a");
-      chat.sendVoice(path, durationMs);
+      void chat.sendVoice(path, durationMs);
     } catch (e) {
       toast.show((e as Error).message, "error");
     }
@@ -136,10 +137,10 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
 
       {showActions && (
         <View style={s.actions}>
-          <Pressable style={s.actionBtn} onPress={() => { chat.sendQuote({ description: text.trim() || undefined }); setText(""); setShowActions(false); }}>
+          <Pressable style={s.actionBtn} onPress={() => { void chat.sendQuote({ description: text.trim() || undefined }); setText(""); setShowActions(false); }}>
             <Text style={s.actionText}>💬 Request quote</Text>
           </Pressable>
-          <Pressable style={s.actionBtn} onPress={() => { chat.sendConsultation({ note: text.trim() || undefined }); setText(""); setShowActions(false); }}>
+          <Pressable style={s.actionBtn} onPress={() => { void chat.sendConsultation({ note: text.trim() || undefined }); setText(""); setShowActions(false); }}>
             <Text style={s.actionText}>📅 Request consultation</Text>
           </Pressable>
         </View>

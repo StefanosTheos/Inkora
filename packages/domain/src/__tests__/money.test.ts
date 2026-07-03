@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { formatAmount, formatMoney, formatRange, money } from "../money";
 
 describe("money value object", () => {

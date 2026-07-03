@@ -2,6 +2,7 @@ import type { Notification, NotificationId, NotificationType, ProfileId } from "
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
 
@@ -81,7 +82,7 @@ export function useNotifications(client: InkoraClient) {
     };
   }, [client, qc, topic]);
 
-  const notifications = q.data ?? [];
+  const notifications = useMemo(() => q.data ?? [], [q.data]);
   const unread = useMemo(() => notifications.filter((n) => !n.readAt).length, [notifications]);
 
   return {

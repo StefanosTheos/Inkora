@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNotifications } from "@inkora/data-access";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+
 import { supabase } from "../../lib/supabase";
 
 export function NotificationBell({ color = "#18181B" }: { color?: string }) {

@@ -2,6 +2,7 @@ import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+
 import { supabase } from "../../src/lib/supabase";
 
 /**

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import { MOCK_PREVIEW_EXAMPLES } from "@inkora/ai";
 import { aiKeys, createAiPreview, uploadPreviewSource } from "@inkora/data-access";
 import { AI_PLACEMENTS, AI_PREVIEW_DISCLAIMER, type AiPreviewInput } from "@inkora/domain";
-import { MOCK_PREVIEW_EXAMPLES } from "@inkora/ai";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -11,6 +11,7 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useToast } from "../../components/Toast";
 import { supabase } from "../../lib/supabase";
 

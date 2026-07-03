@@ -1,5 +1,6 @@
 import type { AiPreview, AiPreviewId, AiPreviewInput, AiPreviewStatus, IdeaId, ProfileId, StyleId } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
+
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
 

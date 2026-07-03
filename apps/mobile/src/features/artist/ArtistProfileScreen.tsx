@@ -11,9 +11,10 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
-import { useToast } from "../../components/Toast";
 import { Chip } from "../discovery/components";
 
 const img = (p?: string | null) => (p ? publicStorageUrl(env.SUPABASE_URL, p) : undefined);

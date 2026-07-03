@@ -1,4 +1,4 @@
-import type { ArtistId, BoardId, ConversationId, IdeaId, AppointmentId, RewardReason } from "@inkora/domain";
+import type { AppointmentId, ArtistId, BoardId, ConversationId, IdeaId, RewardReason } from "@inkora/domain";
 
 /**
  * Typed PostHog event catalog (the activation funnel). Closed union — no ad-hoc strings.

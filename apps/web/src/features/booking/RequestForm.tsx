@@ -3,6 +3,7 @@ import { createBookingRequest, useArtistProfile, useStudioProfile } from "@inkor
 import type { BookingRequestInput } from "@inkora/domain";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 
 const PLACEMENTS = ["Forearm", "Upper arm", "Leg", "Back", "Chest", "Ribs", "Hand", "Neck", "Other"];

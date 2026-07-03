@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
 import { ArtistResultRow, Chip } from "./components";

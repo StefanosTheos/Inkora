@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { notificationHref } from "../models/notification";
-import { journeyProgress } from "../models/journey";
+
 import { isPreviewPending } from "../models/ai";
+import { journeyProgress } from "../models/journey";
+import { notificationHref } from "../models/notification";
 
 describe("notificationHref", () => {
   it("prefers explicit data deep-links", () => {

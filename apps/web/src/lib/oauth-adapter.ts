@@ -1,7 +1,7 @@
 "use client";
+import type { InkoraClient } from "@inkora/data-access";
 import { type OAuthAdapter, toAppError } from "@inkora/data-access";
 import type { Result } from "@inkora/domain";
-import type { InkoraClient } from "@inkora/data-access";
 
 /**
  * Web OAuth: full-page redirect to the provider, returning to /api/auth/callback

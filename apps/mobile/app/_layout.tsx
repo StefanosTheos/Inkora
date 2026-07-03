@@ -1,8 +1,9 @@
 import { useAuth } from "@inkora/data-access";
 import { SplashScreen, Stack } from "expo-router";
 import { useEffect } from "react";
-import { AppProviders } from "../src/providers";
+
 import { useProtectedRoute } from "../src/lib/use-protected-route";
+import { AppProviders } from "../src/providers";
 
 // Hold the splash until the session is restored to avoid an auth-state flash.
 void SplashScreen.preventAutoHideAsync();

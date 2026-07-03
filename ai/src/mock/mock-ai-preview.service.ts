@@ -1,4 +1,5 @@
 import type { AiPreview, AiPreviewId, AiPreviewInput, ProfileId } from "@inkora/domain";
+
 import type { AiPreviewService } from "../interfaces";
 
 /**

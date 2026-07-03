@@ -6,10 +6,11 @@
  *                    invoked from clients as Edge Function calls.
  */
 import type {
-  AppointmentRequest, Appointment, ArtistSummary, AuthContext, ConversationId,
-  IdeaCard, Message, Offer, Page, PageParams, RewardRef, RewardTransaction,
-  AppointmentId, AppointmentStatus, ProfileId, RewardReason, ArtistId,
+Appointment,   AppointmentId,   AppointmentRequest, AppointmentStatus, ArtistId,
+ArtistSummary, AuthContext, ConversationId,
+  IdeaCard, Message, Offer, Page, PageParams, ProfileId, RewardReason, RewardRef, RewardTransaction,
 } from "@inkora/domain";
+
 import type { ArtistFilter } from "../repositories";
 
 // ---- client-safe ----

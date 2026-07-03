@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNotifications } from "@inkora/data-access";
-import { NOTIFICATION_ICON, type Notification, notificationHref, timeAgo } from "@inkora/domain";
+import { type Notification, NOTIFICATION_ICON, notificationHref, timeAgo } from "@inkora/domain";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { supabase } from "../../lib/supabase";
 
 export function NotificationsScreen() {

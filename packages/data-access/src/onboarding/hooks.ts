@@ -3,6 +3,7 @@ import {
 } from "@inkora/domain";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
+
 import type { InkoraClient } from "../client/types";
 import { fetchStyleCards, finishOnboarding, getRecommendedArtists } from "./preferences";
 

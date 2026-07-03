@@ -1,4 +1,5 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest,NextResponse } from "next/server";
+
 import { updateSession } from "./src/lib/supabase-middleware";
 
 /** Role-gated path prefixes (DB role names). RLS remains the real boundary. */

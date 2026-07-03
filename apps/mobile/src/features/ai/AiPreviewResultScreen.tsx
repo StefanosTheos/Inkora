@@ -4,6 +4,7 @@ import { AI_PREVIEW_DISCLAIMER, isPreviewPending } from "@inkora/domain";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { supabase } from "../../lib/supabase";
 import { AiStatusChip, SignedPreviewImage } from "./components";
 

@@ -1,4 +1,5 @@
 import type { Result } from "@inkora/domain";
+
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
 

@@ -5,6 +5,7 @@ import {
 import { activeFilterCount, type ArtistSearchParams, type ArtistSort } from "@inkora/domain";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+
 import { env } from "../../lib/env";
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 

@@ -1,5 +1,5 @@
-import type { ProfileId } from "../ids";
 import type { RewardReason, RewardTier, RewardTxnType } from "../enums";
+import type { ProfileId } from "../ids";
 
 export interface RewardAccount {
   profileId: ProfileId;

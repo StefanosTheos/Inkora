@@ -1,6 +1,7 @@
 // Route: /booking-request?artistId=… | ?studioSlug=… — mobile booking stepper.
 import { useLocalSearchParams } from "expo-router";
-import { View, Text } from "react-native";
+import { Text,View } from "react-native";
+
 import { BookingRequestFlow } from "../../src/features/booking/BookingRequestFlow";
 
 export default function BookingRequestModal() {

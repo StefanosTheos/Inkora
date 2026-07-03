@@ -1,5 +1,5 @@
-import type { NotificationId, ProfileId } from "../ids";
 import type { DevicePlatform, NotificationType } from "../enums";
+import type { NotificationId, ProfileId } from "../ids";
 
 export interface Notification {
   id: NotificationId;

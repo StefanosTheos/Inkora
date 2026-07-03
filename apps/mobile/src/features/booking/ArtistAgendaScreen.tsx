@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { registerPushToken, scheduleAppointmentReminders } from "../../lib/notifications";
 import { supabase } from "../../lib/supabase";
 import { MonthCalendar, toIsoDate } from "./components/MonthCalendar";

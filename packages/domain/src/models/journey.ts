@@ -1,5 +1,5 @@
-import type { AppointmentId, ArtistId, IdeaId, JourneyEntryId, ProfileId } from "../ids";
 import type { JourneyEntryType } from "../enums";
+import type { AppointmentId, ArtistId, IdeaId, JourneyEntryId, ProfileId } from "../ids";
 
 /** Private, user-owned tattoo timeline (idea → consultation → healing → milestone). */
 export interface JourneyEntry {

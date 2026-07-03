@@ -6,6 +6,7 @@ import type { RecommendedArtist, StyleCard, StylePreference } from "@inkora/doma
 import { Image } from "expo-image";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, type DimensionValue, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+
 import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";

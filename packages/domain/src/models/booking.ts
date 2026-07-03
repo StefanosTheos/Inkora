@@ -1,7 +1,7 @@
+import type { AppointmentStatus, OfferStatus, RequestStatus } from "../enums";
 import type {
   AppointmentId, AppointmentRequestId, ArtistId, ConversationId, IdeaId, OfferId, ProfileId, StudioId,
 } from "../ids";
-import type { AppointmentStatus, OfferStatus, RequestStatus } from "../enums";
 
 export interface AppointmentRequest {
   id: AppointmentRequestId;

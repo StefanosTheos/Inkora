@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { statusTone } from "../models/booking";
+
 import { estimatePrice } from "../models/artist-profile";
+import { statusTone } from "../models/booking";
 
 describe("statusTone", () => {
   it("maps happy-path statuses to positive", () => {

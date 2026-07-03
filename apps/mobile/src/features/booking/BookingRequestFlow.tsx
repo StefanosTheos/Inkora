@@ -6,7 +6,6 @@ import {
 import { useAuth } from "@inkora/data-access";
 import { type ArtistId, type BookingRequestInput, DAY_LABELS, type StudioRosterArtist } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
-import { analytics } from "../../lib/analytics";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -15,7 +14,9 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useToast } from "../../components/Toast";
+import { analytics } from "../../lib/analytics";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
 import { MonthCalendar } from "./components/MonthCalendar";
@@ -36,10 +37,10 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
 
   const studioQ = useStudioProfile(supabase, studioSlug ?? "");
   const studio = studioQ.data;
-  const roster = studio?.roster ?? [];
+  const roster = useMemo(() => studio?.roster ?? [], [studio?.roster]);
   const rosterIds = useMemo(() => roster.map((r) => r.id), [roster]);
   const rosterAvailQ = useStudioRosterAvailability(supabase, rosterIds);
-  const rosterAvail = rosterAvailQ.data ?? {};
+  const rosterAvail = useMemo(() => rosterAvailQ.data ?? {}, [rosterAvailQ.data]);
 
   // null in studio mode = "let the studio choose" (routes to the studio owner)
   const [chosenArtist, setChosenArtist] = useState<string | null>(null);

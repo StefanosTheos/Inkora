@@ -5,6 +5,7 @@ import type {
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
 

@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   bookingKeys, cancelAppointment, cancelRequest, completeAppointment, createOffer, declineRequest,
-  getChatSignedUrl, respondToOffer, rescheduleAppointment, useAppointment, useArtistAvailability,
+  getChatSignedUrl, rescheduleAppointment, respondToOffer, useAppointment, useArtistAvailability,
   useArtistDaySlots, useAuth, useBookingRequest, withdrawOffer,
 } from "@inkora/data-access";
 import {
   APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView, type OfferView, REQUEST_STATUS_LABEL,
 } from "@inkora/domain";
+import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -14,7 +15,7 @@ import {
   ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useQueryClient } from "@tanstack/react-query";
+
 import { useToast } from "../../components/Toast";
 import { supabase } from "../../lib/supabase";
 import { MonthCalendar } from "./components/MonthCalendar";
@@ -116,7 +117,7 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
             disabled={busy}
             onPress={() => Alert.alert("Cancel appointment?", "The other person will be notified.", [
               { text: "Keep", style: "cancel" },
-              { text: "Cancel it", style: "destructive", onPress: () => run(() => cancelAppointment(supabase, appt.id)) },
+              { text: "Cancel it", style: "destructive", onPress: () => { void run(() => cancelAppointment(supabase, appt.id)); } },
             ])}
           />
         </View>

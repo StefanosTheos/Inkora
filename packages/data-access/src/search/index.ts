@@ -1,6 +1,7 @@
 import type { ArtistId, ArtistSearchParams, SearchArtist } from "@inkora/domain";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
 

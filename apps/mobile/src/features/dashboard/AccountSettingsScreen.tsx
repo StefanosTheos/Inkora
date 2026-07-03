@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useToast } from "../../components/Toast";
 import { getPushPermission } from "../../lib/notifications";
 import { supabase } from "../../lib/supabase";
@@ -64,7 +65,7 @@ export function AccountSettingsScreen() {
     Alert.alert(
       "Delete account?",
       "This permanently removes your profile, bookings and saved items. This can’t be undone. For the demo, contact support to complete deletion.",
-      [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => Linking.openURL("mailto:support@inkora.app?subject=Delete%20my%20account") }],
+      [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void Linking.openURL("mailto:support@inkora.app?subject=Delete%20my%20account"); } }],
     );
   }
 
@@ -72,7 +73,7 @@ export function AccountSettingsScreen() {
     <SafeAreaView style={s.safe} edges={["top"]}>
       <View style={s.header}>
         <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
-        <Text style={s.headerTitle}>Account settings</Text>
+        <Text style={s.headerTitle} accessibilityRole="header">Account settings</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -81,7 +82,7 @@ export function AccountSettingsScreen() {
       ) : (
         <ScrollView contentContainerStyle={s.body}>
           {/* Account */}
-          <Text style={s.section}>Account</Text>
+          <Text style={s.section} accessibilityRole="header">Account</Text>
           <View style={s.card}>
             <Row label="Email" value={email} />
             <Row label="Signed in via" value={provider.charAt(0).toUpperCase() + provider.slice(1)} />
@@ -89,7 +90,7 @@ export function AccountSettingsScreen() {
           </View>
 
           {/* Preferences */}
-          <Text style={s.section}>Preferences</Text>
+          <Text style={s.section} accessibilityRole="header">Preferences</Text>
           <View style={s.card}>
             <View style={[s.rowFlex, s.rowBorder]}>
               <View style={{ flex: 1 }}>
@@ -97,18 +98,18 @@ export function AccountSettingsScreen() {
                 <Text style={s.rowHint}>How far to look for artists & studios</Text>
               </View>
               <View style={s.stepper}>
-                <Pressable style={s.stepBtn} onPress={() => changeRadius(radius - 5)}><Ionicons name="remove" size={18} color="#18181B" /></Pressable>
-                <Text style={s.stepValue}>{radius} km</Text>
-                <Pressable style={s.stepBtn} onPress={() => changeRadius(radius + 5)}><Ionicons name="add" size={18} color="#18181B" /></Pressable>
+                <Pressable style={s.stepBtn} onPress={() => changeRadius(radius - 5)} accessibilityRole="button" accessibilityLabel="Decrease search radius"><Ionicons name="remove" size={18} color="#18181B" /></Pressable>
+                <Text style={s.stepValue} accessibilityLabel={`Search radius ${radius} kilometres`}>{radius} km</Text>
+                <Pressable style={s.stepBtn} onPress={() => changeRadius(radius + 5)} accessibilityRole="button" accessibilityLabel="Increase search radius"><Ionicons name="add" size={18} color="#18181B" /></Pressable>
               </View>
             </View>
           </View>
 
           {/* Notifications */}
-          <Text style={s.section}>Notifications</Text>
+          <Text style={s.section} accessibilityRole="header">Notifications</Text>
           <View style={s.card}>
             {osBlocked && (
-              <Pressable style={[s.rowFlex, s.rowBorder]} onPress={() => void Linking.openSettings()}>
+              <Pressable style={[s.rowFlex, s.rowBorder]} onPress={() => void Linking.openSettings()} accessibilityRole="button" accessibilityLabel="Notifications are off. Tap to enable in system settings">
                 <Ionicons name="notifications-off-outline" size={20} color="#DC2626" />
                 <Text style={[s.linkLabel, { color: "#DC2626" }]}>Notifications are off — tap to enable in Settings</Text>
               </Pressable>
@@ -118,7 +119,7 @@ export function AccountSettingsScreen() {
           </View>
 
           {/* Support & legal */}
-          <Text style={s.section}>Support & legal</Text>
+          <Text style={s.section} accessibilityRole="header">Support & legal</Text>
           <View style={s.card}>
             <LinkRow icon="help-circle-outline" label="Help center" onPress={() => Linking.openURL("https://inkora.app/help")} />
             <LinkRow icon="document-text-outline" label="Terms of Service" onPress={() => Linking.openURL("https://inkora.app/terms")} />
@@ -126,7 +127,7 @@ export function AccountSettingsScreen() {
           </View>
 
           {/* Danger zone */}
-          <Text style={[s.section, { color: "#DC2626" }]}>Danger zone</Text>
+          <Text style={[s.section, { color: "#DC2626" }]} accessibilityRole="header">Danger zone</Text>
           <View style={s.card}>
             <LinkRow icon="log-out-outline" label="Sign out" onPress={signOut} />
             <LinkRow icon="trash-outline" label="Delete account" danger onPress={confirmDelete} last />
@@ -153,13 +154,13 @@ function ToggleRow({ label, hint, value, onValueChange, last }: { label: string;
         <Text style={s.rowLabel}>{label}</Text>
         <Text style={s.rowHint}>{hint}</Text>
       </View>
-      <Switch value={value} onValueChange={onValueChange} trackColor={{ true: "#E5484D" }} />
+      <Switch value={value} onValueChange={onValueChange} trackColor={{ true: "#E5484D" }} accessibilityLabel={label} />
     </View>
   );
 }
 function LinkRow({ icon, label, onPress, danger, last }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; danger?: boolean; last?: boolean }) {
   return (
-    <Pressable style={[s.rowFlex, !last && s.rowBorder]} onPress={onPress}>
+    <Pressable style={[s.rowFlex, !last && s.rowBorder]} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
       <Ionicons name={icon} size={20} color={danger ? "#DC2626" : "#52525B"} />
       <Text style={[s.linkLabel, danger && { color: "#DC2626" }]}>{label}</Text>
       {!danger && <Ionicons name="chevron-forward" size={16} color="#D4D4D8" />}

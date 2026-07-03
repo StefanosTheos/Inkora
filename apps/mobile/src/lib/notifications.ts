@@ -3,6 +3,7 @@
 import type { AppointmentView } from "@inkora/domain";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+
 import { supabase } from "./supabase";
 
 // Foreground presentation: show the banner even while the app is open.

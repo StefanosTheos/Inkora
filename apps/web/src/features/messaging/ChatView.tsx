@@ -2,6 +2,7 @@
 import { getChatSignedUrl, publicStorageUrl, uploadChatFile, useAuth, useChat, useConversations } from "@inkora/data-access";
 import { type Message, messageKind } from "@inkora/domain";
 import { useEffect, useRef, useState } from "react";
+
 import { env } from "../../lib/env";
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 
@@ -31,15 +32,15 @@ export function ChatView({ conversationId }: { conversationId: string }) {
   const onChange = (t: string) => {
     setText(t);
     const now = Date.now();
-    if (now - lastTyping.current > 1500) { chat.sendTyping(); lastTyping.current = now; }
+    if (now - lastTyping.current > 1500) { void chat.sendTyping(); lastTyping.current = now; }
   };
-  const onSend = () => { if (text.trim()) { chat.sendText(text.trim()); setText(""); } };
+  const onSend = () => { if (text.trim()) { void chat.sendText(text.trim()); setText(""); } };
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const ext = file.type.includes("png") ? "png" : "jpg";
     const path = await uploadChatFile(client, conversationId, file, file.type, ext);
-    chat.sendImage(path);
+    void chat.sendImage(path);
     e.target.value = "";
   }
 
@@ -60,8 +61,8 @@ export function ChatView({ conversationId }: { conversationId: string }) {
 
       <div className="flex items-center gap-2 border-t p-3">
         <label className="cursor-pointer text-zinc-500">📎<input type="file" accept="image/*" className="hidden" onChange={onFile} /></label>
-        <button className="text-zinc-500" onClick={() => { chat.sendQuote({ description: text.trim() || undefined }); setText(""); }}>💬</button>
-        <button className="text-zinc-500" onClick={() => { chat.sendConsultation({ note: text.trim() || undefined }); setText(""); }}>📅</button>
+        <button className="text-zinc-500" onClick={() => { void chat.sendQuote({ description: text.trim() || undefined }); setText(""); }}>💬</button>
+        <button className="text-zinc-500" onClick={() => { void chat.sendConsultation({ note: text.trim() || undefined }); setText(""); }}>📅</button>
         <input
           className="flex-1 rounded-full bg-zinc-100 px-4 py-2"
           placeholder="Message"

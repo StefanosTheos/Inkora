@@ -2,6 +2,7 @@
 import { useMyRequests } from "@inkora/data-access";
 import { type AppointmentRequestView, REQUEST_STATUS_LABEL } from "@inkora/domain";
 import Link from "next/link";
+
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 
 export function ArtistRequestsList() {

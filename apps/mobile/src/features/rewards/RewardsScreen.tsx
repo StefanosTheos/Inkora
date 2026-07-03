@@ -14,6 +14,7 @@ import {
   ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useToast } from "../../components/Toast";
 import { supabase } from "../../lib/supabase";
 
@@ -42,19 +43,21 @@ export function RewardsScreen() {
       { text: "Cancel", style: "cancel" },
       {
         text: "Redeem",
-        onPress: async () => {
-          try {
-            const code = await redeemVoucher(supabase, v.id, `${v.id}-${Date.now()}`);
-            await Promise.all([
-              qc.invalidateQueries({ queryKey: rewardKeys.account }),
-              qc.invalidateQueries({ queryKey: rewardKeys.redemptions }),
-              qc.invalidateQueries({ queryKey: rewardKeys.history }),
-              qc.invalidateQueries({ queryKey: rewardKeys.vouchers }),
-            ]);
-            toast.show(`Redeemed! Code ${code} — see Your rewards`);
-          } catch (e) {
-            toast.show((e as Error).message, "error");
-          }
+        onPress: () => {
+          void (async () => {
+            try {
+              const code = await redeemVoucher(supabase, v.id, `${v.id}-${Date.now()}`);
+              await Promise.all([
+                qc.invalidateQueries({ queryKey: rewardKeys.account }),
+                qc.invalidateQueries({ queryKey: rewardKeys.redemptions }),
+                qc.invalidateQueries({ queryKey: rewardKeys.history }),
+                qc.invalidateQueries({ queryKey: rewardKeys.vouchers }),
+              ]);
+              toast.show(`Redeemed! Code ${code} — see Your rewards`);
+            } catch (e) {
+              toast.show((e as Error).message, "error");
+            }
+          })();
         },
       },
     ]);
@@ -66,12 +69,12 @@ export function RewardsScreen() {
     <SafeAreaView style={s.safe} edges={["top"]}>
       <View style={s.topHeader}>
         <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
-        <Text style={s.topTitle}>Rewards</Text>
+        <Text style={s.topTitle} accessibilityRole="header">Rewards</Text>
         <View style={{ width: 26 }} />
       </View>
       <ScrollView contentContainerStyle={s.body}>
         {/* Balance hero */}
-        <View style={s.hero}>
+        <View style={s.hero} accessible accessibilityLabel={`Your points: ${balance.toLocaleString()}. ${TIER_LABEL[prog.current]} tier.`}>
           <Text style={s.heroLabel}>Your points</Text>
           <Text style={s.heroBalance}>{balance.toLocaleString()}</Text>
           <View style={[s.tierBadge, { backgroundColor: TIER_COLOR[prog.current] }]}>
@@ -90,7 +93,7 @@ export function RewardsScreen() {
         <ProfileCompletionCard data={completion.data} onPressItem={() => router.push("/profile/settings")} />
 
         {/* Vouchers catalog */}
-        <Text style={s.sectionTitle}>Redeem points</Text>
+        <Text style={s.sectionTitle} accessibilityRole="header">Redeem points</Text>
         {vouchers.isLoading ? <ActivityIndicator /> : (vouchers.data ?? []).map((v) => (
           <VoucherCard key={v.id} voucher={v} balance={balance} onRedeem={() => onRedeem(v)} />
         ))}
@@ -98,13 +101,13 @@ export function RewardsScreen() {
         {/* My redemptions */}
         {(redemptions.data ?? []).length > 0 && (
           <>
-            <Text style={s.sectionTitle}>Your rewards</Text>
+            <Text style={s.sectionTitle} accessibilityRole="header">Your rewards</Text>
             {(redemptions.data ?? []).map((r) => <RedemptionRow key={r.id} r={r} />)}
           </>
         )}
 
         {/* Referrals */}
-        <Text style={s.sectionTitle}>Invite friends</Text>
+        <Text style={s.sectionTitle} accessibilityRole="header">Invite friends</Text>
         <ReferralCard
           code={referral.data?.code ?? "…"}
           invited={referral.data?.invitedCount ?? 0}
@@ -116,7 +119,7 @@ export function RewardsScreen() {
         />
 
         {/* History */}
-        <Text style={s.sectionTitle}>Activity</Text>
+        <Text style={s.sectionTitle} accessibilityRole="header">Activity</Text>
         {history.isLoading ? <ActivityIndicator /> : (history.data ?? []).length === 0 ? (
           <Text style={s.muted}>No activity yet.</Text>
         ) : (history.data ?? []).map((t) => <HistoryRow key={t.id} t={t} />)}
@@ -139,7 +142,7 @@ function ProfileCompletionCard({ data, onPressItem }: { data?: ProfileCompletion
       </View>
       <View style={s.progressTrackDark}><View style={[s.progressFillDark, { width: `${data.pct}%` }]} /></View>
       {items.filter((k) => !data[k]).map((k) => (
-        <Pressable key={k} style={s.checkRow} onPress={onPressItem}>
+        <Pressable key={k} style={s.checkRow} onPress={onPressItem} accessibilityRole="button" accessibilityLabel={`Complete: ${PROFILE_COMPLETION_LABELS[k]}`}>
           <Ionicons name="ellipse-outline" size={20} color="#A1A1AA" />
           <Text style={s.checkText}>{PROFILE_COMPLETION_LABELS[k]}</Text>
           <Ionicons name="chevron-forward" size={16} color="#D4D4D8" />
@@ -159,7 +162,14 @@ function VoucherCard({ voucher, balance, onRedeem }: { voucher: Voucher; balance
         {voucher.description ? <Text style={s.voucherDesc}>{voucher.description}</Text> : null}
         <Text style={s.voucherCost}>{voucher.costPoints.toLocaleString()} pts</Text>
       </View>
-      <Pressable style={[s.redeemBtn, (!affordable || soldOut) && s.redeemBtnOff]} disabled={!affordable || soldOut} onPress={onRedeem}>
+      <Pressable
+        style={[s.redeemBtn, (!affordable || soldOut) && s.redeemBtnOff]}
+        disabled={!affordable || soldOut}
+        onPress={onRedeem}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !affordable || soldOut }}
+        accessibilityLabel={soldOut ? `${voucher.title}, sold out` : affordable ? `Redeem ${voucher.title} for ${voucher.costPoints} points` : `${voucher.title}, locked, need more points`}
+      >
         <Text style={[s.redeemText, (!affordable || soldOut) && s.redeemTextOff]}>{soldOut ? "Sold out" : affordable ? "Redeem" : "Locked"}</Text>
       </Pressable>
     </View>
@@ -207,14 +217,14 @@ function ReferralCard({ code, invited, earned, onRedeemed }: { code: string; inv
       <Text style={s.cardTitle}>Your referral code</Text>
       <View style={s.codeRow}>
         <Text style={s.code}>{code}</Text>
-        <Pressable style={s.shareBtn} onPress={share}><Ionicons name="share-social" size={16} color="#fff" /><Text style={s.shareText}>Share</Text></Pressable>
+        <Pressable style={s.shareBtn} onPress={share} accessibilityRole="button" accessibilityLabel="Share your referral code"><Ionicons name="share-social" size={16} color="#fff" /><Text style={s.shareText}>Share</Text></Pressable>
       </View>
       <Text style={s.muted}>{invited} joined · {earned.toLocaleString()} pts earned</Text>
       <View style={s.divider} />
       <Text style={s.smallLabel}>Have a friend’s code?</Text>
       <View style={s.codeRow}>
-        <TextInput style={s.codeInput} placeholder="ENTER CODE" autoCapitalize="characters" value={entry} onChangeText={setEntry} />
-        <Pressable style={[s.applyBtn, busy && s.redeemBtnOff]} disabled={busy} onPress={redeem}><Text style={s.applyText}>Apply</Text></Pressable>
+        <TextInput style={s.codeInput} placeholder="ENTER CODE" autoCapitalize="characters" value={entry} onChangeText={setEntry} accessibilityLabel="Friend's referral code" />
+        <Pressable style={[s.applyBtn, busy && s.redeemBtnOff]} disabled={busy} onPress={redeem} accessibilityRole="button" accessibilityState={{ disabled: busy }} accessibilityLabel="Apply referral code"><Text style={s.applyText}>Apply</Text></Pressable>
       </View>
     </View>
   );

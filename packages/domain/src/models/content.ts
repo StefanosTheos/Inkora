@@ -1,7 +1,7 @@
+import type { FavoriteTarget, ModerationStatus } from "../enums";
 import type {
   ArtistId, BoardId, IdeaId, PortfolioImageId, ProfileId, SavedDesignId, StyleId,
 } from "../ids";
-import type { FavoriteTarget, ModerationStatus } from "../enums";
 
 export interface TattooStyle {
   id: StyleId;

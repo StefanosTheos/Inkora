@@ -9,6 +9,7 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
@@ -94,7 +95,7 @@ export function EditProfileScreen() {
     <SafeAreaView style={s.safe} edges={["top"]}>
       <View style={s.header}>
         <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
-        <Text style={s.headerTitle}>Edit profile</Text>
+        <Text style={s.headerTitle} accessibilityRole="header">Edit profile</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -105,35 +106,42 @@ export function EditProfileScreen() {
           <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
             {/* Avatar */}
             <View style={s.avatarWrap}>
-              <Pressable style={s.avatar} onPress={pickAvatar} disabled={uploadingAvatar}>
+              <Pressable
+                style={s.avatar}
+                onPress={pickAvatar}
+                disabled={uploadingAvatar}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: uploadingAvatar }}
+                accessibilityLabel={avatarUrl ? "Change profile photo" : "Add profile photo"}
+              >
                 {uploadingAvatar ? (
                   <ActivityIndicator color="#fff" />
                 ) : avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} style={s.avatarImg} contentFit="cover" />
+                  <Image source={{ uri: avatarUrl }} style={s.avatarImg} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" />
                 ) : (
                   <Text style={s.avatarInitial}>{(displayName || "?").charAt(0).toUpperCase()}</Text>
                 )}
                 <View style={s.camBadge}><Ionicons name="camera" size={15} color="#fff" /></View>
               </Pressable>
-              <Pressable onPress={pickAvatar} disabled={uploadingAvatar}>
+              <Pressable onPress={pickAvatar} disabled={uploadingAvatar} accessibilityRole="button" accessibilityLabel={avatarUrl ? "Change photo" : "Add profile pic"}>
                 <Text style={s.avatarAction}>{avatarUrl ? "Change photo" : "Add profile pic"}</Text>
               </Pressable>
             </View>
 
             <Field label="Display name">
-              <TextInput style={s.input} value={displayName} onChangeText={setDisplayName} placeholder="Your name" />
+              <TextInput style={s.input} value={displayName} onChangeText={setDisplayName} placeholder="Your name" accessibilityLabel="Display name" />
             </Field>
             <Field label="Username" hint="Lowercase letters, numbers, underscores">
-              <TextInput style={s.input} value={username} autoCapitalize="none" onChangeText={(t) => setUsername(t.toLowerCase())} placeholder="username" />
+              <TextInput style={s.input} value={username} autoCapitalize="none" onChangeText={(t) => setUsername(t.toLowerCase())} placeholder="username" accessibilityLabel="Username" />
             </Field>
             <Field label="City">
-              <TextInput style={s.input} value={city} onChangeText={setCity} placeholder="e.g. Athens" />
+              <TextInput style={s.input} value={city} onChangeText={setCity} placeholder="e.g. Athens" accessibilityLabel="City" />
             </Field>
             <Field label="Bio">
-              <TextInput style={[s.input, s.multiline]} value={bio} onChangeText={setBio} placeholder="A little about you" multiline />
+              <TextInput style={[s.input, s.multiline]} value={bio} onChangeText={setBio} placeholder="A little about you" multiline accessibilityLabel="Bio" />
             </Field>
 
-            <Pressable style={[s.saveBtn, saving && s.disabled]} disabled={saving} onPress={save}>
+            <Pressable style={[s.saveBtn, saving && s.disabled]} disabled={saving} onPress={save} accessibilityRole="button" accessibilityState={{ disabled: saving }} accessibilityLabel="Save changes">
               <Text style={s.saveText}>{saving ? "Saving…" : "Save changes"}</Text>
             </Pressable>
           </ScrollView>

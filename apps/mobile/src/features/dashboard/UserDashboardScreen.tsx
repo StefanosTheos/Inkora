@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, StatusChip } from "../booking/components/ui";
@@ -46,8 +47,8 @@ export function UserDashboardScreen() {
       <ScrollView contentContainerStyle={s.body}>
         {/* Header */}
         <View style={s.topbar}>
-          <Text style={s.topTitle}>You</Text>
-          <Pressable hitSlop={10} onPress={() => router.push("/profile/account")}>
+          <Text style={s.topTitle} accessibilityRole="header">You</Text>
+          <Pressable hitSlop={10} onPress={() => router.push("/profile/account")} accessibilityRole="button" accessibilityLabel="Account settings">
             <Ionicons name="settings-outline" size={24} color="#18181B" />
           </Pressable>
         </View>
@@ -59,13 +60,18 @@ export function UserDashboardScreen() {
             <Text style={s.sub}>{[p?.username ? `@${p.username}` : null, p?.city].filter(Boolean).join(" · ") || "Tap edit to complete your profile"}</Text>
             <Text style={s.since}>Member since {monthYear(p?.memberSince)}</Text>
           </View>
-          <Pressable style={s.editBtn} onPress={() => router.push("/profile/settings")}>
+          <Pressable style={s.editBtn} onPress={() => router.push("/profile/settings")} accessibilityRole="button" accessibilityLabel="Edit profile">
             <Text style={s.editText}>Edit</Text>
           </Pressable>
         </View>
 
         {/* Rewards */}
-        <Pressable style={s.rewardCard} onPress={() => router.push("/rewards")}>
+        <Pressable
+          style={s.rewardCard}
+          onPress={() => router.push("/rewards")}
+          accessibilityRole="button"
+          accessibilityLabel={`Rewards. ${(account?.balance ?? 0).toLocaleString()} points, ${TIER_LABEL[prog.current]} tier. Tap for details`}
+        >
           <View style={{ flex: 1 }}>
             <Text style={s.rewardLabel}>Rewards</Text>
             <Text style={s.rewardBalance}>{(account?.balance ?? 0).toLocaleString()} pts</Text>
@@ -91,7 +97,13 @@ export function UserDashboardScreen() {
           <Empty icon="calendar-outline" text="No upcoming appointments." />
         ) : (
           upcoming.map((a) => (
-            <Pressable key={a.id} style={s.apptRow} onPress={() => router.push(`/booking/${a.id}`)}>
+            <Pressable
+              key={a.id}
+              style={s.apptRow}
+              onPress={() => router.push(`/booking/${a.id}`)}
+              accessibilityRole="button"
+              accessibilityLabel={`Appointment with ${a.counterparty.name}, ${fmtDateTime(a.scheduledStart)}, ${APPOINTMENT_STATUS_LABEL[a.status]}`}
+            >
               <Avatar path={a.counterparty.avatarPath} name={a.counterparty.name} size={44} />
               <View style={{ flex: 1 }}>
                 <Text style={s.apptName}>{a.counterparty.name}</Text>
@@ -131,7 +143,7 @@ export function UserDashboardScreen() {
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.hRow}>
             {(savedArtists.data ?? []).map((a) => (
-              <Pressable key={a.id} style={s.savedArtist} onPress={() => router.push(`/artist/${a.id}`)}>
+              <Pressable key={a.id} style={s.savedArtist} onPress={() => router.push(`/artist/${a.id}`)} accessibilityRole="button" accessibilityLabel={`View ${a.displayName}'s profile`}>
                 <Avatar path={a.avatarPath} name={a.displayName} size={64} />
                 <Text style={s.savedArtistName} numberOfLines={1}>{a.displayName}</Text>
                 <Text style={s.savedArtistMeta} numberOfLines={1}>{a.ratingAvg > 0 ? `★ ${a.ratingAvg.toFixed(1)}` : "New"}</Text>
@@ -147,8 +159,13 @@ export function UserDashboardScreen() {
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.hRow}>
             {(savedDesigns.data ?? []).map((d) => (
-              <Pressable key={d.id} onPress={() => router.push({ pathname: "/image-viewer", params: { path: d.imagePath, title: d.title ?? "" } })}>
-                <Image source={{ uri: img(d.imagePath) }} style={s.designThumb} contentFit="cover" />
+              <Pressable
+                key={d.id}
+                onPress={() => router.push({ pathname: "/image-viewer", params: { path: d.imagePath, title: d.title ?? "" } })}
+                accessibilityRole="imagebutton"
+                accessibilityLabel={d.title ? `View design: ${d.title}` : "View saved design"}
+              >
+                <Image source={{ uri: img(d.imagePath) }} style={s.designThumb} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" />
               </Pressable>
             ))}
           </ScrollView>
@@ -171,7 +188,7 @@ export function UserDashboardScreen() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <View style={s.statTile}>
+    <View style={s.statTile} accessible accessibilityLabel={`${value} ${label}`}>
       <Text style={s.statValue}>{value}</Text>
       <Text style={s.statLabel}>{label}</Text>
     </View>
@@ -180,8 +197,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 function SectionHeader({ title, onSeeAll }: { title: string; onSeeAll?: () => void }) {
   return (
     <View style={s.sectionHead}>
-      <Text style={s.sectionTitle}>{title}</Text>
-      {onSeeAll ? <Pressable onPress={onSeeAll} hitSlop={8}><Text style={s.seeAll}>See all</Text></Pressable> : null}
+      <Text style={s.sectionTitle} accessibilityRole="header">{title}</Text>
+      {onSeeAll ? <Pressable onPress={onSeeAll} hitSlop={8} accessibilityRole="button" accessibilityLabel={`See all ${title}`}><Text style={s.seeAll}>See all</Text></Pressable> : null}
     </View>
   );
 }
@@ -195,7 +212,7 @@ function Empty({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: str
 }
 function SettingRow({ icon, label, onPress, danger }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; danger?: boolean }) {
   return (
-    <Pressable style={s.settingRow} onPress={onPress}>
+    <Pressable style={s.settingRow} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
       <Ionicons name={icon} size={20} color={danger ? "#DC2626" : "#52525B"} />
       <Text style={[s.settingLabel, danger && { color: "#DC2626" }]}>{label}</Text>
       {!danger && <Ionicons name="chevron-forward" size={16} color="#D4D4D8" />}

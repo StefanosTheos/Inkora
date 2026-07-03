@@ -1,5 +1,5 @@
-import type { ArtistId, ProfileId, StudioId } from "../ids";
 import type { MembershipRole, MembershipStatus } from "../enums";
+import type { ArtistId, ProfileId, StudioId } from "../ids";
 
 /** "Users" entity (profiles table). */
 export interface Profile {

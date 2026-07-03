@@ -1,6 +1,6 @@
+import type { InkoraClient } from "@inkora/data-access";
 import { type OAuthAdapter, toAppError } from "@inkora/data-access";
 import type { Result } from "@inkora/domain";
-import type { InkoraClient } from "@inkora/data-access";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";

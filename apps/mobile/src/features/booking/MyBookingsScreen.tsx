@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import { registerPushToken, scheduleAppointmentReminders } from "../../lib/notifications";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, money, StatusChip } from "./components/ui";
