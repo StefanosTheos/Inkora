@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useToast } from "../../components/Toast";
+import { getPushPermission } from "../../lib/notifications";
 import { supabase } from "../../lib/supabase";
 
 export function AccountSettingsScreen() {
@@ -20,6 +21,7 @@ export function AccountSettingsScreen() {
   const [radius, setRadius] = useState(25);
   const [push, setPush] = useState(true);
   const [emailNotif, setEmailNotif] = useState(true);
+  const [osBlocked, setOsBlocked] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -28,6 +30,7 @@ export function AccountSettingsScreen() {
       const p = (data.user?.app_metadata as { provider?: string } | undefined)?.provider;
       setProvider(p ?? "email");
     });
+    void getPushPermission().then((p) => setOsBlocked(!p.granted));
   }, []);
   useEffect(() => {
     if (settings.data && !hydrated) {
@@ -104,6 +107,12 @@ export function AccountSettingsScreen() {
           {/* Notifications */}
           <Text style={s.section}>Notifications</Text>
           <View style={s.card}>
+            {osBlocked && (
+              <Pressable style={[s.rowFlex, s.rowBorder]} onPress={() => void Linking.openSettings()}>
+                <Ionicons name="notifications-off-outline" size={20} color="#DC2626" />
+                <Text style={[s.linkLabel, { color: "#DC2626" }]}>Notifications are off — tap to enable in Settings</Text>
+              </Pressable>
+            )}
             <ToggleRow label="Push notifications" hint="Bookings, offers and messages" value={push} onValueChange={(v) => toggle("push", v)} />
             <ToggleRow label="Email notifications" hint="Summaries and important updates" value={emailNotif} onValueChange={(v) => toggle("email", v)} last />
           </View>

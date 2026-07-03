@@ -18,6 +18,12 @@ Notifications.setNotificationHandler({
 
 let permissionAsked = false;
 
+/** Current OS notification permission (for surfacing an "enable in settings" nudge). */
+export async function getPushPermission(): Promise<{ granted: boolean; canAskAgain: boolean }> {
+  const p = await Notifications.getPermissionsAsync();
+  return { granted: p.granted, canAskAgain: p.canAskAgain };
+}
+
 export async function ensureNotificationPermissions(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
   if (current.granted) return true;
@@ -33,10 +39,10 @@ export async function ensureNotificationPermissions(): Promise<boolean> {
   return req.granted;
 }
 
-/** Register the device's push token so the server can send remote pushes later. */
+/** Register the device's push token so the server can send remote pushes (FCM). */
 export async function registerPushToken(): Promise<void> {
   try {
-    if (!(await ensureNotificationPermissions())) return;
+    if (!(await ensureNotificationPermissions())) return; // denied / can't ask again
     const token = (await Notifications.getDevicePushTokenAsync()).data;
     if (!token) return;
     const { data } = await supabase.auth.getUser();
@@ -44,8 +50,8 @@ export async function registerPushToken(): Promise<void> {
     await supabase
       .from("device_tokens")
       .upsert({ profile_id: data.user.id, fcm_token: token, platform: Platform.OS as "ios" | "android" | "web" }, { onConflict: "fcm_token" });
-  } catch {
-    // best-effort — never block the UI on token registration
+  } catch (e) {
+    console.warn("[push] token registration failed:", (e as Error)?.message ?? e);
   }
 }
 

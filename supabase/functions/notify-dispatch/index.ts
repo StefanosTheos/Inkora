@@ -97,7 +97,9 @@ Deno.serve(async (req) => {
 
     const saRaw = Deno.env.get("FCM_SERVICE_ACCOUNT");
     if (!saRaw) return json({ ok: true, sent: 0, note: "FCM_SERVICE_ACCOUNT not set — push skipped" });
-    const sa = JSON.parse(saRaw) as ServiceAccount;
+    // Accept either raw JSON or base64(JSON) so the secret is easy to set.
+    const saJson = saRaw.trim().startsWith("{") ? saRaw : atob(saRaw);
+    const sa = JSON.parse(saJson) as ServiceAccount;
     const accessToken = await getAccessToken(sa);
 
     const data = Object.fromEntries(Object.entries(notif.data ?? {}).map(([k, v]) => [k, String(v)]));

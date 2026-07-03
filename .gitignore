@@ -23,6 +23,11 @@ supabase/.temp/
 ios/
 android/
 
+# firebase / push credentials (never commit)
+google-services.json
+GoogleService-Info.plist
+**/*service-account*.json
+
 # misc
 .DS_Store
 *.log
