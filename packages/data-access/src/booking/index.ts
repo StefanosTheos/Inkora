@@ -177,16 +177,17 @@ export async function listMyRequests(client: InkoraClient, role: "client" | "art
     .from("appointment_requests")
     .select(REQ_SELECT)
     .eq(col, me)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .returns<ReqRow[]>();
   if (error) throw toAppError(error);
-  return ((data ?? []) as unknown as ReqRow[]).map((r) => mapReq(r, me));
+  return (data ?? []).map((r) => mapReq(r, me));
 }
 
 export async function getBookingRequest(client: InkoraClient, id: string): Promise<AppointmentRequestView | null> {
   const me = await meId(client);
-  const { data, error } = await client.from("appointment_requests").select(REQ_SELECT).eq("id", id).maybeSingle();
+  const { data, error } = await client.from("appointment_requests").select(REQ_SELECT).eq("id", id).maybeSingle<ReqRow>();
   if (error) throw toAppError(error);
-  return data ? mapReq(data as unknown as ReqRow, me) : null;
+  return data ? mapReq(data, me) : null;
 }
 
 /** Artist marks a request declined (party update policy allows this). */
@@ -237,16 +238,17 @@ export async function listMyAppointments(client: InkoraClient): Promise<Appointm
   const { data, error } = await client
     .from("appointments")
     .select(APPT_SELECT)
-    .order("scheduled_start", { ascending: true });
+    .order("scheduled_start", { ascending: true })
+    .returns<ApptRow[]>();
   if (error) throw toAppError(error);
-  return ((data ?? []) as unknown as ApptRow[]).map((r) => mapAppt(r, me));
+  return (data ?? []).map((r) => mapAppt(r, me));
 }
 
 export async function getAppointment(client: InkoraClient, id: string): Promise<AppointmentView | null> {
   const me = await meId(client);
-  const { data, error } = await client.from("appointments").select(APPT_SELECT).eq("id", id).maybeSingle();
+  const { data, error } = await client.from("appointments").select(APPT_SELECT).eq("id", id).maybeSingle<ApptRow>();
   if (error) throw toAppError(error);
-  return data ? mapAppt(data as unknown as ApptRow, me) : null;
+  return data ? mapAppt(data, me) : null;
 }
 
 export async function cancelAppointment(client: InkoraClient, id: string, reason?: string): Promise<void> {

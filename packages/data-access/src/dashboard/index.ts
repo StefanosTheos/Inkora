@@ -116,10 +116,11 @@ export async function getSavedArtists(client: InkoraClient): Promise<SavedArtist
   const { data, error } = await client
     .from("artists")
     .select("id, headline, rating_avg, profiles!inner(display_name, avatar_path)")
-    .in("id", ids);
+    .in("id", ids)
+    .returns<{ id: string; headline: string | null; rating_avg: number; profiles: { display_name: string; avatar_path: string | null } | null }[]>();
   if (error) throw toAppError(error);
   const order = new Map(ids.map((id, i) => [id, i]));
-  return ((data ?? []) as unknown as { id: string; headline: string | null; rating_avg: number; profiles: { display_name: string; avatar_path: string | null } | null }[])
+  return (data ?? [])
     .map((a) => ({
       id: a.id as ArtistId,
       displayName: a.profiles?.display_name ?? "Artist",

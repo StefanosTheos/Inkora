@@ -51,9 +51,10 @@ export async function listConversations(client: InkoraClient): Promise<Conversat
   const { data, error } = await client
     .from("conversations")
     .select("id, type, studio_id, studios(name, logo_path), last_message_at, last_message_preview, conversation_participants(profile_id, last_read_at, profiles(display_name, avatar_path))")
-    .order("last_message_at", { ascending: false, nullsFirst: false });
+    .order("last_message_at", { ascending: false, nullsFirst: false })
+    .returns<ConvRow[]>();
   if (error) throw toAppError(error);
-  return ((data ?? []) as unknown as ConvRow[]).map((c) => {
+  return (data ?? []).map((c) => {
     const parts = c.conversation_participants ?? [];
     const mine = parts.find((p) => p.profile_id === me);
     const other = parts.find((p) => p.profile_id !== me);
@@ -80,9 +81,10 @@ export async function getMessages(client: InkoraClient, conversationId: string):
     .eq("conversation_id", conversationId)
     .is("deleted_at", null)
     .order("created_at", { ascending: true })
-    .limit(200);
+    .limit(200)
+    .returns<MsgRow[]>();
   if (error) throw toAppError(error);
-  return ((data ?? []) as unknown as MsgRow[]).map(mapMessage);
+  return (data ?? []).map(mapMessage);
 }
 
 interface SendFields {
@@ -103,9 +105,9 @@ export async function sendMessage(client: InkoraClient, conversationId: string, 
       metadata: (f.metadata ?? {}) as unknown as Json,
     })
     .select("id, conversation_id, sender_id, type, body, attachments, metadata, created_at")
-    .single();
+    .single<MsgRow>();
   if (error) throw toAppError(error);
-  return mapMessage(data as unknown as MsgRow);
+  return mapMessage(data);
 }
 
 export async function markRead(client: InkoraClient, conversationId: string): Promise<void> {

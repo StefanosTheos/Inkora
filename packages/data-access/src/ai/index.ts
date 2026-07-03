@@ -79,21 +79,21 @@ export async function createAiPreview(client: InkoraClient, input: AiPreviewInpu
       status: "queued",
     })
     .select(COLS)
-    .single();
+    .single<PreviewRow>();
   if (error) throw toAppError(error);
-  return mapPreview(data as unknown as PreviewRow);
+  return mapPreview(data);
 }
 
 export async function listAiPreviews(client: InkoraClient): Promise<AiPreview[]> {
-  const { data, error } = await client.from("ai_previews").select(COLS).order("created_at", { ascending: false }).limit(50);
+  const { data, error } = await client.from("ai_previews").select(COLS).order("created_at", { ascending: false }).limit(50).returns<PreviewRow[]>();
   if (error) throw toAppError(error);
-  return ((data ?? []) as unknown as PreviewRow[]).map(mapPreview);
+  return (data ?? []).map(mapPreview);
 }
 
 export async function getAiPreview(client: InkoraClient, id: string): Promise<AiPreview | null> {
-  const { data, error } = await client.from("ai_previews").select(COLS).eq("id", id).maybeSingle();
+  const { data, error } = await client.from("ai_previews").select(COLS).eq("id", id).maybeSingle<PreviewRow>();
   if (error) throw toAppError(error);
-  return data ? mapPreview(data as unknown as PreviewRow) : null;
+  return data ? mapPreview(data) : null;
 }
 
 export const aiKeys = {

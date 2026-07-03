@@ -1,17 +1,12 @@
 import type { AppointmentStatus, OfferStatus, RequestStatus } from "@inkora/domain";
-import { statusTone } from "@inkora/domain";
+import { formatAmount, statusTone } from "@inkora/domain";
 import { Image } from "expo-image";
 import { StyleSheet, Text, View } from "react-native";
 import { publicStorageUrl } from "@inkora/data-access";
 import { env } from "../../../lib/env";
 
-const CURRENCY_SYMBOL: Record<string, string> = { EUR: "€", USD: "$", GBP: "£" };
-
-export function money(amount: number | null | undefined, currency = "EUR"): string {
-  if (amount == null) return "—";
-  const sym = CURRENCY_SYMBOL[currency] ?? `${currency} `;
-  return `${sym}${Math.round(amount)}`;
-}
+/** App-wide currency formatter (re-exported from the domain Money helper). */
+export const money = formatAmount;
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

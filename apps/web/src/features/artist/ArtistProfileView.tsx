@@ -3,14 +3,14 @@ import {
   publicStorageUrl, useArtistAvailability, useArtistOffers, useArtistPortfolio,
   useArtistProfile, useArtistReviews,
 } from "@inkora/data-access";
-import { type Complexity, DAY_LABELS, estimatePrice } from "@inkora/domain";
+import { type Complexity, DAY_LABELS, estimatePrice, formatAmount } from "@inkora/domain";
 import Link from "next/link";
 import { useState } from "react";
 import { env } from "../../lib/env";
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 
 const img = (p?: string | null) => (p ? publicStorageUrl(env.SUPABASE_URL, p) : undefined);
-const money = (n: number, c: string) => `${c === "EUR" ? "€" : c === "USD" ? "$" : c + " "}${n}`;
+const money = formatAmount;
 type Tab = "portfolio" | "reviews" | "offers" | "availability";
 
 export function ArtistProfileView({ id }: { id: string }) {

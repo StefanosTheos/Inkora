@@ -38,9 +38,10 @@ export async function listNotifications(client: InkoraClient, limit = 50): Promi
     .from("notifications")
     .select("id, recipient_id, type, title, body, data, entity_type, entity_id, read_at, created_at")
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(limit)
+    .returns<NotifRow[]>();
   if (error) throw toAppError(error);
-  return ((data ?? []) as unknown as NotifRow[]).map(mapNotif);
+  return (data ?? []).map(mapNotif);
 }
 
 export async function markNotificationRead(client: InkoraClient, id: string): Promise<void> {

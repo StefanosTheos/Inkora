@@ -1,9 +1,7 @@
-const SYMBOL: Record<string, string> = { EUR: "€", USD: "$", GBP: "£" };
+import { formatAmount } from "@inkora/domain";
 
-export function money(amount: number | null | undefined, currency = "EUR"): string {
-  if (amount == null) return "—";
-  return `${SYMBOL[currency] ?? currency + " "}${Math.round(amount)}`;
-}
+/** App-wide currency formatter (re-exported from the domain Money helper). */
+export const money = formatAmount;
 
 export function fmtDateTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });

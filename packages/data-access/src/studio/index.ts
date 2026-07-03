@@ -40,10 +40,10 @@ export async function getStudioProfile(client: InkoraClient, slug: string): Prom
         "studio_memberships(status, artists(id, headline, rating_avg, rating_count, profiles(display_name, avatar_path), artist_styles(tattoo_styles(slug))))",
     )
     .eq("slug", slug)
-    .maybeSingle();
+    .maybeSingle<StudioRow>();
   if (error) throw toAppError(error);
   if (!data) return null;
-  const r = data as unknown as StudioRow;
+  const r = data;
   const roster = (r.studio_memberships ?? [])
     .filter((m) => m.status === "active" && m.artists)
     .map((m) => ({
@@ -109,9 +109,10 @@ export async function getStudioReviews(client: InkoraClient, studioId: string): 
     .select("id, overall_rating, title, body, created_at, profiles!reviews_author_id_fkey(display_name)")
     .eq("studio_id", studioId)
     .eq("is_published", true)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .returns<StudioReviewRow[]>();
   if (error) throw toAppError(error);
-  return ((data ?? []) as unknown as StudioReviewRow[]).map((r) => ({
+  return (data ?? []).map((r) => ({
     id: r.id as ReviewId,
     authorName: r.profiles?.display_name ?? "Anonymous",
     overallRating: r.overall_rating,

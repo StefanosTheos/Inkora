@@ -4,7 +4,7 @@ import {
 } from "@inkora/data-access";
 import {
   type ArtistOffer, type AvailabilitySlot, type Complexity, DAY_LABELS,
-  estimatePrice, type PortfolioImage, type ReviewItem,
+  estimatePrice, formatAmount, type PortfolioImage, type ReviewItem,
 } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -17,7 +17,7 @@ import { useToast } from "../../components/Toast";
 import { Chip } from "../discovery/components";
 
 const img = (p?: string | null) => (p ? publicStorageUrl(env.SUPABASE_URL, p) : undefined);
-const money = (n: number, c: string) => `${c === "EUR" ? "€" : c === "USD" ? "$" : c + " "}${n}`;
+const money = formatAmount;
 const hhmm = (t: string) => t.slice(0, 5);
 type Tab = "portfolio" | "reviews" | "offers" | "availability";
 const TABS: { key: Tab; label: string }[] = [

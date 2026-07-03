@@ -49,9 +49,10 @@ export async function fetchFeaturedArtists(client: InkoraClient, limit = 10): Pr
     .eq("is_accepting", true)
     .order("rating_avg", { ascending: false })
     .order("rating_count", { ascending: false })
-    .limit(limit);
+    .limit(limit)
+    .returns<EmbeddedArtistRow[]>();
   if (error) throw toAppError(error);
-  return ((data ?? []) as unknown as EmbeddedArtistRow[]).map(toHomeArtist);
+  return (data ?? []).map(toHomeArtist);
 }
 
 /** Trending = most-reviewed (popularity proxy). */
@@ -61,9 +62,10 @@ export async function fetchTrendingArtists(client: InkoraClient, limit = 10): Pr
     .select(ARTIST_SELECT)
     .order("rating_count", { ascending: false })
     .order("rating_avg", { ascending: false })
-    .limit(limit);
+    .limit(limit)
+    .returns<EmbeddedArtistRow[]>();
   if (error) throw toAppError(error);
-  return ((data ?? []) as unknown as EmbeddedArtistRow[]).map(toHomeArtist);
+  return (data ?? []).map(toHomeArtist);
 }
 
 /** Recommended = artists overlapping the user's onboarding style preferences; falls back to featured. */
@@ -72,8 +74,9 @@ export async function fetchRecommendedForMe(client: InkoraClient, limit = 10): P
     .from("user_style_preferences")
     .select("weight, tattoo_styles(slug)")
     .order("weight", { ascending: false })
-    .limit(5);
-  const slugs = ((prefs ?? []) as unknown as { tattoo_styles: { slug: string } | null }[])
+    .limit(5)
+    .returns<{ tattoo_styles: { slug: string } | null }[]>();
+  const slugs = (prefs ?? [])
     .map((p) => p.tattoo_styles?.slug)
     .filter((x): x is string => Boolean(x));
   if (slugs.length === 0) return fetchFeaturedArtists(client, limit);
@@ -148,10 +151,10 @@ export async function fetchIdeaFeedPage(client: InkoraClient, cursor?: string, l
     .limit(limit);
   if (cursor) q = q.lt("created_at", cursor);
 
-  const { data, error } = await q;
+  const { data, error } = await q.returns<IdeaRow[]>();
   if (error) throw toAppError(error);
 
-  const rows = (data ?? []) as unknown as IdeaRow[];
+  const rows = data ?? [];
   const items: IdeaCard[] = rows.map((r) => ({
     id: r.id as IdeaId,
     title: r.title,

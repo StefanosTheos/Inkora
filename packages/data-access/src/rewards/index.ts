@@ -64,9 +64,10 @@ export async function listMyRedemptions(client: InkoraClient): Promise<VoucherRe
   const { data, error } = await client
     .from("voucher_redemptions")
     .select("id, voucher_id, code, cost_points, status, created_at, expires_at, vouchers(title)")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .returns<RedemptionRow[]>();
   if (error) throw toAppError(error);
-  return ((data ?? []) as unknown as RedemptionRow[]).map((r) => ({
+  return (data ?? []).map((r) => ({
     id: r.id, voucherId: r.voucher_id, title: r.vouchers?.title ?? "Voucher",
     code: r.code, costPoints: r.cost_points, status: r.status,
     createdAt: r.created_at, expiresAt: r.expires_at,

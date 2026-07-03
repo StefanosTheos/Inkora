@@ -30,10 +30,10 @@ export async function getArtistProfile(client: InkoraClient, id: string): Promis
       "id, headline, years_experience, hourly_rate, min_charge, currency_code, rating_avg, rating_count, is_accepting, verified_at, instagram_handle, profiles!inner(display_name, username, avatar_path, bio, city), artist_styles(tattoo_styles(slug)), studio_memberships(status, studios(id, name, slug))",
     )
     .eq("id", id)
-    .maybeSingle();
+    .maybeSingle<ArtistRow>();
   if (error) throw toAppError(error);
   if (!data) return null;
-  const r = data as unknown as ArtistRow;
+  const r = data;
   return {
     id: r.id as ArtistId,
     displayName: r.profiles?.display_name ?? "Artist",
@@ -92,9 +92,10 @@ export async function getArtistReviews(client: InkoraClient, id: string): Promis
     .select("id, overall_rating, title, body, created_at, profiles!reviews_author_id_fkey(display_name)")
     .eq("artist_id", id)
     .eq("is_published", true)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .returns<ReviewRow[]>();
   if (error) throw toAppError(error);
-  return ((data ?? []) as unknown as ReviewRow[]).map((r) => ({
+  return (data ?? []).map((r) => ({
     id: r.id as ReviewId,
     authorName: r.profiles?.display_name ?? "Anonymous",
     overallRating: r.overall_rating,
