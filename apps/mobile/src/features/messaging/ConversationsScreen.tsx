@@ -1,5 +1,5 @@
 import { publicStorageUrl, useConversations } from "@inkora/data-access";
-import type { ConversationSummary } from "@inkora/domain";
+import { type ConversationSummary, timeAgo } from "@inkora/domain";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -9,17 +9,6 @@ import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
 
 const img = (p?: string | null) => (p ? publicStorageUrl(env.SUPABASE_URL, p) : undefined);
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "";
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "now";
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
-}
 
 export function ConversationsScreen() {
   const router = useRouter();

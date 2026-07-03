@@ -5,23 +5,10 @@ import { StyleSheet, Text, View } from "react-native";
 import { publicStorageUrl } from "@inkora/data-access";
 import { env } from "../../../lib/env";
 
-/** App-wide currency formatter (re-exported from the domain Money helper). */
+// Currency + date/time formatters (re-exported from the domain so screens have
+// one import site; the canonical implementations live in @inkora/domain).
 export const money = formatAmount;
-
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-export function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
-}
-export function fmtTime(iso: string): string {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-export function fmtDateTime(iso: string): string {
-  return `${fmtDate(iso)} · ${fmtTime(iso)}`;
-}
+export { fmtDate, fmtDateTime, fmtTime } from "@inkora/domain";
 
 const TONE_COLORS = {
   positive: { bg: "#DCFCE7", fg: "#166534" },

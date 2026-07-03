@@ -4,7 +4,7 @@ import {
   useRewards, useSavedArtists, useSavedDesigns,
 } from "@inkora/data-access";
 import {
-  APPOINTMENT_STATUS_LABEL, JOURNEY_STAGE_LABEL, JOURNEY_STAGES, journeyProgress,
+  APPOINTMENT_STATUS_LABEL, fmtMonthYear, JOURNEY_STAGE_LABEL, JOURNEY_STAGES, journeyProgress,
   TIER_COLOR, TIER_LABEL, tierProgress,
 } from "@inkora/domain";
 import { Image } from "expo-image";
@@ -17,7 +17,7 @@ import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, StatusChip } from "../booking/components/ui";
 
 const img = (p?: string | null) => (p ? publicStorageUrl(env.SUPABASE_URL, p) : undefined);
-const monthYear = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { month: "short", year: "numeric" }) : "—");
+const monthYear = (iso?: string) => (iso ? fmtMonthYear(iso) : "—");
 
 export function UserDashboardScreen() {
   const router = useRouter();

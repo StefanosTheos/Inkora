@@ -1,20 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useNotifications } from "@inkora/data-access";
-import { NOTIFICATION_ICON, type Notification, notificationHref } from "@inkora/domain";
+import { NOTIFICATION_ICON, type Notification, notificationHref, timeAgo } from "@inkora/domain";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
-
-function timeAgo(iso: string): string {
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "now";
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.floor(h / 24)}d`;
-}
 
 export function NotificationsScreen() {
   const router = useRouter();

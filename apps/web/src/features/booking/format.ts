@@ -1,11 +1,3 @@
-import { formatAmount } from "@inkora/domain";
-
-/** App-wide currency formatter (re-exported from the domain Money helper). */
-export const money = formatAmount;
-
-export function fmtDateTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-}
-export function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
-}
+// Currency + date/time formatters, re-exported from the domain so web and
+// mobile render identically from one canonical implementation.
+export { formatAmount as money, fmtDate, fmtDateTime, fmtTime } from "@inkora/domain";
