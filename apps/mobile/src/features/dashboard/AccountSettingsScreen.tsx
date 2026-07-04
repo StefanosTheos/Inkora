@@ -122,9 +122,9 @@ export function AccountSettingsScreen() {
           {/* Support & legal */}
           <Text style={s.section} accessibilityRole="header">Support & legal</Text>
           <View style={s.card}>
-            <LinkRow icon="help-circle-outline" label="Help center" onPress={() => Linking.openURL("https://inkora.app/help")} />
-            <LinkRow icon="document-text-outline" label="Terms of Service" onPress={() => Linking.openURL("https://inkora.app/terms")} />
-            <LinkRow icon="shield-checkmark-outline" label="Privacy Policy" onPress={() => Linking.openURL("https://inkora.app/privacy")} last />
+            <LinkRow icon="help-circle-outline" label="Help center" onPress={() => router.push("/legal/help")} />
+            <LinkRow icon="document-text-outline" label="Terms of Service" onPress={() => router.push("/legal/terms")} />
+            <LinkRow icon="shield-checkmark-outline" label="Privacy Policy" onPress={() => router.push("/legal/privacy")} last />
           </View>
 
           {/* Danger zone */}
