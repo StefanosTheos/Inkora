@@ -53,6 +53,7 @@ export async function listConversations(client: InkoraClient): Promise<Conversat
     .from("conversations")
     .select("id, type, studio_id, studios(name, logo_path), last_message_at, last_message_preview, conversation_participants(profile_id, last_read_at, profiles(display_name, avatar_path))")
     .order("last_message_at", { ascending: false, nullsFirst: false })
+    .limit(100)
     .returns<ConvRow[]>();
   if (error) throw toAppError(error);
   return (data ?? []).map((c) => {

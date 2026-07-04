@@ -110,7 +110,8 @@ export async function getSavedArtists(client: InkoraClient): Promise<SavedArtist
     .from("favorites")
     .select("target_id, created_at")
     .eq("target_type", "artist")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(60);
   if (favErr) throw toAppError(favErr);
   const ids = (favs ?? []).map((f) => f.target_id);
   if (ids.length === 0) return [];
@@ -143,7 +144,8 @@ export async function getSavedDesigns(client: InkoraClient): Promise<SavedDesign
     .from("favorites")
     .select("target_id, created_at")
     .eq("target_type", "idea")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(60);
   if (favErr) throw toAppError(favErr);
   const ids = (favs ?? []).map((f) => f.target_id);
   if (ids.length === 0) return [];
@@ -160,7 +162,8 @@ export async function getJourney(client: InkoraClient): Promise<JourneyEntry[]> 
   const { data, error } = await client
     .from("tattoo_journey_entries")
     .select("id, profile_id, appointment_id, artist_id, idea_id, entry_type, title, notes, image_paths, occurred_on")
-    .order("occurred_on", { ascending: true });
+    .order("occurred_on", { ascending: true })
+    .limit(200);
   if (error) throw toAppError(error);
   return (data ?? []).map((r) => ({
     id: r.id as JourneyEntryId,

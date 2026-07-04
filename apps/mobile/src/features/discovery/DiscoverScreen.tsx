@@ -1,5 +1,5 @@
 import {
-  publicStorageUrl, useArtistSearch, useDebouncedValue, useMyLocation, useStyleDeck,
+  useArtistSearch, useDebouncedValue, useMyLocation, useStyleDeck,
 } from "@inkora/data-access";
 import { activeFilterCount, type ArtistSearchParams, type ArtistSort } from "@inkora/domain";
 import { FlashList } from "@shopify/flash-list";
@@ -8,12 +8,12 @@ import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { env } from "../../lib/env";
+import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { ArtistResultRow, Chip } from "./components";
 import { FilterSheet } from "./FilterSheet";
 
-const img = (path?: string | null) => (path ? publicStorageUrl(env.SUPABASE_URL, path) : undefined);
+const img = imageUrl;
 const SORTS: { key: ArtistSort; label: string; needsLocation?: boolean }[] = [
   { key: "relevance", label: "Relevance" },
   { key: "distance", label: "Nearest", needsLocation: true },
@@ -84,7 +84,7 @@ export function DiscoverScreen() {
         estimatedItemSize={80}
         keyExtractor={(a) => a.id}
         renderItem={({ item }) => (
-          <ArtistResultRow artist={item} uri={img(item.avatarPath)} onPress={() => router.push(`/artist/${item.id}`)} />
+          <ArtistResultRow artist={item} uri={img(item.avatarPath, 72)} onPress={() => router.push(`/artist/${item.id}`)} />
         )}
         onEndReached={() => {
           if (search.hasNextPage && !search.isFetchingNextPage) void search.fetchNextPage();

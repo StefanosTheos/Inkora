@@ -1,5 +1,5 @@
 import {
-  publicStorageUrl, startDirectConversation, useArtistAvailability, useArtistOffers, useArtistPortfolio,
+  startDirectConversation, useArtistAvailability, useArtistOffers, useArtistPortfolio,
   useArtistProfile, useArtistReviews,
 } from "@inkora/data-access";
 import {
@@ -13,11 +13,11 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, Vi
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useToast } from "../../components/Toast";
-import { env } from "../../lib/env";
+import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { Chip } from "../discovery/components";
 
-const img = (p?: string | null) => (p ? publicStorageUrl(env.SUPABASE_URL, p) : undefined);
+const img = (p?: string | null, size?: number) => imageUrl(p, size);
 const money = formatAmount;
 const hhmm = (t: string) => t.slice(0, 5);
 type Tab = "portfolio" | "reviews" | "offers" | "availability";
@@ -56,7 +56,7 @@ export function ArtistProfileScreen({ id }: { id: string }) {
         {/* Header */}
         <View style={s.header}>
           <View style={s.avatar}>
-            {img(a.avatarPath) ? <Image source={{ uri: img(a.avatarPath) }} style={s.avatarImg} contentFit="cover" /> : (
+            {img(a.avatarPath, 96) ? <Image source={{ uri: img(a.avatarPath, 96) }} style={s.avatarImg} contentFit="cover" /> : (
               <Text style={s.avatarInitial}>{a.displayName.charAt(0).toUpperCase()}</Text>
             )}
           </View>
@@ -156,7 +156,7 @@ function PortfolioGrid({ images, loading }: { images: PortfolioImage[]; loading:
     <View style={s.grid}>
       {images.map((im) => (
         <View key={im.id} style={s.gridItem}>
-          <Image source={{ uri: img(im.imagePath) }} style={s.gridImg} contentFit="cover" />
+          <Image source={{ uri: img(im.imagePath, 200) }} style={s.gridImg} contentFit="cover" />
         </View>
       ))}
     </View>

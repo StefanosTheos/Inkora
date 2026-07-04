@@ -1,10 +1,9 @@
-import { publicStorageUrl } from "@inkora/data-access";
 import type { AppointmentStatus, OfferStatus, RequestStatus } from "@inkora/domain";
 import { formatAmount, statusTone } from "@inkora/domain";
 import { Image } from "expo-image";
 import { StyleSheet, Text, View } from "react-native";
 
-import { env } from "../../../lib/env";
+import { imageUrl } from "../../../lib/images";
 
 // Currency + date/time formatters (re-exported from the domain so screens have
 // one import site; the canonical implementations live in @inkora/domain).
@@ -28,7 +27,7 @@ export function StatusChip({ status, label }: { status: RequestStatus | Appointm
 }
 
 export function Avatar({ path, name, size = 44 }: { path: string | null; name: string; size?: number }) {
-  const url = path ? publicStorageUrl(env.SUPABASE_URL, path) : undefined;
+  const url = imageUrl(path, size);
   return (
     <View style={[cs.avatar, { width: size, height: size, borderRadius: size / 2 }]}>
       {url ? (

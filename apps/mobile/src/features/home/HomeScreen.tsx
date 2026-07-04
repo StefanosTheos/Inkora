@@ -1,5 +1,5 @@
 import {
-  publicStorageUrl, useFeaturedArtists, useIdeaFeed, useMyLocation, useNearbyStudios,
+  useFeaturedArtists, useIdeaFeed, useMyLocation, useNearbyStudios,
   usePromotions, useRecommendedForMe, useStyleDeck, useTrendingArtists,
 } from "@inkora/data-access";
 import type { HomeArtist, IdeaCard } from "@inkora/domain";
@@ -9,12 +9,12 @@ import { useCallback } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { env } from "../../lib/env";
+import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { ArtistCard, CategoryCard, IdeaTile, PromoCard, SearchBar, SectionHeader, StudioCard } from "./components";
 
-const img = (path?: string | null) => (path ? publicStorageUrl(env.SUPABASE_URL, path) : undefined);
+const img = imageUrl;
 
 export function HomeScreen() {
   const router = useRouter();
@@ -52,7 +52,7 @@ export function HomeScreen() {
             keyExtractor={(a) => a.id}
             contentContainerStyle={s.rowPad}
             renderItem={({ item }) => (
-              <ArtistCard artist={item} uri={img(item.avatarPath)} onPress={() => router.push(`/artist/${item.id}`)} />
+              <ArtistCard artist={item} uri={img(item.avatarPath, 72)} onPress={() => router.push(`/artist/${item.id}`)} />
             )}
           />
         )}
@@ -79,7 +79,7 @@ export function HomeScreen() {
             <PromoCard
               promo={item}
               index={index}
-              uri={img(item.imagePath)}
+              uri={img(item.imagePath, 320)}
               onPress={() => item.ctaRoute && router.push(item.ctaRoute)}
             />
           )}
@@ -96,7 +96,7 @@ export function HomeScreen() {
             keyExtractor={(c) => c.id}
             contentContainerStyle={s.rowPad}
             renderItem={({ item }) => (
-              <CategoryCard style={item} uri={img(item.imagePath)} onPress={() => router.push("/discover")} />
+              <CategoryCard style={item} uri={img(item.imagePath, 140)} onPress={() => router.push("/discover")} />
             )}
           />
         </View>
@@ -116,7 +116,7 @@ export function HomeScreen() {
             keyExtractor={(st) => st.id}
             contentContainerStyle={s.rowPad}
             renderItem={({ item }) => (
-              <StudioCard studio={item} uri={img(item.logoPath)} onPress={() => router.push(`/studio/${item.slug}`)} />
+              <StudioCard studio={item} uri={img(item.logoPath, 160)} onPress={() => router.push(`/studio/${item.slug}`)} />
             )}
           />
         </View>
@@ -134,7 +134,7 @@ export function HomeScreen() {
         estimatedItemSize={220}
         keyExtractor={(item: IdeaCard) => item.id}
         renderItem={({ item }) => (
-          <IdeaTile idea={item} uri={img(item.imagePath)} onPress={() => router.push(`/artist/${item.sourceArtistId ?? ""}`)} />
+          <IdeaTile idea={item} uri={img(item.imagePath, 180)} onPress={() => router.push(`/artist/${item.sourceArtistId ?? ""}`)} />
         )}
         ListHeaderComponent={Header}
         onEndReached={() => {

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  publicStorageUrl, useAuth, useJourney, useMyAppointments, useProfileSummary,
-  useRewards, useSavedArtists, useSavedDesigns,
+  useAuth, useJourney, useMyAppointmentCount, useProfileSummary,
+  useRewards, useSavedArtists, useSavedDesigns, useUpcomingAppointments,
 } from "@inkora/data-access";
 import {
   APPOINTMENT_STATUS_LABEL, fmtMonthYear, JOURNEY_STAGE_LABEL, JOURNEY_STAGES, journeyProgress,
@@ -9,15 +9,13 @@ import {
 } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { env } from "../../lib/env";
+import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, StatusChip } from "../booking/components/ui";
 
-const img = (p?: string | null) => (p ? publicStorageUrl(env.SUPABASE_URL, p) : undefined);
 const monthYear = (iso?: string) => (iso ? fmtMonthYear(iso) : "—");
 
 export function UserDashboardScreen() {
@@ -25,18 +23,14 @@ export function UserDashboardScreen() {
   const { ctx, signOut } = useAuth();
   const profile = useProfileSummary(supabase);
   const { account } = useRewards(supabase);
-  const appts = useMyAppointments(supabase);
+  const upcomingQ = useUpcomingAppointments(supabase, 3);
+  const apptCount = useMyAppointmentCount(supabase);
   const savedArtists = useSavedArtists(supabase);
   const savedDesigns = useSavedDesigns(supabase);
   const journey = useJourney(supabase);
 
   const p = profile.data;
-  const upcoming = useMemo(() => {
-    const now = Date.now();
-    return (appts.data ?? [])
-      .filter((a) => (a.status === "scheduled" || a.status === "rescheduled") && new Date(a.scheduledStart).getTime() >= now)
-      .slice(0, 3);
-  }, [appts.data]);
+  const upcoming = upcomingQ.data ?? [];
   const prog = tierProgress(account?.lifetimeEarned ?? 0);
   const jProg = journeyProgress(journey.data ?? []);
   const savedCount = (savedArtists.data?.length ?? 0) + (savedDesigns.data?.length ?? 0);
@@ -88,7 +82,7 @@ export function UserDashboardScreen() {
         <View style={s.stats}>
           <Stat label="Points" value={(account?.balance ?? 0).toLocaleString()} />
           <Stat label="Saved" value={String(savedCount)} />
-          <Stat label="Bookings" value={String(appts.data?.length ?? 0)} />
+          <Stat label="Bookings" value={String(apptCount.data ?? 0)} />
         </View>
 
         {/* Upcoming appointments */}
@@ -165,7 +159,7 @@ export function UserDashboardScreen() {
                 accessibilityRole="imagebutton"
                 accessibilityLabel={d.title ? `View design: ${d.title}` : "View saved design"}
               >
-                <Image source={{ uri: img(d.imagePath) }} style={s.designThumb} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" />
+                <Image source={{ uri: imageUrl(d.imagePath, 110) }} style={s.designThumb} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" />
               </Pressable>
             ))}
           </ScrollView>

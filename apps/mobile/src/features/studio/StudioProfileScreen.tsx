@@ -1,5 +1,5 @@
 import {
-  publicStorageUrl, startStudioConversation, useStudioPortfolio, useStudioProfile, useStudioReviews,
+  startStudioConversation, useStudioPortfolio, useStudioProfile, useStudioReviews,
 } from "@inkora/data-access";
 import type { PortfolioImage, ReviewItem, StudioRosterArtist } from "@inkora/domain";
 import { Image } from "expo-image";
@@ -9,10 +9,10 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, Vi
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useToast } from "../../components/Toast";
-import { env } from "../../lib/env";
+import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 
-const img = (p?: string | null) => (p ? publicStorageUrl(env.SUPABASE_URL, p) : undefined);
+const img = (p?: string | null, size?: number) => imageUrl(p, size);
 const DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 type Tab = "artists" | "portfolio" | "reviews" | "about";
 const TABS: { key: Tab; label: string }[] = [
@@ -50,7 +50,7 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
         {/* Header */}
         <View style={s.header}>
           <View style={s.logo}>
-            {img(st.logoPath) ? <Image source={{ uri: img(st.logoPath) }} style={s.logoImg} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" /> : (
+            {img(st.logoPath, 88) ? <Image source={{ uri: img(st.logoPath, 88) }} style={s.logoImg} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" /> : (
               <Text style={s.logoInitial}>{st.name.charAt(0).toUpperCase()}</Text>
             )}
           </View>
@@ -150,7 +150,7 @@ function ArtistCard({ artist, onPress }: { artist: StudioRosterArtist; onPress: 
   return (
     <Pressable style={s.artistCard} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${artist.displayName}'s profile`}>
       <View style={s.avatar}>
-        {img(artist.avatarPath) ? <Image source={{ uri: img(artist.avatarPath) }} style={s.avatarImg} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" /> : (
+        {img(artist.avatarPath, 56) ? <Image source={{ uri: img(artist.avatarPath, 56) }} style={s.avatarImg} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" /> : (
           <Text style={s.avatarInitial}>{artist.displayName.charAt(0).toUpperCase()}</Text>
         )}
       </View>
@@ -178,7 +178,7 @@ function PortfolioGrid({ images, loading }: { images: PortfolioImage[]; loading:
     <View style={s.grid}>
       {images.map((im) => (
         <View key={im.id} style={s.gridItem}>
-          <Image source={{ uri: img(im.imagePath) }} style={s.gridImg} contentFit="cover" accessibilityRole="image" accessibilityLabel="Portfolio tattoo piece" />
+          <Image source={{ uri: img(im.imagePath, 200) }} style={s.gridImg} contentFit="cover" accessibilityRole="image" accessibilityLabel="Portfolio tattoo piece" />
         </View>
       ))}
     </View>

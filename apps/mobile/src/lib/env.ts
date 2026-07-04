@@ -6,4 +6,6 @@ export const env = {
   POSTHOG_KEY: process.env.EXPO_PUBLIC_POSTHOG_KEY ?? "",
   /** Hide the Apple sign-in button until the Apple provider is configured. */
   APPLE_AUTH_ENABLED: process.env.EXPO_PUBLIC_APPLE_AUTH_ENABLED === "true",
+  /** Serve resized image variants (needs the Supabase Image Transformation add-on). Off = originals. */
+  IMAGE_TRANSFORM_ENABLED: process.env.EXPO_PUBLIC_IMAGE_TRANSFORM === "true",
 };

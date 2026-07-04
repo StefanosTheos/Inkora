@@ -240,9 +240,32 @@ export async function listMyAppointments(client: InkoraClient): Promise<Appointm
     .from("appointments")
     .select(APPT_SELECT)
     .order("scheduled_start", { ascending: true })
+    .limit(200)
     .returns<ApptRow[]>();
   if (error) throw toAppError(error);
   return (data ?? []).map((r) => mapAppt(r, me));
+}
+
+/** Dashboard view: only future scheduled/rescheduled appointments, filtered + capped server-side. */
+export async function listUpcomingAppointments(client: InkoraClient, limit = 3): Promise<AppointmentView[]> {
+  const me = await meId(client);
+  const { data, error } = await client
+    .from("appointments")
+    .select(APPT_SELECT)
+    .in("status", ["scheduled", "rescheduled"])
+    .gte("scheduled_start", new Date().toISOString())
+    .order("scheduled_start", { ascending: true })
+    .limit(limit)
+    .returns<ApptRow[]>();
+  if (error) throw toAppError(error);
+  return (data ?? []).map((r) => mapAppt(r, me));
+}
+
+/** Total appointment count for the current user (RLS-scoped) — head-only, no rows transferred. */
+export async function countMyAppointments(client: InkoraClient): Promise<number> {
+  const { count, error } = await client.from("appointments").select("id", { count: "exact", head: true });
+  if (error) throw toAppError(error);
+  return count ?? 0;
 }
 
 export async function getAppointment(client: InkoraClient, id: string): Promise<AppointmentView | null> {
@@ -297,6 +320,8 @@ export const bookingKeys = {
   artistRequests: ["requests", "artist"] as const,
   request: (id: string) => ["request", id] as const,
   appointments: ["appointments"] as const,
+  upcoming: (limit: number) => ["appointments", "upcoming", limit] as const,
+  appointmentCount: ["appointments", "count"] as const,
   appointment: (id: string) => ["appointment", id] as const,
   daySlots: (artistId: string, date: string) => ["day-slots", artistId, date] as const,
 };
@@ -309,6 +334,12 @@ export function useBookingRequest(client: InkoraClient, id: string) {
 }
 export function useMyAppointments(client: InkoraClient) {
   return useQuery({ queryKey: bookingKeys.appointments, queryFn: () => listMyAppointments(client) });
+}
+export function useUpcomingAppointments(client: InkoraClient, limit = 3) {
+  return useQuery({ queryKey: bookingKeys.upcoming(limit), queryFn: () => listUpcomingAppointments(client, limit) });
+}
+export function useMyAppointmentCount(client: InkoraClient) {
+  return useQuery({ queryKey: bookingKeys.appointmentCount, queryFn: () => countMyAppointments(client) });
 }
 export function useAppointment(client: InkoraClient, id: string) {
   return useQuery({ queryKey: bookingKeys.appointment(id), queryFn: () => getAppointment(client, id), enabled: !!id });

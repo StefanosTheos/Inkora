@@ -24,9 +24,23 @@ export interface ImageTransform {
 /**
  * Build a public object URL for a `public`-bucket path (e.g. style snapshots).
  * `path` includes the bucket as its first segment, e.g. "styles/fineline.jpg".
+ *
+ * Pass `transform` to request a resized/re-encoded variant via Supabase's image
+ * render endpoint — a big bandwidth win for avatars/thumbnails. Omit it and the
+ * URL is byte-for-byte the original object URL (zero behaviour change).
+ * NOTE: the render endpoint requires the Supabase Image Transformation add-on;
+ * callers gate it behind a flag so unsupported projects keep serving originals.
  */
-export function publicStorageUrl(supabaseUrl: string, path: string): string {
-  return `${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/public/${path}`;
+export function publicStorageUrl(supabaseUrl: string, path: string, transform?: ImageTransform): string {
+  const base = supabaseUrl.replace(/\/$/, "");
+  if (!transform) return `${base}/storage/v1/object/public/${path}`;
+  const q = new URLSearchParams();
+  if (transform.width) q.set("width", String(transform.width));
+  if (transform.height) q.set("height", String(transform.height));
+  if (transform.quality) q.set("quality", String(transform.quality));
+  if (transform.resize) q.set("resize", transform.resize);
+  const qs = q.toString();
+  return `${base}/storage/v1/render/image/public/${path}${qs ? `?${qs}` : ""}`;
 }
 
 export interface StorageService {
