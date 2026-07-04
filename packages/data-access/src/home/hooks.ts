@@ -1,5 +1,5 @@
 import type { IdeaCard,Page } from "@inkora/domain";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
 import {
@@ -37,5 +37,9 @@ export function useIdeaFeed(client: InkoraClient, filters: IdeaFeedFilters = {})
     queryFn: ({ pageParam }: { pageParam?: string }) => fetchIdeaFeedPage(client, pageParam, filters),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last: Page<IdeaCard>) => last.nextCursor ?? undefined,
+    // Keep the current ideas visible while a new filter loads so the list height
+    // doesn't collapse — otherwise scroll-to-Explore lands short against the
+    // transient empty/loading state.
+    placeholderData: keepPreviousData,
   });
 }

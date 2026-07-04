@@ -5,7 +5,7 @@ import {
 import type { HomeArtist, IdeaCard } from "@inkora/domain";
 import { MasonryFlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -13,6 +13,7 @@ import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { Chip } from "../discovery/components";
 import { NotificationBell } from "../notifications/NotificationBell";
+import { CategoryPickerModal } from "./CategoryPickerModal";
 import { ArtistCard, CategoryCard, IdeaTile, PromoCard, SearchBar, SectionHeader, StudioCard } from "./components";
 
 const img = imageUrl;
@@ -36,6 +37,20 @@ export function HomeScreen() {
   const filtersActive = debouncedQ.length > 0 || exploreStyles.length > 0;
   const toggleExploreStyle = (slug: string) =>
     setExploreStyles((prev) => (prev.includes(slug) ? prev.filter((x) => x !== slug) : [...prev, slug]));
+
+  // Scroll-to-Explore: capture the section's offset via onLayout, then jump there.
+  const listRef = useRef<React.ElementRef<typeof MasonryFlashList>>(null);
+  const [exploreY, setExploreY] = useState(0);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const scrollToExplore = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: Math.max(exploreY - 8, 0), animated: true });
+  }, [exploreY]);
+  const applyCategories = useCallback((slugs: string[]) => {
+    setExploreStyles(slugs);
+    setPickerOpen(false);
+    // Let the modal begin closing + keepPreviousData hold the list height before scrolling.
+    setTimeout(scrollToExplore, 120);
+  }, [scrollToExplore]);
 
   const ideas = feed.data?.pages.flatMap((p) => p.items) ?? [];
 
@@ -98,7 +113,7 @@ export function HomeScreen() {
 
       {(categories.data ?? []).length > 0 && (
         <View>
-          <SectionHeader title="Categories" onSeeAll={() => router.push("/discover")} />
+          <SectionHeader title="Categories" onSeeAll={() => setPickerOpen(true)} />
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -106,7 +121,7 @@ export function HomeScreen() {
             keyExtractor={(c) => c.id}
             contentContainerStyle={s.rowPad}
             renderItem={({ item }) => (
-              <CategoryCard style={item} uri={img(item.imagePath, 140)} onPress={() => router.push("/discover")} />
+              <CategoryCard style={item} uri={img(item.imagePath, 140)} onPress={() => applyCategories([item.slug])} />
             )}
           />
         </View>
@@ -132,6 +147,7 @@ export function HomeScreen() {
         </View>
       )}
 
+      <View onLayout={(e) => setExploreY(e.nativeEvent.layout.y)}>
       <SectionHeader title="Explore" />
       <View style={s.exploreSearch}>
         <Text style={s.exploreSearchIcon}>⌕</Text>
@@ -160,12 +176,14 @@ export function HomeScreen() {
           <Chip key={st.id} label={st.name} active={exploreStyles.includes(st.slug)} onPress={() => toggleExploreStyle(st.slug)} />
         ))}
       </ScrollView>
+      </View>
     </View>
   );
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <MasonryFlashList
+        ref={listRef}
         data={ideas}
         numColumns={2}
         estimatedItemSize={220}
@@ -190,6 +208,14 @@ export function HomeScreen() {
         }
         ListFooterComponent={feed.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
         contentContainerStyle={{ paddingHorizontal: 4, paddingBottom: 24 }}
+      />
+
+      <CategoryPickerModal
+        visible={pickerOpen}
+        categories={categories.data ?? []}
+        initialSelected={exploreStyles}
+        onClose={() => setPickerOpen(false)}
+        onApply={applyCategories}
       />
     </SafeAreaView>
   );
