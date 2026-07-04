@@ -5,7 +5,7 @@ import {
 } from "@inkora/data-access";
 import {
   type ArtistOffer, type AvailabilitySlot, type Complexity, DAY_LABELS,
-  estimatePrice, formatAmount, type PortfolioImage, type ReviewItem,
+  estimatePrice, formatAmount, formatStyleSlug, type PortfolioImage, type ReviewItem,
 } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -92,7 +92,7 @@ export function ArtistProfileScreen({ id }: { id: string }) {
         {/* Tags */}
         {a.styles.length > 0 && (
           <View style={s.tags}>
-            {a.styles.map((sl) => <View key={sl} style={s.tag}><Text style={s.tagText}>{sl}</Text></View>)}
+            {a.styles.map((sl) => <View key={sl} style={s.tag}><Text style={s.tagText}>{formatStyleSlug(sl)}</Text></View>)}
           </View>
         )}
 

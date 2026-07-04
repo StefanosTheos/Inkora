@@ -11,6 +11,12 @@ export interface TattooStyle {
   imagePath: string | null;
 }
 
+/** Display a style slug on profile tags — underscores become spaces, casing is
+ *  left as-is (e.g. "neo_traditional" → "neo traditional", "fineline" unchanged). */
+export function formatStyleSlug(slug: string): string {
+  return slug.replace(/_/g, " ");
+}
+
 /** Inspiration feed item ("pin"). */
 export interface IdeaCard {
   id: IdeaId;

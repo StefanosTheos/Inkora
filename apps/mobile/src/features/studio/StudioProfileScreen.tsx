@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   startStudioConversation, useStudioPortfolio, useStudioProfile, useStudioReviews,
 } from "@inkora/data-access";
-import type { PortfolioImage, ReviewItem, StudioRosterArtist } from "@inkora/domain";
+import { formatStyleSlug, type PortfolioImage, type ReviewItem, type StudioRosterArtist } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
@@ -71,7 +71,7 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
         {/* Specialties */}
         {styles.length > 0 && (
           <View style={s.tags}>
-            {styles.map((sl) => <View key={sl} style={s.tag}><Text style={s.tagText}>{sl}</Text></View>)}
+            {styles.map((sl) => <View key={sl} style={s.tag}><Text style={s.tagText}>{formatStyleSlug(sl)}</Text></View>)}
           </View>
         )}
 
@@ -168,7 +168,7 @@ function ArtistCard({ artist, onPress }: { artist: StudioRosterArtist; onPress: 
         </Text>
         {(artist.styles ?? []).length > 0 && (
           <View style={s.miniTags}>
-            {(artist.styles ?? []).slice(0, 3).map((sl) => <View key={sl} style={s.miniTag}><Text style={s.miniTagText}>{sl}</Text></View>)}
+            {(artist.styles ?? []).slice(0, 3).map((sl) => <View key={sl} style={s.miniTag}><Text style={s.miniTagText}>{formatStyleSlug(sl)}</Text></View>)}
           </View>
         )}
       </View>
