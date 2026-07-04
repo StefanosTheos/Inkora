@@ -1,16 +1,17 @@
 import {
-  useFeaturedArtists, useIdeaFeed, useMyLocation, useNearbyStudios,
+  useDebouncedValue, useFeaturedArtists, useIdeaFeed, useMyLocation, useNearbyStudios,
   usePromotions, useRecommendedForMe, useStyleDeck, useTrendingArtists,
 } from "@inkora/data-access";
 import type { HomeArtist, IdeaCard } from "@inkora/domain";
 import { MasonryFlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { useCallback } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
+import { Chip } from "../discovery/components";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { ArtistCard, CategoryCard, IdeaTile, PromoCard, SearchBar, SectionHeader, StudioCard } from "./components";
 
@@ -25,7 +26,16 @@ export function HomeScreen() {
   const trending = useTrendingArtists(supabase);
   const location = useMyLocation(supabase);
   const nearby = useNearbyStudios(supabase, location.data);
-  const feed = useIdeaFeed(supabase);
+
+  // Explore filters (keyword + styles) applied to the inspiration feed.
+  const [exploreQ, setExploreQ] = useState("");
+  const [exploreStyles, setExploreStyles] = useState<string[]>([]);
+  const debouncedQ = useDebouncedValue(exploreQ.trim(), 300);
+  const feedFilters = useMemo(() => ({ q: debouncedQ, styleSlugs: exploreStyles }), [debouncedQ, exploreStyles]);
+  const feed = useIdeaFeed(supabase, feedFilters);
+  const filtersActive = debouncedQ.length > 0 || exploreStyles.length > 0;
+  const toggleExploreStyle = (slug: string) =>
+    setExploreStyles((prev) => (prev.includes(slug) ? prev.filter((x) => x !== slug) : [...prev, slug]));
 
   const ideas = feed.data?.pages.flatMap((p) => p.items) ?? [];
 
@@ -123,6 +133,33 @@ export function HomeScreen() {
       )}
 
       <SectionHeader title="Explore" />
+      <View style={s.exploreSearch}>
+        <Text style={s.exploreSearchIcon}>⌕</Text>
+        <TextInput
+          style={s.exploreSearchInput}
+          placeholder="Search ideas (e.g. rose, mandala)"
+          value={exploreQ}
+          onChangeText={setExploreQ}
+          autoCapitalize="none"
+          returnKeyType="search"
+          accessibilityLabel="Search tattoo ideas"
+        />
+        {exploreQ.length > 0 && (
+          <Pressable onPress={() => setExploreQ("")} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear idea search">
+            <Text style={s.exploreClear}>✕</Text>
+          </Pressable>
+        )}
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.exploreChips}
+        keyboardShouldPersistTaps="handled"
+      >
+        {(categories.data ?? []).map((st) => (
+          <Chip key={st.id} label={st.name} active={exploreStyles.includes(st.slug)} onPress={() => toggleExploreStyle(st.slug)} />
+        ))}
+      </ScrollView>
     </View>
   );
 
@@ -146,7 +183,9 @@ export function HomeScreen() {
           feed.isLoading ? (
             <ActivityIndicator style={{ marginTop: 24 }} />
           ) : (
-            <Text style={s.empty}>No inspiration yet — check back soon.</Text>
+            <Text style={s.empty}>
+              {filtersActive ? "No ideas match these filters. Try clearing them." : "No inspiration yet — check back soon."}
+            </Text>
           )
         }
         ListFooterComponent={feed.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
@@ -163,4 +202,9 @@ const s = StyleSheet.create({
   rowPad: { paddingRight: 12 },
   rowLoader: { alignSelf: "flex-start", marginLeft: 24, marginVertical: 12 },
   empty: { textAlign: "center", color: "#A1A1AA", marginTop: 24, paddingHorizontal: 24 },
+  exploreSearch: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginHorizontal: 12, marginBottom: 8 },
+  exploreSearchIcon: { fontSize: 18, color: "#71717A" },
+  exploreSearchInput: { flex: 1, fontSize: 15 },
+  exploreClear: { fontSize: 16, color: "#A1A1AA" },
+  exploreChips: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 8 },
 });

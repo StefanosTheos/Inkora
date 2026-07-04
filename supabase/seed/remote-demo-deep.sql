@@ -143,14 +143,33 @@ from _s s, unnest(s.members) as m(artist_id)
 on conflict (studio_id, artist_id) do nothing;
 
 -- ---------------------------------------------------------------------
--- 3) DESIGNS for every style (placeholder pics), linked to matching artists
---    4 designs per style, source artist rotates through artists of that style.
+-- 3) DESIGNS for every style (placeholder pics), linked to matching artists.
+--    4 UNIQUELY-NAMED designs per style so Explore keyword search is useful;
+--    source artist rotates through the artists of that style. Ids are stable
+--    (derived from style order + n) and the insert upserts titles, so re-running
+--    renames any previously-seeded "<Style> study #N" placeholders.
 -- ---------------------------------------------------------------------
+create temp table _it (slug text, n int, title text);
+insert into _it values
+  ('fineline',1,'Wildflower Bouquet'),('fineline',2,'North Star Lines'),('fineline',3,'Minimalist Mountain'),('fineline',4,'Delicate Butterfly'),
+  ('blackwork',1,'Solid Raven'),('blackwork',2,'Ornamental Band'),('blackwork',3,'Blackout Koi'),('blackwork',4,'Shadow Wolf'),
+  ('traditional',1,'Classic Anchor'),('traditional',2,'Rose & Dagger'),('traditional',3,'Swallow Pair'),('traditional',4,'Flaming Heart'),
+  ('neo_traditional',1,'Ornate Fox'),('neo_traditional',2,'Neo Peony'),('neo_traditional',3,'Gilded Moth'),('neo_traditional',4,'Crowned Lion'),
+  ('realism',1,'Portrait Study'),('realism',2,'Lion''s Gaze'),('realism',3,'Pocket Watch'),('realism',4,'Grayscale Rose'),
+  ('watercolor',1,'Watercolor Hummingbird'),('watercolor',2,'Splashed Feather'),('watercolor',3,'Abstract Wash'),('watercolor',4,'Cosmic Galaxy'),
+  ('japanese',1,'Koi & Waves'),('japanese',2,'Hannya Mask'),('japanese',3,'Dragon Sleeve'),('japanese',4,'Cherry Blossom'),
+  ('geometric',1,'Sacred Mandala'),('geometric',2,'Geometric Wolf'),('geometric',3,'Polygon Stag'),('geometric',4,'Symmetry Lines'),
+  ('dotwork',1,'Moon Phases'),('dotwork',2,'Stippled Skull'),('dotwork',3,'Dotwork Mandala'),('dotwork',4,'Constellation Map'),
+  ('lettering',1,'Script Quote'),('lettering',2,'Roman Numerals'),('lettering',3,'Gothic Monogram'),('lettering',4,'Fine Script Name');
+
 create temp table _ni as
 select ('30000000-0000-4000-8000-' || lpad((row_number() over (order by ts.sort_order, g.n))::text, 12, '0'))::uuid as id,
-       ast.artist_id, ts.id as style_id, ts.name as style_name, ts.image_path, g.n
+       ast.artist_id, ts.id as style_id, ts.name as style_name,
+       coalesce(it.title, ts.name || ' study #' || g.n) as title,
+       ts.image_path, g.n
 from public.tattoo_styles ts
 cross join generate_series(1, 4) g(n)
+left join _it it on it.slug = ts.slug and it.n = g.n
 join lateral (
   select a2.artist_id
   from public.artist_styles a2
@@ -163,11 +182,11 @@ join lateral (
 insert into public.tattoo_ideas
   (id, created_by, source_artist_id, title, description, image_path, width, height, is_public, moderation_status, save_count)
 select id, artist_id, artist_id,
-       style_name || ' study #' || n,
+       title,
        'A ' || lower(style_name) || ' piece — placeholder demo artwork.',
        image_path, 1200, 1200 + (n * 90), true, 'approved', (n * 17 + 3) % 60
 from _ni
-on conflict (id) do nothing;
+on conflict (id) do update set title = excluded.title, description = excluded.description;
 
 insert into public.idea_styles (idea_id, style_id)
 select id, style_id from _ni

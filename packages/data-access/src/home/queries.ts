@@ -140,16 +140,43 @@ export async function fetchMyLocation(client: InkoraClient): Promise<{ lat: numb
   return lat != null && lng != null ? { lat, lng } : null;
 }
 
-/** Infinite inspiration feed page (keyset by created_at). */
-export async function fetchIdeaFeedPage(client: InkoraClient, cursor?: string, limit = 12): Promise<Page<IdeaCard>> {
+export interface IdeaFeedFilters {
+  q?: string;
+  styleSlugs?: string[];
+}
+
+/** Infinite inspiration feed page (keyset by created_at), with optional keyword
+ *  (title) and style filters. Style filtering resolves matching idea ids first
+ *  so the created_at keyset pagination still applies to the filtered set. */
+export async function fetchIdeaFeedPage(
+  client: InkoraClient,
+  cursor: string | undefined,
+  filters: IdeaFeedFilters = {},
+  limit = 12,
+): Promise<Page<IdeaCard>> {
+  let ideaIds: string[] | null = null;
+  if (filters.styleSlugs && filters.styleSlugs.length > 0) {
+    const { data: styleRows, error: sErr } = await client.from("tattoo_styles").select("id").in("slug", filters.styleSlugs);
+    if (sErr) throw toAppError(sErr);
+    const styleIds = (styleRows ?? []).map((r) => r.id);
+    if (styleIds.length === 0) return { items: [], nextCursor: null, hasMore: false };
+    const { data: linkRows, error: lErr } = await client
+      .from("idea_styles").select("idea_id").in("style_id", styleIds).limit(1000);
+    if (lErr) throw toAppError(lErr);
+    ideaIds = [...new Set((linkRows ?? []).map((r) => r.idea_id))].slice(0, 500);
+    if (ideaIds.length === 0) return { items: [], nextCursor: null, hasMore: false };
+  }
+
   let q = client
     .from("tattoo_ideas")
     .select("id, title, image_path, width, height, save_count, source_artist_id, created_at, idea_styles(tattoo_styles(slug))")
     .eq("is_public", true)
     .eq("moderation_status", "approved")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .is("deleted_at", null);
+  if (ideaIds) q = q.in("id", ideaIds);
+  const kw = filters.q?.trim();
+  if (kw) q = q.ilike("title", `%${kw}%`);
+  q = q.order("created_at", { ascending: false }).limit(limit);
   if (cursor) q = q.lt("created_at", cursor);
 
   const { data, error } = await q.returns<IdeaRow[]>();

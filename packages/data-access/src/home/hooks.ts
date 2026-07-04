@@ -5,7 +5,7 @@ import type { InkoraClient } from "../client/types";
 import {
   fetchFeaturedArtists, fetchIdeaFeedPage, fetchMyLocation, fetchNearbyStudios,
   fetchPromotions, fetchRecommendedForMe, fetchTrendingArtists,
-} from "./queries";
+type IdeaFeedFilters, } from "./queries";
 
 export function usePromotions(client: InkoraClient) {
   return useQuery({ queryKey: ["promotions"], queryFn: () => fetchPromotions(client) });
@@ -30,11 +30,11 @@ export function useNearbyStudios(client: InkoraClient, coords: { lat: number; ln
   });
 }
 
-/** Infinite inspiration feed. */
-export function useIdeaFeed(client: InkoraClient) {
+/** Infinite inspiration feed, optionally filtered by keyword + styles. */
+export function useIdeaFeed(client: InkoraClient, filters: IdeaFeedFilters = {}) {
   return useInfiniteQuery({
-    queryKey: ["idea-feed"],
-    queryFn: ({ pageParam }: { pageParam?: string }) => fetchIdeaFeedPage(client, pageParam),
+    queryKey: ["idea-feed", filters.q ?? "", filters.styleSlugs ?? []],
+    queryFn: ({ pageParam }: { pageParam?: string }) => fetchIdeaFeedPage(client, pageParam, filters),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last: Page<IdeaCard>) => last.nextCursor ?? undefined,
   });
