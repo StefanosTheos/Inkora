@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { dashboardKeys, setNotificationPrefs, updateMyProfile, useAccountSettings, useAuth } from "@inkora/data-access";
+import { formatRoleLabel } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -86,7 +87,7 @@ export function AccountSettingsScreen() {
           <View style={s.card}>
             <Row label="Email" value={email} />
             <Row label="Signed in via" value={provider.charAt(0).toUpperCase() + provider.slice(1)} />
-            <Row label="Roles" value={ctx.roles.length ? ctx.roles.join(", ") : "seeker"} last />
+            <Row label="Roles" value={ctx.roles.length ? ctx.roles.map(formatRoleLabel).join(", ") : "Seeker"} last />
           </View>
 
           {/* Preferences */}
