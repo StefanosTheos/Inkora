@@ -1,7 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMyAppointments } from "@inkora/data-access";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { registerPushToken, scheduleAppointmentReminders } from "../../lib/notifications";
@@ -23,7 +24,13 @@ export function ArtistAgendaScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
-      <Text style={s.title}>Your schedule</Text>
+      <View style={s.header}>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
+          <Ionicons name="chevron-back" size={26} color="#18181B" />
+        </Pressable>
+        <Text style={s.headerTitle}>Your schedule</Text>
+        <View style={{ width: 26 }} />
+      </View>
       <ScrollView contentContainerStyle={s.body}>
         <View style={s.calCard}>
           <MonthCalendar selected={selected} onSelect={setSelected} markedDates={marked} />
@@ -40,7 +47,8 @@ export function ArtistAgendaScreen() {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
-  title: { fontSize: 28, fontWeight: "800", paddingHorizontal: 16, paddingVertical: 8 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 },
+  headerTitle: { fontSize: 20, fontWeight: "800" },
   body: { padding: 16, gap: 12 },
   calCard: { borderWidth: 1, borderColor: "#F4F4F5", borderRadius: 16, padding: 12 },
   empty: { textAlign: "center", color: "#A1A1AA", marginTop: 24 },

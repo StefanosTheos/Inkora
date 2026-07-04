@@ -60,6 +60,11 @@ export function ArtistProfileScreen({ id }: { id: string }) {
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
+      <View style={s.topbar}>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
+          <Ionicons name="chevron-back" size={26} color="#18181B" />
+        </Pressable>
+      </View>
       <ScrollView contentContainerStyle={{ paddingBottom: 110 }}>
         {/* Header */}
         <View style={s.header}>
@@ -232,6 +237,7 @@ function Availability({ slots, loading }: { slots: AvailabilitySlot[]; loading: 
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
+  topbar: { paddingHorizontal: 12, paddingVertical: 4 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   muted: { color: "#A1A1AA", fontSize: 13 },
   header: { alignItems: "center", paddingTop: 16, paddingHorizontal: 20 },

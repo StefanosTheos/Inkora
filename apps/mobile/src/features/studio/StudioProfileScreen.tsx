@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import {
   startStudioConversation, useStudioPortfolio, useStudioProfile, useStudioReviews,
 } from "@inkora/data-access";
@@ -46,6 +47,11 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
+      <View style={s.topbar}>
+        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
+          <Ionicons name="chevron-back" size={26} color="#18181B" />
+        </Pressable>
+      </View>
       <ScrollView contentContainerStyle={{ paddingBottom: 110 }}>
         {/* Header */}
         <View style={s.header}>
@@ -203,6 +209,7 @@ function Reviews({ items, loading }: { items: ReviewItem[]; loading: boolean }) 
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
+  topbar: { paddingHorizontal: 12, paddingVertical: 4 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   muted: { color: "#A1A1AA", fontSize: 13 },
   header: { alignItems: "center", paddingTop: 16, paddingHorizontal: 20 },
