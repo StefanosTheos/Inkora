@@ -5,7 +5,7 @@ import { activeFilterCount, type ArtistSearchParams, type ArtistSort } from "@in
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { imageUrl } from "../../lib/images";
@@ -59,8 +59,15 @@ export function DiscoverScreen() {
         )}
       </View>
 
-      {/* Sort + Filters row */}
-      <View style={s.controls}>
+      {/* Sort + Filters row — horizontally scrollable so the Filters button
+          stays reachable even when its active-count badge widens it. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={s.controls}
+        contentContainerStyle={s.controlsContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {SORTS.map((so) => (
           <Chip
             key={so.key}
@@ -70,13 +77,17 @@ export function DiscoverScreen() {
             onPress={() => onChange({ sort: so.key })}
           />
         ))}
-        <View style={{ flex: 1 }} />
-        <Pressable style={[s.filterBtn, filterCount > 0 && s.filterBtnActive]} onPress={() => setSheetOpen(true)}>
+        <Pressable
+          style={[s.filterBtn, filterCount > 0 && s.filterBtnActive]}
+          onPress={() => setSheetOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={filterCount > 0 ? `Filters, ${filterCount} active` : "Filters"}
+        >
           <Text style={[s.filterText, filterCount > 0 && { color: "#fff" }]}>
             Filters{filterCount > 0 ? ` (${filterCount})` : ""}
           </Text>
         </Pressable>
-      </View>
+      </ScrollView>
 
       {/* Results */}
       <FlashList
@@ -119,7 +130,8 @@ const s = StyleSheet.create({
   searchIcon: { fontSize: 18, color: "#71717A" },
   searchInput: { flex: 1, fontSize: 16 },
   clearIcon: { fontSize: 16, color: "#A1A1AA" },
-  controls: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, marginBottom: 8 },
+  controls: { flexGrow: 0, marginBottom: 8 },
+  controlsContent: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12 },
   filterBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: "#E4E4E7" },
   filterBtnActive: { backgroundColor: "#E5484D", borderColor: "#E5484D" },
   filterText: { fontWeight: "700", fontSize: 13, color: "#18181B" },
