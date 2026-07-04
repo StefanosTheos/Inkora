@@ -7,12 +7,23 @@ import { toAppError } from "../errors";
 
 const PAGE_SIZE = 20;
 
-/** Full-text artist search with filters/sort/geo (offset-paginated). */
+/** Keyset cursor for the "rating" sort — the last row of the previous page. */
+export interface SearchCursor {
+  rating: number;
+  id: string;
+}
+
+/**
+ * Full-text artist search with filters/sort/geo. The "rating" sort paginates by
+ * keyset (`cursor`); relevance/distance paginate by `offset`. Passing a cursor
+ * makes the RPC ignore offset and continue strictly after the cursor row.
+ */
 export async function searchArtists(
   client: InkoraClient,
   params: ArtistSearchParams,
   limit = PAGE_SIZE,
   offset = 0,
+  cursor?: SearchCursor,
 ): Promise<SearchArtist[]> {
   const { data, error } = await client.rpc("search_artists", {
     p_q: params.q ?? "",
@@ -24,7 +35,9 @@ export async function searchArtists(
     p_accepting_only: params.acceptingOnly ?? false,
     p_sort: params.sort ?? "relevance",
     p_limit: limit,
-    p_offset: offset,
+    p_offset: cursor ? 0 : offset,
+    p_after_rating: cursor?.rating ?? undefined,
+    p_after_id: cursor?.id ?? undefined,
   });
   if (error) throw toAppError(error);
   return (data ?? []).map((r) => ({
@@ -42,14 +55,27 @@ export async function searchArtists(
   }));
 }
 
+// Page cursor: numeric offset (relevance/distance) or a keyset cursor (rating).
+type SearchPageParam = number | SearchCursor;
+
 /** Infinite search results; re-runs whenever `params` changes (instant updates). */
 export function useArtistSearch(client: InkoraClient, params: ArtistSearchParams) {
+  const keyset = (params.sort ?? "relevance") === "rating";
   return useInfiniteQuery({
     queryKey: ["artist-search", params],
-    queryFn: ({ pageParam }: { pageParam: number }) => searchArtists(client, params, PAGE_SIZE, pageParam),
-    initialPageParam: 0,
-    getNextPageParam: (last: SearchArtist[], all: SearchArtist[][]) =>
-      last.length === PAGE_SIZE ? all.length * PAGE_SIZE : undefined,
+    queryFn: ({ pageParam }: { pageParam: SearchPageParam }) =>
+      typeof pageParam === "number"
+        ? searchArtists(client, params, PAGE_SIZE, pageParam)
+        : searchArtists(client, params, PAGE_SIZE, 0, pageParam),
+    initialPageParam: 0 as SearchPageParam, // first page: offset 0 / no cursor for both modes
+    getNextPageParam: (last: SearchArtist[], all: SearchArtist[][]): SearchPageParam | undefined => {
+      if (last.length < PAGE_SIZE) return undefined;
+      if (keyset) {
+        const tail = last[last.length - 1]!;
+        return { rating: tail.ratingAvg, id: tail.id };
+      }
+      return all.length * PAGE_SIZE;
+    },
   });
 }
 

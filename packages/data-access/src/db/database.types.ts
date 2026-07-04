@@ -2229,6 +2229,8 @@ export type Database = {
       search_artists: {
         Args: {
           p_accepting_only?: boolean
+          p_after_id?: string
+          p_after_rating?: number
           p_lat?: number
           p_limit?: number
           p_lng?: number

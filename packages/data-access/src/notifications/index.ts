@@ -1,7 +1,7 @@
 import type { Notification, NotificationId, NotificationType, ProfileId } from "@inkora/domain";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo } from "react";
 
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
@@ -56,7 +56,36 @@ export async function markAllNotificationsRead(client: InkoraClient): Promise<vo
 }
 
 const NOTIF_KEY = ["notifications"] as const;
-let channelSeq = 0; // unique realtime topic per hook instance (bell + inbox can coexist)
+
+// One realtime channel shared by every useNotifications consumer (the header
+// bell + the inbox screen). All consumers read from the same NOTIF_KEY cache,
+// so a single subscription updating that cache is enough — no need for a
+// channel per hook instance. Ref-counted so it opens on the first mount and
+// closes only when the last consumer unmounts.
+let sharedChannel: RealtimeChannel | null = null;
+let subscriberCount = 0;
+
+type QueryClientRef = ReturnType<typeof useQueryClient>;
+function acquireNotificationChannel(client: InkoraClient, qc: QueryClientRef): () => void {
+  subscriberCount += 1;
+  if (!sharedChannel) {
+    sharedChannel = client
+      .channel("notifications-inbox")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications" }, (payload) => {
+        const n = mapNotif(payload.new as unknown as NotifRow);
+        qc.setQueryData<Notification[]>(NOTIF_KEY, (old = []) => (old.some((x) => x.id === n.id) ? old : [n, ...old]));
+      })
+      .subscribe();
+  }
+  return () => {
+    subscriberCount -= 1;
+    if (subscriberCount <= 0 && sharedChannel) {
+      void client.removeChannel(sharedChannel);
+      sharedChannel = null;
+      subscriberCount = 0;
+    }
+  };
+}
 
 /**
  * Live notification inbox: initial fetch + realtime INSERTs (RLS scopes rows
@@ -65,22 +94,8 @@ let channelSeq = 0; // unique realtime topic per hook instance (bell + inbox can
 export function useNotifications(client: InkoraClient) {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: NOTIF_KEY, queryFn: () => listNotifications(client) });
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const [topic] = useState(() => `notifications-inbox-${++channelSeq}`);
 
-  useEffect(() => {
-    const channel = client
-      .channel(topic)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications" }, (payload) => {
-        const n = mapNotif(payload.new as unknown as NotifRow);
-        qc.setQueryData<Notification[]>(NOTIF_KEY, (old = []) => (old.some((x) => x.id === n.id) ? old : [n, ...old]));
-      })
-      .subscribe();
-    channelRef.current = channel;
-    return () => {
-      void client.removeChannel(channel);
-    };
-  }, [client, qc, topic]);
+  useEffect(() => acquireNotificationChannel(client, qc), [client, qc]);
 
   const notifications = useMemo(() => q.data ?? [], [q.data]);
   const unread = useMemo(() => notifications.filter((n) => !n.readAt).length, [notifications]);
