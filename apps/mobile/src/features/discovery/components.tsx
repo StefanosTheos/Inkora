@@ -1,4 +1,4 @@
-import type { SearchArtist } from "@inkora/domain";
+import type { SearchArtist, SearchStudio } from "@inkora/domain";
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -43,6 +43,31 @@ export function ArtistResultRow({ artist, uri, onPress }: {
   );
 }
 
+export function StudioResultRow({ studio, uri, onPress }: {
+  studio: SearchStudio; uri?: string; onPress: () => void;
+}) {
+  return (
+    <Pressable style={s.row} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${studio.name}`}>
+      <View style={s.logo}>
+        {uri ? <Image source={{ uri }} style={s.avatarImg} contentFit="cover" /> : (
+          <Text style={s.avatarInitial}>{studio.name.charAt(0).toUpperCase()}</Text>
+        )}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={s.name} numberOfLines={1}>{studio.name}</Text>
+        <Text style={s.meta} numberOfLines={1}>
+          {studio.ratingCount > 0 ? `★ ${studio.ratingAvg.toFixed(1)}` : "New"}
+          {` · ${studio.artistCount} artist${studio.artistCount === 1 ? "" : "s"}`}
+          {studio.styles.length ? ` · ${studio.styles.slice(0, 2).join(", ")}` : ""}
+        </Text>
+        <Text style={s.sub} numberOfLines={1}>
+          {[studio.city, studio.distanceKm != null ? `${studio.distanceKm} km` : null].filter(Boolean).join(" · ")}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 const s = StyleSheet.create({
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: "#F4F4F5", marginRight: 8 },
   chipActive: { backgroundColor: "#E5484D" },
@@ -52,6 +77,7 @@ const s = StyleSheet.create({
   chipTextDisabled: { color: "#A1A1AA" },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingHorizontal: 16 },
   avatar: { width: 56, height: 56, borderRadius: 12, backgroundColor: "#1F1B2E", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  logo: { width: 56, height: 56, borderRadius: 12, backgroundColor: "#1F1B2E", alignItems: "center", justifyContent: "center", overflow: "hidden" },
   avatarImg: { width: "100%", height: "100%" },
   avatarInitial: { color: "#fff", fontSize: 22, fontWeight: "800" },
   rowTop: { flexDirection: "row", alignItems: "center", gap: 8 },

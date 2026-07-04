@@ -2255,6 +2255,32 @@ export type Database = {
           styles: string[]
         }[]
       }
+      search_studios: {
+        Args: {
+          p_lat?: number
+          p_limit?: number
+          p_lng?: number
+          p_min_rating?: number
+          p_offset?: number
+          p_q?: string
+          p_radius_km?: number
+          p_sort?: string
+          p_style_slugs?: string[]
+        }
+        Returns: {
+          artist_count: number
+          city: string
+          distance_km: number
+          id: string
+          logo_path: string
+          name: string
+          rating_avg: number
+          rating_count: number
+          relevance: number
+          slug: string
+          styles: string[]
+        }[]
+      }
       start_direct_conversation: { Args: { p_other: string }; Returns: string }
       start_studio_conversation: { Args: { p_studio: string }; Returns: string }
     }

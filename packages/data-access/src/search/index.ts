@@ -1,4 +1,4 @@
-import type { ArtistId, ArtistSearchParams, SearchArtist } from "@inkora/domain";
+import type { ArtistId, ArtistSearchParams, SearchArtist, SearchStudio, StudioId, StudioSearchParams } from "@inkora/domain";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
@@ -59,10 +59,11 @@ export async function searchArtists(
 type SearchPageParam = number | SearchCursor;
 
 /** Infinite search results; re-runs whenever `params` changes (instant updates). */
-export function useArtistSearch(client: InkoraClient, params: ArtistSearchParams) {
+export function useArtistSearch(client: InkoraClient, params: ArtistSearchParams, enabled = true) {
   const keyset = (params.sort ?? "relevance") === "rating";
   return useInfiniteQuery({
     queryKey: ["artist-search", params],
+    enabled,
     queryFn: ({ pageParam }: { pageParam: SearchPageParam }) =>
       typeof pageParam === "number"
         ? searchArtists(client, params, PAGE_SIZE, pageParam)
@@ -76,6 +77,51 @@ export function useArtistSearch(client: InkoraClient, params: ArtistSearchParams
       }
       return all.length * PAGE_SIZE;
     },
+  });
+}
+
+/** Full-text studio search with style/geo/rating filters (offset-paginated). */
+export async function searchStudios(
+  client: InkoraClient,
+  params: StudioSearchParams,
+  limit = PAGE_SIZE,
+  offset = 0,
+): Promise<SearchStudio[]> {
+  const { data, error } = await client.rpc("search_studios", {
+    p_q: params.q ?? "",
+    p_style_slugs: params.styleSlugs ?? [],
+    p_lat: params.near?.lat ?? undefined,
+    p_lng: params.near?.lng ?? undefined,
+    p_radius_km: params.radiusKm ?? undefined,
+    p_min_rating: params.minRating ?? 0,
+    p_sort: params.sort ?? "relevance",
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) throw toAppError(error);
+  return (data ?? []).map((r) => ({
+    id: r.id as StudioId,
+    name: r.name,
+    slug: r.slug,
+    logoPath: r.logo_path,
+    city: r.city,
+    styles: r.styles ?? [],
+    distanceKm: r.distance_km,
+    artistCount: r.artist_count,
+    ratingAvg: Number(r.rating_avg),
+    ratingCount: r.rating_count,
+    relevance: Number(r.relevance),
+  }));
+}
+
+export function useStudioSearch(client: InkoraClient, params: StudioSearchParams, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: ["studio-search", params],
+    enabled,
+    queryFn: ({ pageParam }: { pageParam: number }) => searchStudios(client, params, PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (last: SearchStudio[], all: SearchStudio[][]) =>
+      last.length === PAGE_SIZE ? all.length * PAGE_SIZE : undefined,
   });
 }
 

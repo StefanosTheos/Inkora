@@ -6,13 +6,14 @@ import { Chip } from "./components";
 const DISTANCES = [5, 10, 25, 50];
 const RATINGS = [4.0, 4.5];
 
-export function FilterSheet({ visible, onClose, styles, params, onChange, hasLocation }: {
+export function FilterSheet({ visible, onClose, styles, params, onChange, hasLocation, showAccepting = true }: {
   visible: boolean;
   onClose: () => void;
   styles: StyleCard[];
   params: ArtistSearchParams;
   onChange: (patch: Partial<ArtistSearchParams>) => void;
   hasLocation: boolean;
+  showAccepting?: boolean;
 }) {
   const toggleStyle = (slug: string) => {
     const has = params.styleSlugs.includes(slug);
@@ -55,10 +56,12 @@ export function FilterSheet({ visible, onClose, styles, params, onChange, hasLoc
             ))}
           </View>
 
-          <View style={s.switchRow}>
-            <Text style={s.switchLabel}>Accepting new clients only</Text>
-            <Switch value={!!params.acceptingOnly} onValueChange={(v) => onChange({ acceptingOnly: v })} />
-          </View>
+          {showAccepting && (
+            <View style={s.switchRow}>
+              <Text style={s.switchLabel}>Accepting new clients only</Text>
+              <Switch value={!!params.acceptingOnly} onValueChange={(v) => onChange({ acceptingOnly: v })} accessibilityLabel="Accepting new clients only" />
+            </View>
+          )}
         </ScrollView>
 
         <Pressable style={s.doneBtn} onPress={onClose}>
