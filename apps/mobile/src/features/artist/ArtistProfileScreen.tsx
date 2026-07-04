@@ -1,6 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import {
   startDirectConversation, useArtistAvailability, useArtistOffers, useArtistPortfolio,
-  useArtistProfile, useArtistReviews,
+  useArtistProfile, useArtistReviews, useArtistSaved,
 } from "@inkora/data-access";
 import {
   type ArtistOffer, type AvailabilitySlot, type Complexity, DAY_LABELS,
@@ -38,8 +39,15 @@ export function ArtistProfileScreen({ id }: { id: string }) {
   const reviews = useArtistReviews(supabase, id);
   const offers = useArtistOffers(supabase, id);
   const availability = useArtistAvailability(supabase, id);
+  const save = useArtistSaved(supabase, id);
   const [tab, setTab] = useState<Tab>("portfolio");
   const [complexity, setComplexity] = useState<Complexity>("medium");
+
+  const onToggleSave = () => {
+    const next = !save.saved;
+    save.toggle();
+    toast.show(next ? "Saved to your artists" : "Removed from saved");
+  };
 
   if (profile.isLoading) {
     return <View style={s.center}><ActivityIndicator /></View>;
@@ -124,6 +132,16 @@ export function ArtistProfileScreen({ id }: { id: string }) {
 
       {/* Sticky CTA */}
       <View style={[s.cta, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <Pressable
+          style={[s.ctaSave, save.saved && s.ctaSaveActive]}
+          onPress={onToggleSave}
+          disabled={save.isToggling}
+          accessibilityRole="button"
+          accessibilityState={{ selected: save.saved }}
+          accessibilityLabel={save.saved ? "Saved. Tap to remove from your saved artists" : "Save artist"}
+        >
+          <Ionicons name={save.saved ? "heart" : "heart-outline"} size={24} color={save.saved ? "#E5484D" : "#18181B"} />
+        </Pressable>
         <Pressable
           style={s.ctaSecondary}
           onPress={async () => {
@@ -257,6 +275,8 @@ const s = StyleSheet.create({
   availDay: { fontWeight: "700", width: 60 },
   availTime: { color: "#3F3F46" },
   cta: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", gap: 10, padding: 12, paddingTop: 10, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#E4E4E7" },
+  ctaSave: { width: 54, borderRadius: 14, borderWidth: 1, borderColor: "#E4E4E7", alignItems: "center", justifyContent: "center" },
+  ctaSaveActive: { borderColor: "#E5484D", backgroundColor: "#FEF2F2" },
   ctaSecondary: { flex: 1, padding: 16, borderRadius: 14, borderWidth: 1, borderColor: "#E4E4E7", alignItems: "center" },
   ctaSecondaryText: { fontWeight: "700" },
   ctaPrimary: { flex: 2, padding: 16, borderRadius: 14, backgroundColor: "#E5484D", alignItems: "center" },

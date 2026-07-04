@@ -1,7 +1,7 @@
 import type {
   ArtistId, ArtistOffer, ArtistProfile, AvailabilitySlot, PortfolioImage, PortfolioImageId, ReviewId, ReviewItem, StudioId,
 } from "@inkora/domain";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
@@ -136,7 +136,72 @@ export async function getArtistAvailability(client: InkoraClient, id: string): P
   return (data ?? []).map((r) => ({ dayOfWeek: r.day_of_week, startTime: r.start_time, endTime: r.end_time }));
 }
 
+// ------------------------------------------------------------------ save (favorite)
+/** Whether the current user has saved this artist (RLS scopes favorites to the owner). */
+export async function isArtistSaved(client: InkoraClient, artistId: string): Promise<boolean> {
+  const { data, error } = await client
+    .from("favorites")
+    .select("id")
+    .eq("target_type", "artist")
+    .eq("target_id", artistId)
+    .maybeSingle<{ id: string }>();
+  if (error) throw toAppError(error);
+  return data != null;
+}
+
+/** Add/remove this artist from the current user's saved artists. */
+export async function setArtistSaved(client: InkoraClient, artistId: string, saved: boolean): Promise<void> {
+  const { data: userRes } = await client.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) throw toAppError(new Error("You need to sign in to save artists."));
+  if (saved) {
+    // unique(profile_id, target_type, target_id) makes this idempotent; ignoring
+    // duplicates avoids errors and stops re-saving from re-triggering the reward.
+    const { error } = await client
+      .from("favorites")
+      .upsert(
+        { profile_id: uid, target_type: "artist", target_id: artistId },
+        { onConflict: "profile_id,target_type,target_id", ignoreDuplicates: true },
+      );
+    if (error) throw toAppError(error);
+  } else {
+    const { error } = await client
+      .from("favorites")
+      .delete()
+      .eq("profile_id", uid)
+      .eq("target_type", "artist")
+      .eq("target_id", artistId);
+    if (error) throw toAppError(error);
+  }
+}
+
 // ------------------------------------------------------------------ hooks
+/** Saved state + optimistic toggle for one artist. Refreshes the dashboard's
+ *  saved list. Saving is pure curation — it does not award points. */
+export function useArtistSaved(client: InkoraClient, artistId: string) {
+  const qc = useQueryClient();
+  const key = ["artist-saved", artistId] as const;
+  const q = useQuery({ queryKey: key, queryFn: () => isArtistSaved(client, artistId), enabled: !!artistId });
+  const saved = q.data ?? false;
+  const mutation = useMutation({
+    mutationFn: (next: boolean) => setArtistSaved(client, artistId, next),
+    onMutate: async (next: boolean) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<boolean>(key);
+      qc.setQueryData<boolean>(key, next);
+      return { prev };
+    },
+    onError: (_e, _next, ctx) => {
+      if (ctx) qc.setQueryData<boolean>(key, ctx.prev);
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: key });
+      void qc.invalidateQueries({ queryKey: ["saved-artists"] }); // dashboardKeys.savedArtists
+    },
+  });
+  return { saved, isLoading: q.isLoading, isToggling: mutation.isPending, toggle: () => mutation.mutate(!saved) };
+}
+
 export function useArtistProfile(client: InkoraClient, id: string) {
   return useQuery({ queryKey: ["artist", id], queryFn: () => getArtistProfile(client, id), enabled: !!id });
 }
