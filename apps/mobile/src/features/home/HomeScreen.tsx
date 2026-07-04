@@ -52,6 +52,18 @@ export function HomeScreen() {
     setTimeout(scrollToExplore, 120);
   }, [scrollToExplore]);
 
+  // Promo cards: "Find your artist" → Discover (nearest + 4.5★); "First tattoo?"
+  // → scroll to Explore; anything else → its own route.
+  const onPromo = useCallback((ctaRoute: string | null) => {
+    if (ctaRoute === "/discover") {
+      router.push({ pathname: "/discover", params: { sort: "distance", minRating: "4.5" } });
+    } else if (ctaRoute === "/") {
+      scrollToExplore();
+    } else if (ctaRoute) {
+      router.push(ctaRoute);
+    }
+  }, [router, scrollToExplore]);
+
   const ideas = feed.data?.pages.flatMap((p) => p.items) ?? [];
 
   const onRefresh = useCallback(() => {
@@ -105,7 +117,7 @@ export function HomeScreen() {
               promo={item}
               index={index}
               uri={img(item.imagePath, 320)}
-              onPress={() => item.ctaRoute && router.push(item.ctaRoute)}
+              onPress={() => onPromo(item.ctaRoute)}
             />
           )}
         />

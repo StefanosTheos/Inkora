@@ -6,8 +6,8 @@ import {
   type SearchArtist, type SearchScope, type SearchStudio, type StudioSearchParams,
 } from "@inkora/domain";
 import { FlashList } from "@shopify/flash-list";
-import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -32,12 +32,25 @@ const INITIAL: Filters = { styleSlugs: [], radiusKm: null, minRating: 0, accepti
 
 export function DiscoverScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ sort?: string; minRating?: string }>();
   const near = useMyLocation(supabase).data ?? null;
   const styleDeck = useStyleDeck(supabase);
   const [scope, setScope] = useState<SearchScope>("artists");
   const [text, setText] = useState("");
   const [filters, setFilters] = useState<Filters>(INITIAL);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Apply filters passed via navigation (e.g. the home "Find your artist" promo).
+  const paramSort = params.sort;
+  const paramMinRating = params.minRating;
+  useEffect(() => {
+    if (!paramSort && !paramMinRating) return;
+    setFilters((f) => ({
+      ...f,
+      ...(paramSort ? { sort: paramSort as ArtistSort } : {}),
+      ...(paramMinRating ? { minRating: Number(paramMinRating) } : {}),
+    }));
+  }, [paramSort, paramMinRating]);
 
   const isStudios = scope === "studios";
   const q = useDebouncedValue(text.trim(), 300);
