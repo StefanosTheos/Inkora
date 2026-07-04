@@ -24,6 +24,25 @@ export interface IdeaCard {
   isSaved?: boolean;            // resolved per-viewer
 }
 
+/** Full idea view for the idea detail page. */
+export interface IdeaDetail {
+  id: IdeaId;
+  title: string | null;
+  description: string | null;
+  imagePath: string;
+  width: number | null;
+  height: number | null;
+  styleSlugs: string[];
+  saveCount: number;
+  artist: {
+    id: ArtistId;
+    displayName: string;
+    avatarPath: string | null;
+    headline: string | null;
+    isAccepting: boolean;
+  } | null;
+}
+
 export interface PortfolioImage {
   id: PortfolioImageId;
   artistId: ArtistId;

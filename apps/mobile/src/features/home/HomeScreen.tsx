@@ -134,7 +134,7 @@ export function HomeScreen() {
         estimatedItemSize={220}
         keyExtractor={(item: IdeaCard) => item.id}
         renderItem={({ item }) => (
-          <IdeaTile idea={item} uri={img(item.imagePath, 180)} onPress={() => router.push(`/artist/${item.sourceArtistId ?? ""}`)} />
+          <IdeaTile idea={item} uri={img(item.imagePath, 180)} onPress={() => router.push(`/idea/${item.id}`)} />
         )}
         ListHeaderComponent={Header}
         onEndReached={() => {

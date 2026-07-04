@@ -8,6 +8,7 @@ export * from "./dashboard"; // user dashboard: profile summary, saved artists/d
 export * from "./errors";
 export * from "./home"; // home page sections + infinite feed
 export * from "./hooks";
+export * from "./ideas"; // tattoo idea detail, similar ideas, save design
 export * from "./location"; // city → coordinates geocoding (Nominatim)
 export * from "./messaging"; // conversations, realtime chat, uploads, typing, read receipts
 export * from "./notifications"; // realtime in-app inbox + unread count
