@@ -275,6 +275,48 @@ export async function getAppointment(client: InkoraClient, id: string): Promise<
   return data ? mapAppt(data, me) : null;
 }
 
+// ------------------------------------------------------------------ reviews (post-booking)
+export interface AppointmentReview {
+  id: string;
+  overallRating: number;
+}
+export interface ReviewInput {
+  appointmentId: string;
+  artistId: string;
+  rating: number;
+  title?: string;
+  body?: string;
+}
+
+/** The current user's review for an appointment, if they've left one. */
+export async function getAppointmentReview(client: InkoraClient, appointmentId: string): Promise<AppointmentReview | null> {
+  const { data, error } = await client
+    .from("reviews")
+    .select("id, overall_rating")
+    .eq("appointment_id", appointmentId)
+    .maybeSingle<{ id: string; overall_rating: number }>();
+  if (error) throw toAppError(error);
+  return data ? { id: data.id, overallRating: data.overall_rating } : null;
+}
+
+/** Leave a review. Only possible for a real appointment (reviews.appointment_id
+ *  is NOT NULL + UNIQUE), so the "one review per completed booking" rule is
+ *  enforced by the schema; the UI only surfaces this on completed appointments. */
+export async function submitReview(client: InkoraClient, input: ReviewInput): Promise<void> {
+  const { data: userRes } = await client.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) throw toAppError(new Error("You need to sign in to leave a review."));
+  const { error } = await client.from("reviews").insert({
+    appointment_id: input.appointmentId,
+    author_id: uid,
+    artist_id: input.artistId,
+    overall_rating: input.rating,
+    title: input.title ?? null,
+    body: input.body ?? null,
+  });
+  if (error) throw toAppError(error);
+}
+
 export async function cancelAppointment(client: InkoraClient, id: string, reason?: string): Promise<void> {
   const { error } = await client
     .from("appointments")
@@ -323,6 +365,7 @@ export const bookingKeys = {
   upcoming: (limit: number) => ["appointments", "upcoming", limit] as const,
   appointmentCount: ["appointments", "count"] as const,
   appointment: (id: string) => ["appointment", id] as const,
+  review: (appointmentId: string) => ["appointment-review", appointmentId] as const,
   daySlots: (artistId: string, date: string) => ["day-slots", artistId, date] as const,
 };
 
@@ -343,6 +386,13 @@ export function useMyAppointmentCount(client: InkoraClient) {
 }
 export function useAppointment(client: InkoraClient, id: string) {
   return useQuery({ queryKey: bookingKeys.appointment(id), queryFn: () => getAppointment(client, id), enabled: !!id });
+}
+export function useAppointmentReview(client: InkoraClient, appointmentId: string, enabled = true) {
+  return useQuery({
+    queryKey: bookingKeys.review(appointmentId),
+    queryFn: () => getAppointmentReview(client, appointmentId),
+    enabled: enabled && !!appointmentId,
+  });
 }
 export function useArtistDaySlots(client: InkoraClient, artistId: string, date: string, slotMinutes = 60) {
   return useQuery({ queryKey: bookingKeys.daySlots(artistId, date), queryFn: () => getArtistDaySlots(client, artistId, date, slotMinutes), enabled: !!artistId && !!date });

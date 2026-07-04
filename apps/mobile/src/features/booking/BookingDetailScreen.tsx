@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   bookingKeys, cancelAppointment, cancelRequest, completeAppointment, createOffer, declineRequest,
-  getChatSignedUrl, rescheduleAppointment, respondToOffer, useAppointment, useArtistAvailability,
-  useArtistDaySlots, useAuth, useBookingRequest, withdrawOffer,
+  getChatSignedUrl, rescheduleAppointment, respondToOffer, submitReview, useAppointment, useAppointmentReview,
+  useArtistAvailability, useArtistDaySlots, useAuth, useBookingRequest, withdrawOffer,
 } from "@inkora/data-access";
 import {
   APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView, type OfferView, REQUEST_STATUS_LABEL,
@@ -98,6 +98,8 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
 
       {appt.cancellationReason ? <Text style={s.muted}>Reason: {appt.cancellationReason}</Text> : null}
 
+      {appt.status === "completed" && !isArtist ? <ReviewSection appt={appt} /> : null}
+
       {rescheduling && active ? (
         <SlotPicker
           artistId={appt.artistId}
@@ -123,6 +125,76 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
         </View>
       ) : null}
     </ScrollView>
+  );
+}
+
+// Review — only rendered for a completed appointment the current user booked.
+function ReviewSection({ appt }: { appt: AppointmentView }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const reviewQ = useAppointmentReview(supabase, appt.id);
+  const [open, setOpen] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setBusy(true);
+    try {
+      await submitReview(supabase, {
+        appointmentId: appt.id, artistId: appt.artistId, rating,
+        title: title.trim() || undefined, body: body.trim() || undefined,
+      });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: bookingKeys.review(appt.id) }),
+        qc.invalidateQueries({ queryKey: ["artist-reviews", appt.artistId] }),
+        qc.invalidateQueries({ queryKey: ["artist", appt.artistId] }),
+      ]);
+      toast.show("Thanks for your review!");
+      setOpen(false);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (reviewQ.isLoading) return null;
+
+  const existing = reviewQ.data;
+  if (existing) {
+    return (
+      <View style={s.reviewDone} accessible accessibilityLabel={`You reviewed this session, ${existing.overallRating} out of 5 stars`}>
+        <Ionicons name="checkmark-circle" size={18} color="#16A34A" />
+        <Text style={s.reviewDoneText}>You reviewed this — {"★".repeat(existing.overallRating)}{"☆".repeat(5 - existing.overallRating)}</Text>
+      </View>
+    );
+  }
+
+  if (!open) {
+    return (
+      <View style={s.actions}>
+        <PrimaryBtn label="Leave a review" onPress={() => setOpen(true)} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={s.reviewForm}>
+      <Text style={s.reviewFormTitle}>Rate your session with {appt.counterparty.name}</Text>
+      <View style={s.starsRow}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Pressable key={n} onPress={() => setRating(n)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${n} star${n > 1 ? "s" : ""}`}>
+            <Ionicons name={n <= rating ? "star" : "star-outline"} size={34} color="#E5484D" />
+          </Pressable>
+        ))}
+      </View>
+      <TextInput style={s.reviewInput} placeholder="Title (optional)" value={title} onChangeText={setTitle} accessibilityLabel="Review title" />
+      <TextInput style={[s.reviewInput, s.reviewMultiline]} placeholder="Share the details (optional)" value={body} onChangeText={setBody} multiline accessibilityLabel="Review details" />
+      <PrimaryBtn label={busy ? "Submitting…" : "Submit review"} onPress={() => void submit()} disabled={busy} />
+      <SecondaryBtn label="Cancel" onPress={() => setOpen(false)} disabled={busy} />
+    </View>
   );
 }
 
@@ -398,6 +470,13 @@ const s = StyleSheet.create({
   slotChipText: { fontWeight: "700", color: "#18181B" },
   slotChipTextActive: { color: "#fff" },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 6 },
+  reviewDone: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F0FDF4", borderRadius: 12, padding: 12, marginTop: 4 },
+  reviewDoneText: { color: "#166534", fontWeight: "700" },
+  reviewForm: { borderWidth: 1, borderColor: "#F4F4F5", borderRadius: 16, padding: 14, gap: 10, marginTop: 4 },
+  reviewFormTitle: { fontSize: 15, fontWeight: "800" },
+  starsRow: { flexDirection: "row", gap: 8, justifyContent: "center", paddingVertical: 4 },
+  reviewInput: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
+  reviewMultiline: { minHeight: 80, textAlignVertical: "top" },
   primary: { flex: 1, minWidth: 120, backgroundColor: "#E5484D", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   primaryText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   secondary: { flex: 1, minWidth: 120, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 14, paddingVertical: 14, alignItems: "center" },

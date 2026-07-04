@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { dashboardKeys, publicStorageUrl, rewardKeys, updateMyProfile, uploadAvatar, useProfileSummary } from "@inkora/data-access";
+import { dashboardKeys, publicStorageUrl, rewardKeys, updateMyProfile, updateProfileLocation, uploadAvatar, useProfileSummary } from "@inkora/data-access";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -74,13 +74,22 @@ export function EditProfileScreen() {
     }
     setSaving(true);
     try {
-      await updateMyProfile(supabase, { displayName, username, city, bio });
+      await updateMyProfile(supabase, { displayName, username, bio });
+      // City is geocoded to coordinates (owner-only) so Nearby / distance work.
+      const loc = await updateProfileLocation(supabase, city.trim());
+      if (!loc.ok) throw new Error(loc.error.message);
+      const located = loc.value != null;
       await Promise.all([
         qc.invalidateQueries({ queryKey: dashboardKeys.profile }),
         qc.invalidateQueries({ queryKey: rewardKeys.completion }),
         qc.invalidateQueries({ queryKey: rewardKeys.account }),
+        qc.invalidateQueries({ queryKey: ["my-location"] }),
       ]);
-      toast.show("Profile updated");
+      toast.show(
+        city.trim() && !located
+          ? "Saved — couldn't locate that place for Nearby. Try “City, Country”."
+          : "Profile updated",
+      );
     } catch (e) {
       const msg = (e as Error).message;
       toast.show(/username/i.test(msg) ? "That username is taken or invalid." : msg, "error");
