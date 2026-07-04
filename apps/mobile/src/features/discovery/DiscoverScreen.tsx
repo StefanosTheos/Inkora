@@ -1,5 +1,5 @@
 import {
-  useArtistSearch, useDebouncedValue, useMyLocation, useStudioSearch, useStyleDeck,
+  useAccountSettings, useArtistSearch, useDebouncedValue, useMyLocation, useStudioSearch, useStyleDeck,
 } from "@inkora/data-access";
 import {
   activeFilterCount, activeStudioFilterCount, type ArtistSearchParams, type ArtistSort,
@@ -35,10 +35,21 @@ export function DiscoverScreen() {
   const params = useLocalSearchParams<{ sort?: string; minRating?: string }>();
   const near = useMyLocation(supabase).data ?? null;
   const styleDeck = useStyleDeck(supabase);
+  const settings = useAccountSettings(supabase);
   const [scope, setScope] = useState<SearchScope>("artists");
   const [text, setText] = useState("");
   const [filters, setFilters] = useState<Filters>(INITIAL);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Default the distance filter to the user's saved account "Search radius"
+  // (applied once on load; the filter chips remain a per-session override).
+  const [radiusApplied, setRadiusApplied] = useState(false);
+  const savedRadius = settings.data?.searchRadiusKm;
+  useEffect(() => {
+    if (radiusApplied || savedRadius == null) return;
+    if (savedRadius > 0) setFilters((f) => ({ ...f, radiusKm: savedRadius }));
+    setRadiusApplied(true);
+  }, [savedRadius, radiusApplied]);
 
   // Apply filters passed via navigation (e.g. the home "Find your artist" promo).
   const paramSort = params.sort;
