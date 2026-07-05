@@ -42,6 +42,14 @@ Deno.serve(async (req) => {
       .upsert({ profile_id: user.id, role: "studio_admin" }, { onConflict: "profile_id,role", ignoreDuplicates: true });
     if (roleErr) return json({ error: roleErr.message }, 400);
 
+    // Keep account types separate: a studio owner is not also a seeker.
+    const { error: seekerErr } = await svc
+      .from("role_grants")
+      .delete()
+      .eq("profile_id", user.id)
+      .eq("role", "seeker");
+    if (seekerErr) return json({ error: seekerErr.message }, 400);
+
     await svc.from("audit_log").insert({
       actor_id: user.id,
       action: "studio.create",
