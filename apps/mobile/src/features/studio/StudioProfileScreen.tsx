@@ -15,6 +15,7 @@ import { useConfirm } from "../../components/ConfirmDialog";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
+import { Avatar } from "../booking/components/ui";
 
 const img = (p?: string | null, size?: number) => imageUrl(p, size);
 const DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
@@ -297,16 +298,31 @@ function PortfolioGrid({ images, loading }: { images: PortfolioImage[]; loading:
 }
 
 function Reviews({ items, loading }: { items: ReviewItem[]; loading: boolean }) {
+  const router = useRouter();
   if (loading) return <ActivityIndicator />;
   if (items.length === 0) return <Text style={s.muted}>No reviews yet.</Text>;
   return (
     <View>
       {items.map((r) => (
-        <View key={r.id} style={s.reviewCard}>
-          <Text style={s.reviewHead}>{r.authorName} · ★ {r.overallRating}</Text>
+        <Pressable
+          key={r.id}
+          style={s.reviewCard}
+          onPress={() => r.authorId && router.push(`/seeker/${r.authorId}`)}
+          disabled={!r.authorId}
+          accessibilityRole="button"
+          accessibilityLabel={`View ${r.authorName}'s profile`}
+        >
+          <View style={s.reviewHeadRow}>
+            <Avatar path={r.authorAvatarPath} name={r.authorName} size={36} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.reviewAuthor}>{r.authorName}</Text>
+              <Text style={s.reviewStars}>{"★".repeat(r.overallRating)}{"☆".repeat(5 - r.overallRating)}</Text>
+            </View>
+            {r.authorId ? <Ionicons name="chevron-forward" size={16} color="#D4D4D8" /> : null}
+          </View>
           {r.title ? <Text style={s.reviewTitle}>{r.title}</Text> : null}
           {r.body ? <Text style={s.reviewBody}>{r.body}</Text> : null}
-        </View>
+        </Pressable>
       ))}
     </View>
   );
@@ -355,6 +371,9 @@ const s = StyleSheet.create({
   gridImg: { width: "100%", height: "100%" },
   reviewCard: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 12, padding: 12, marginBottom: 10 },
   reviewHead: { fontWeight: "700" },
+  reviewHeadRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  reviewAuthor: { fontWeight: "800", fontSize: 14, color: "#18181B" },
+  reviewStars: { color: "#E5484D", fontSize: 13, marginTop: 1 },
   reviewTitle: { fontWeight: "600", marginTop: 4 },
   reviewBody: { color: "#3F3F46", marginTop: 2 },
   cta: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 12, paddingTop: 10, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#E4E4E7" },

@@ -1,4 +1,4 @@
-import type { ArtistId, ReviewId, StudioId } from "../ids";
+import type { ArtistId, ProfileId, ReviewId, StudioId } from "../ids";
 
 export interface ArtistStudioRef {
   id: StudioId;
@@ -30,7 +30,31 @@ export interface ArtistProfile {
 
 export interface ReviewItem {
   id: ReviewId;
+  authorId: ProfileId | null;
   authorName: string;
+  authorAvatarPath: string | null;
+  overallRating: number;
+  title: string | null;
+  body: string | null;
+  createdAt: string;
+}
+
+/** Public snapshot of a seeker, shown when tapping their review. */
+export interface PublicSeekerProfile {
+  id: ProfileId;
+  displayName: string;
+  username: string | null;
+  avatarPath: string | null;
+  city: string | null;
+  memberSince: string;
+  bookingsCount: number;
+  reviewsCount: number;
+}
+
+/** A review written BY a seeker (shown on their public profile). */
+export interface SeekerReview {
+  id: ReviewId;
+  subjectName: string; // the artist or studio reviewed
   overallRating: number;
   title: string | null;
   body: string | null;

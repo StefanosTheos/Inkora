@@ -81,16 +81,17 @@ export async function getArtistPortfolio(client: InkoraClient, id: string): Prom
 // ------------------------------------------------------------------ reviews
 interface ReviewRow {
   id: string;
+  author_id: string | null;
   overall_rating: number;
   title: string | null;
   body: string | null;
   created_at: string;
-  profiles: { display_name: string } | null;
+  profiles: { display_name: string; avatar_path: string | null } | null;
 }
 export async function getArtistReviews(client: InkoraClient, id: string): Promise<ReviewItem[]> {
   const { data, error } = await client
     .from("reviews")
-    .select("id, overall_rating, title, body, created_at, profiles!reviews_author_id_fkey(display_name)")
+    .select("id, author_id, overall_rating, title, body, created_at, profiles!reviews_author_id_fkey(display_name, avatar_path)")
     .eq("artist_id", id)
     .eq("is_published", true)
     .order("created_at", { ascending: false })
@@ -98,7 +99,9 @@ export async function getArtistReviews(client: InkoraClient, id: string): Promis
   if (error) throw toAppError(error);
   return (data ?? []).map((r) => ({
     id: r.id as ReviewId,
+    authorId: (r.author_id as ReviewItem["authorId"]) ?? null,
     authorName: r.profiles?.display_name ?? "Anonymous",
+    authorAvatarPath: r.profiles?.avatar_path ?? null,
     overallRating: r.overall_rating,
     title: r.title,
     body: r.body,

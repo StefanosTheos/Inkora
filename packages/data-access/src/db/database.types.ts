@@ -2234,6 +2234,19 @@ export type Database = {
         Args: { p_studio_id: string }
         Returns: string
       }
+      public_seeker_profile: {
+        Args: { p_profile_id: string }
+        Returns: {
+          id: string
+          display_name: string
+          username: string | null
+          avatar_path: string | null
+          city: string | null
+          member_since: string
+          bookings_count: number
+          reviews_count: number
+        }[]
+      }
       withdraw_studio_application: {
         Args: { p_studio_id: string }
         Returns: undefined

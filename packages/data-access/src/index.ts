@@ -20,6 +20,7 @@ export * from "./realtime";
 export * from "./repositories";
 export * from "./rewards"; // points engine, vouchers, referrals, profile completion
 export * from "./search"; // full-text artist search + filters/sort hooks
+export * from "./seeker"; // public seeker profile (shown when tapping a review)
 export * from "./services";
 export * from "./storage";
 export * from "./studio"; // studio profile: header + roster

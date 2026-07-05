@@ -16,6 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
+import { Avatar } from "../booking/components/ui";
 import { Chip } from "../discovery/components";
 
 const img = (p?: string | null, size?: number) => imageUrl(p, size);
@@ -202,16 +203,31 @@ function PortfolioGrid({ images, loading }: { images: PortfolioImage[]; loading:
 }
 
 function Reviews({ items, loading, avg, count }: { items: ReviewItem[]; loading: boolean; avg: number; count: number }) {
+  const router = useRouter();
   if (loading) return <ActivityIndicator />;
   return (
     <View>
       <Text style={s.reviewSummary}>{count > 0 ? `★ ${avg.toFixed(1)} · ${count} review${count === 1 ? "" : "s"}` : "No reviews yet."}</Text>
       {items.map((r) => (
-        <View key={r.id} style={s.reviewCard}>
-          <Text style={s.reviewHead}>{r.authorName} · ★ {r.overallRating}</Text>
+        <Pressable
+          key={r.id}
+          style={s.reviewCard}
+          onPress={() => r.authorId && router.push(`/seeker/${r.authorId}`)}
+          disabled={!r.authorId}
+          accessibilityRole="button"
+          accessibilityLabel={`View ${r.authorName}'s profile`}
+        >
+          <View style={s.reviewHeadRow}>
+            <Avatar path={r.authorAvatarPath} name={r.authorName} size={36} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.reviewAuthor}>{r.authorName}</Text>
+              <Text style={s.reviewStars}>{"★".repeat(r.overallRating)}{"☆".repeat(5 - r.overallRating)}</Text>
+            </View>
+            {r.authorId ? <Ionicons name="chevron-forward" size={16} color="#D4D4D8" /> : null}
+          </View>
           {r.title ? <Text style={s.reviewTitle}>{r.title}</Text> : null}
           {r.body ? <Text style={s.reviewBody}>{r.body}</Text> : null}
-        </View>
+        </Pressable>
       ))}
     </View>
   );
@@ -287,7 +303,10 @@ const s = StyleSheet.create({
   reviewSummary: { fontWeight: "700", marginBottom: 12 },
   reviewCard: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 12, padding: 12, marginBottom: 10 },
   reviewHead: { fontWeight: "700" },
-  reviewTitle: { fontWeight: "600", marginTop: 4 },
+  reviewHeadRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  reviewAuthor: { fontWeight: "800", fontSize: 14, color: "#18181B" },
+  reviewStars: { color: "#E5484D", fontSize: 13, marginTop: 1 },
+  reviewTitle: { fontWeight: "600", marginTop: 8 },
   reviewBody: { color: "#3F3F46", marginTop: 2 },
   offerCard: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 12, padding: 14, marginBottom: 10 },
   offerTitle: { fontWeight: "700", fontSize: 15 },
