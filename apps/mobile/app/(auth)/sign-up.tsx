@@ -1,7 +1,7 @@
 import { useAuth } from "@inkora/data-access";
 import { Link } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useToast } from "../../src/components/Toast";
 import { env } from "../../src/lib/env";
@@ -22,11 +22,8 @@ export default function SignUpScreen() {
       toast.show(res.error.message, "error");
       return;
     }
-    if (res.value.needsEmailConfirmation) {
-      Alert.alert("Check your email", "Confirm your address, then sign in.");
-    }
-    // Otherwise the gate routes to /onboarding automatically (handle_new_user already
-    // created the profile + seeker role).
+    // Email verification is disabled — with a session returned, the root gate routes
+    // new users straight to /onboarding (handle_new_user made the profile + seeker role).
   }
 
   return (
