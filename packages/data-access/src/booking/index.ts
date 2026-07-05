@@ -349,8 +349,11 @@ export async function getArtistDaySlots(client: InkoraClient, artistId: string, 
 }
 
 // ------------------------------------------------------------------ reference uploads
-export async function uploadBookingReference(client: InkoraClient, artistId: string, body: ArrayBuffer | Blob, contentType: string, ext: string): Promise<string> {
-  const path = `requests/${artistId}/${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
+// Path is keyed by the uploader (the seeker) so storage RLS can verify
+// ownership: `requests/<uploaderId>/<file>`. The assigned artist gets read
+// access via the booking_ref_read policy (matches reference_paths).
+export async function uploadBookingReference(client: InkoraClient, uploaderId: string, body: ArrayBuffer | Blob, contentType: string, ext: string): Promise<string> {
+  const path = `requests/${uploaderId}/${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
   const { error } = await client.storage.from(BOOKING_BUCKET).upload(path, body, { contentType, upsert: false });
   if (error) throw toAppError(error);
   return path;

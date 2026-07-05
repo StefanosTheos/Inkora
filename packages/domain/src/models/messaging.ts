@@ -1,5 +1,5 @@
 import type { ConversationType, MessageType } from "../enums";
-import type { ConversationId, MessageId, ProfileId } from "../ids";
+import type { ConversationId, MessageId, ProfileId, StudioId } from "../ids";
 
 export interface ConversationSummary {
   id: ConversationId;
@@ -7,6 +7,9 @@ export interface ConversationSummary {
   otherId: ProfileId | null;
   otherName: string;
   otherAvatarPath: string | null;
+  /** Set when the conversation belongs to a studio (identity shown is the studio's). */
+  studioId: StudioId | null;
+  studioSlug: string | null;
   lastMessagePreview: string | null;
   lastMessageAt: string | null;
   unread: boolean;

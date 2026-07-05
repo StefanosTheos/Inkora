@@ -64,6 +64,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
   const [title, setTitle] = useState(presetTitle ?? "");
   const [description, setDescription] = useState("");
   const [placement, setPlacement] = useState<string | null>(null);
+  const [placementOther, setPlacementOther] = useState(""); // free text when "Other" is picked
   const [size, setSize] = useState<string | null>(null);
   const [isColor, setIsColor] = useState<boolean | null>(null);
   const [preferredDate, setPreferredDate] = useState<string | null>(null);
@@ -73,11 +74,24 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
   const [uploading, setUploading] = useState(false);
 
   const cur = STEPS[step];
-  const canNext = cur === "Idea" ? title.trim().length > 0 : true;
+  // Budget is optional, but if given it must be sane: whole non-negative
+  // numbers (digits-only input enforces that) and min must not exceed max.
+  const minNum = budgetMin ? Number(budgetMin) : null;
+  const maxNum = budgetMax ? Number(budgetMax) : null;
+  const budgetInvalid = minNum != null && maxNum != null && minNum > maxNum;
+  // When "Other" placement is chosen, the seeker must type the body part.
+  const placementNeedsDetail = placement === "Other" && !placementOther.trim();
+  const effectivePlacement = placement === "Other" ? placementOther.trim() || null : placement;
+  const canNext =
+    cur === "Idea" ? title.trim().length > 0
+      : cur === "Details" ? !placementNeedsDetail
+        : cur === "Budget" ? !budgetInvalid
+          : true;
   const chosenArtistName = chosenArtist ? roster.find((r) => r.id === chosenArtist)?.displayName : null;
 
   async function addReference() {
-    const targetId = effectiveArtistId;
+    const uploaderId = ctx.userId;
+    if (!uploaderId) { toast.show("Please sign in to add references", "error"); return; }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, allowsMultipleSelection: true, selectionLimit: 4 });
     if (res.canceled) return;
     setUploading(true);
@@ -85,7 +99,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
       for (const asset of res.assets) {
         const buf = await (await fetch(asset.uri)).arrayBuffer();
         const ext = asset.mimeType?.includes("png") ? "png" : "jpg";
-        const path = await uploadBookingReference(supabase, targetId, buf, asset.mimeType ?? "image/jpeg", ext);
+        const path = await uploadBookingReference(supabase, uploaderId, buf, asset.mimeType ?? "image/jpeg", ext);
         setRefs((r) => [...r, { uri: asset.uri, path }]);
       }
     } catch (e) {
@@ -97,6 +111,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
 
   async function submit() {
     if (!effectiveArtistId) { toast.show("Pick an artist or let the studio decide", "error"); return; }
+    if (budgetInvalid) { toast.show("Your minimum budget can’t be higher than your maximum.", "error"); return; }
     setSubmitting(true);
     try {
       const input: BookingRequestInput = {
@@ -104,7 +119,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
         studioId: (isStudio ? studio?.id : undefined) as BookingRequestInput["studioId"],
         title: title.trim(),
         description: description.trim() || null,
-        placement,
+        placement: effectivePlacement,
         approxSize: size,
         isColor,
         budgetMin: budgetMin ? Number(budgetMin) : null,
@@ -180,6 +195,16 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
           <>
             <Text style={s.q}>Placement</Text>
             <ChipRow options={PLACEMENTS} value={placement} onChange={setPlacement} />
+            {placement === "Other" && (
+              <TextInput
+                style={s.input}
+                placeholder="Which body part?"
+                value={placementOther}
+                onChangeText={setPlacementOther}
+                autoFocus
+                returnKeyType="done"
+              />
+            )}
             <Text style={s.q}>Approx. size</Text>
             <ChipRow options={SIZES} value={size} onChange={setSize} />
             <Text style={s.q}>Color</Text>
@@ -207,9 +232,10 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
           <>
             <Text style={s.q}>Budget (optional)</Text>
             <View style={s.row}>
-              <TextInput style={[s.input, s.flex1]} placeholder={`Min (${currency})`} keyboardType="number-pad" value={budgetMin} onChangeText={setBudgetMin} />
-              <TextInput style={[s.input, s.flex1]} placeholder={`Max (${currency})`} keyboardType="number-pad" value={budgetMax} onChangeText={setBudgetMax} />
+              <TextInput style={[s.input, s.flex1, budgetInvalid && s.inputError]} placeholder={`Min (${currency})`} keyboardType="number-pad" value={budgetMin} onChangeText={(v) => setBudgetMin(v.replace(/[^0-9]/g, ""))} />
+              <TextInput style={[s.input, s.flex1, budgetInvalid && s.inputError]} placeholder={`Max (${currency})`} keyboardType="number-pad" value={budgetMax} onChangeText={(v) => setBudgetMax(v.replace(/[^0-9]/g, ""))} />
             </View>
+            {budgetInvalid ? <Text style={s.errorText}>Your minimum budget can’t be higher than your maximum.</Text> : null}
             <Text style={s.q}>Reference photos</Text>
             <View style={s.refGrid}>
               {refs.map((r) => <Image key={r.path} source={{ uri: r.uri }} style={s.refImg} contentFit="cover" />)}
@@ -227,7 +253,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
             {isStudio ? <SummaryRow label="Artist" value={chosenArtistName ?? "Studio’s choice"} /> : <SummaryRow label="Artist" value={profileQ.data?.displayName ?? "—"} />}
             <SummaryRow label="Idea" value={title || "—"} />
             {description ? <SummaryRow label="Notes" value={description} /> : null}
-            {placement ? <SummaryRow label="Placement" value={placement} /> : null}
+            {effectivePlacement ? <SummaryRow label="Placement" value={effectivePlacement} /> : null}
             {size ? <SummaryRow label="Size" value={size} /> : null}
             {isColor != null ? <SummaryRow label="Color" value={isColor ? "Color" : "Black & grey"} /> : null}
             <SummaryRow label="Preferred date" value={preferredDate ? fmtDate(preferredDate) : "Flexible"} />
@@ -324,6 +350,8 @@ const s = StyleSheet.create({
   q: { fontSize: 16, fontWeight: "800", marginTop: 12 },
   hint: { color: "#71717A", fontSize: 13, marginBottom: 4 },
   input: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, marginTop: 6 },
+  inputError: { borderWidth: 1, borderColor: "#E5484D", backgroundColor: "#FEF2F2" },
+  errorText: { color: "#E5484D", fontSize: 13, marginTop: 6 },
   multiline: { minHeight: 96, textAlignVertical: "top" },
   row: { flexDirection: "row", gap: 10, marginTop: 6 },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },

@@ -40,7 +40,7 @@ interface ConvRow {
   id: string;
   type: string;
   studio_id: string | null;
-  studios: { name: string; logo_path: string | null } | null;
+  studios: { name: string; slug: string; logo_path: string | null } | null;
   last_message_at: string | null;
   last_message_preview: string | null;
   conversation_participants: { profile_id: string; last_read_at: string | null; profiles: { display_name: string; avatar_path: string | null } | null }[] | null;
@@ -51,7 +51,7 @@ export async function listConversations(client: InkoraClient): Promise<Conversat
   const me = userRes.user?.id;
   const { data, error } = await client
     .from("conversations")
-    .select("id, type, studio_id, studios(name, logo_path), last_message_at, last_message_preview, conversation_participants(profile_id, last_read_at, profiles(display_name, avatar_path))")
+    .select("id, type, studio_id, studios(name, slug, logo_path), last_message_at, last_message_preview, conversation_participants(profile_id, last_read_at, profiles(display_name, avatar_path))")
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(100)
     .returns<ConvRow[]>();
@@ -68,6 +68,8 @@ export async function listConversations(client: InkoraClient): Promise<Conversat
       otherId: (other?.profile_id as ProfileId | null) ?? null,
       otherName: c.studios?.name ?? other?.profiles?.display_name ?? "Conversation",
       otherAvatarPath: c.studios ? c.studios.logo_path : (other?.profiles?.avatar_path ?? null),
+      studioId: (c.studio_id as ConversationSummary["studioId"]) ?? null,
+      studioSlug: c.studios?.slug ?? null,
       lastMessagePreview: c.last_message_preview,
       lastMessageAt: c.last_message_at,
       unread,

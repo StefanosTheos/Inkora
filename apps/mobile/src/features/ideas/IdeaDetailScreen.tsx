@@ -3,9 +3,11 @@ import { useIdeaDetail, useIdeaSaved, useSimilarIdeas } from "@inkora/data-acces
 import type { IdeaCard } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ImageZoomModal } from "../../components/ImageZoomModal";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
@@ -17,6 +19,7 @@ export function IdeaDetailScreen({ id }: { id: string }) {
   const detail = useIdeaDetail(supabase, id);
   const similar = useSimilarIdeas(supabase, id);
   const save = useIdeaSaved(supabase, id);
+  const [zoom, setZoom] = useState(false);
 
   if (detail.isLoading) {
     return (
@@ -49,7 +52,12 @@ export function IdeaDetailScreen({ id }: { id: string }) {
     <SafeAreaView style={s.safe} edges={["top"]}>
       <TopBar onBack={() => router.back()} />
       <ScrollView contentContainerStyle={s.body}>
-        <Image source={{ uri: imageUrl(d.imagePath, 800) }} style={[s.hero, { aspectRatio: aspect }]} contentFit="cover" accessibilityRole="image" accessibilityLabel={d.title ?? "Tattoo design"} />
+        <Pressable onPress={() => setZoom(true)} accessibilityRole="imagebutton" accessibilityLabel={`${d.title ?? "Tattoo design"}. Tap to zoom`}>
+          <Image source={{ uri: imageUrl(d.imagePath, 800) }} style={[s.hero, { aspectRatio: aspect }]} contentFit="cover" />
+          <View style={s.zoomBadge}>
+            <Ionicons name="expand-outline" size={16} color="#fff" />
+          </View>
+        </Pressable>
 
         <View style={s.content}>
           {d.title ? <Text style={s.title}>{d.title}</Text> : null}
@@ -132,6 +140,12 @@ export function IdeaDetailScreen({ id }: { id: string }) {
           )}
         </View>
       </ScrollView>
+      <ImageZoomModal
+        visible={zoom}
+        uri={imageUrl(d.imagePath, 1600) ?? ""}
+        onClose={() => setZoom(false)}
+        label={d.title ?? "Tattoo design"}
+      />
     </SafeAreaView>
   );
 }
@@ -153,6 +167,7 @@ const s = StyleSheet.create({
   muted: { color: "#A1A1AA" },
   body: { paddingBottom: 40 },
   hero: { width: "100%", backgroundColor: "#E4E4E7", maxHeight: 520 },
+  zoomBadge: { position: "absolute", right: 12, bottom: 12, width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
   content: { padding: 16, gap: 12 },
   title: { fontSize: 22, fontWeight: "800" },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },

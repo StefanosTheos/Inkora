@@ -7,7 +7,8 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, FlatList, KeyboardAvoidingView, PanResponder, Platform, Pressable,
+  StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -34,6 +35,13 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
   const conv = convs.data?.find((c) => c.id === conversationId);
   const title = conv?.otherName ?? "Chat";
   const avatarUrl = img(conv?.otherAvatarPath);
+  // Tapping the header opens the studio (studio chats) or artist (direct chats)
+  // profile. Support conversations have no profile to open.
+  const canOpenProfile = !!(conv?.studioSlug || (conv?.type === "direct" && conv?.otherId));
+  const openProfile = () => {
+    if (conv?.studioSlug) router.push(`/studio/${conv.studioSlug}`);
+    else if (conv?.type === "direct" && conv?.otherId) router.push(`/artist/${conv.otherId}`);
+  };
 
   const [text, setText] = useState("");
   const [showActions, setShowActions] = useState(false);
@@ -106,14 +114,22 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
     <KeyboardAvoidingView style={s.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={[s.header, { paddingTop: insets.top + 6 }]}>
         <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
-        <View style={s.headerAvatar}>
-          {avatarUrl ? (
-            <Image source={{ uri: avatarUrl }} style={s.headerAvatarImg} contentFit="cover" />
-          ) : (
-            <Text style={s.headerAvatarInitial}>{title.charAt(0).toUpperCase()}</Text>
-          )}
-        </View>
-        <Text style={s.headerTitle} numberOfLines={1}>{title}</Text>
+        <Pressable
+          style={s.headerPerson}
+          onPress={openProfile}
+          disabled={!canOpenProfile}
+          accessibilityRole={canOpenProfile ? "button" : undefined}
+          accessibilityLabel={canOpenProfile ? `View ${title}'s profile` : title}
+        >
+          <View style={s.headerAvatar}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={s.headerAvatarImg} contentFit="cover" />
+            ) : (
+              <Text style={s.headerAvatarInitial}>{title.charAt(0).toUpperCase()}</Text>
+            )}
+          </View>
+          <Text style={s.headerTitle} numberOfLines={1}>{title}</Text>
+        </Pressable>
       </View>
 
       {chat.isLoading ? (
@@ -187,32 +203,116 @@ function ChatImage({ path }: { path?: string }) {
   return url ? <Image source={{ uri: url }} style={s.chatImg} contentFit="cover" /> : <View style={[s.chatImg, { backgroundColor: "#E4E4E7" }]} />;
 }
 
+const clamp01 = (v: number) => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0);
+
 function VoicePlayer({ path, durationMs, mine }: { path?: string; durationMs: number; mine: boolean }) {
   const [playing, setPlaying] = useState(false);
+  const [pos, setPos] = useState(0);          // current playback position (ms)
+  const [dur, setDur] = useState(durationMs); // real duration once loaded (ms)
+  const [seekFrac, setSeekFrac] = useState<number | null>(null); // 0..1 while dragging
   const soundRef = useRef<Audio.Sound | null>(null);
+  const barWidth = useRef(0);
+  const seekingRef = useRef(false);
+
   useEffect(() => () => { void soundRef.current?.unloadAsync(); }, []);
-  async function toggle() {
-    if (!path) return;
-    if (playing) { await soundRef.current?.pauseAsync(); setPlaying(false); return; }
-    if (!soundRef.current) {
-      const url = await getChatSignedUrl(supabase, path);
-      if (!url) return;
-      const { sound } = await Audio.Sound.createAsync({ uri: url });
-      soundRef.current = sound;
-      sound.setOnPlaybackStatusUpdate((st: AVPlaybackStatus) => {
-        if (st.isLoaded && st.didJustFinish) { setPlaying(false); void sound.setPositionAsync(0); }
-      });
+
+  const onStatus = (st: AVPlaybackStatus) => {
+    if (!st.isLoaded) return;
+    if (st.durationMillis) setDur(st.durationMillis);
+    if (st.didJustFinish) {
+      // Stop cleanly and rewind. Pause FIRST so shouldPlay is cleared before
+      // rewinding — rewinding while shouldPlay is still true is what made it
+      // loop forever.
+      setPlaying(false);
+      setPos(0);
+      void soundRef.current?.pauseAsync().then(() => soundRef.current?.setPositionAsync(0));
+      return;
     }
-    await soundRef.current.playAsync();
+    if (!seekingRef.current) setPos(st.positionMillis ?? 0);
+  };
+
+  async function load(): Promise<Audio.Sound | null> {
+    if (soundRef.current) return soundRef.current;
+    if (!path) return null;
+    const url = await getChatSignedUrl(supabase, path);
+    if (!url) return null;
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: url },
+      { progressUpdateIntervalMillis: 100 },
+      onStatus,
+    );
+    soundRef.current = sound;
+    return sound;
+  }
+
+  async function toggle() {
+    const sound = await load();
+    if (!sound) return;
+    if (playing) { await sound.pauseAsync(); setPlaying(false); return; }
+    await sound.playAsync();
     setPlaying(true);
   }
+
+  async function seekTo(frac: number) {
+    const sound = await load();
+    const total = dur || durationMs;
+    if (!sound || total <= 0) return;
+    const target = clamp01(frac) * total;
+    setPos(target);
+    await sound.setPositionAsync(target);
+  }
+
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (e) => {
+          seekingRef.current = true;
+          setSeekFrac(clamp01(e.nativeEvent.locationX / (barWidth.current || 1)));
+        },
+        onPanResponderMove: (e) => {
+          setSeekFrac(clamp01(e.nativeEvent.locationX / (barWidth.current || 1)));
+        },
+        onPanResponderRelease: (e) => {
+          const frac = clamp01(e.nativeEvent.locationX / (barWidth.current || 1));
+          seekingRef.current = false;
+          setSeekFrac(null);
+          void seekTo(frac);
+        },
+        onPanResponderTerminate: () => { seekingRef.current = false; setSeekFrac(null); },
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dur, durationMs, path],
+  );
+
   const color = mine ? "#fff" : "#18181B";
+  const trackBg = mine ? "rgba(255,255,255,0.35)" : "#D4D4D8";
+  const fillBg = mine ? "#fff" : "#18181B";
+  const effDur = dur || durationMs || 0;
+  const frac = seekFrac != null ? seekFrac : effDur > 0 ? clamp01(pos / effDur) : 0;
+  const shownMs = seekFrac != null ? seekFrac * effDur : playing || pos > 0 ? pos : effDur;
+
   return (
-    <Pressable style={s.voice} onPress={toggle}>
-      <Ionicons name={playing ? "pause" : "play"} size={20} color={color} />
-      <View style={[s.voiceBar, { backgroundColor: mine ? "rgba(255,255,255,0.4)" : "#D4D4D8" }]} />
-      <Text style={{ color, fontWeight: "600" }}>{mmss(durationMs)}</Text>
-    </Pressable>
+    <View style={s.voice}>
+      <Pressable onPress={toggle} hitSlop={8} accessibilityRole="button" accessibilityLabel={playing ? "Pause voice message" : "Play voice message"}>
+        <Ionicons name={playing ? "pause" : "play"} size={22} color={color} />
+      </Pressable>
+      <View
+        style={s.voiceTrackHit}
+        onLayout={(e) => { barWidth.current = e.nativeEvent.layout.width; }}
+        {...pan.panHandlers}
+        accessibilityRole="adjustable"
+        accessibilityLabel="Voice message progress"
+        accessibilityValue={{ min: 0, max: 100, now: Math.round(frac * 100) }}
+      >
+        <View style={[s.voiceTrack, { backgroundColor: trackBg }]}>
+          <View style={[s.voiceFill, { width: `${frac * 100}%`, backgroundColor: fillBg }]} />
+        </View>
+        <View style={[s.voiceThumb, { left: `${frac * 100}%`, backgroundColor: fillBg }]} />
+      </View>
+      <Text style={[s.voiceTime, { color }]}>{mmss(shownMs)}</Text>
+    </View>
   );
 }
 
@@ -233,6 +333,7 @@ function RequestCard({ message, kind, mine }: { message: Message; kind: "quote" 
 const s = StyleSheet.create({
   flex: { flex: 1, backgroundColor: "#fff" },
   header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
+  headerPerson: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
   headerAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#1F1B2E", alignItems: "center", justifyContent: "center", overflow: "hidden" },
   headerAvatarImg: { width: "100%", height: "100%" },
   headerAvatarInitial: { color: "#fff", fontSize: 14, fontWeight: "800" },
@@ -251,8 +352,12 @@ const s = StyleSheet.create({
   textMine: { color: "#fff", fontSize: 15 },
   textOther: { color: "#18181B", fontSize: 15 },
   chatImg: { width: 220, height: 220, borderRadius: 14 },
-  voice: { flexDirection: "row", alignItems: "center", gap: 8, minWidth: 140 },
-  voiceBar: { flex: 1, height: 3, borderRadius: 2 },
+  voice: { flexDirection: "row", alignItems: "center", gap: 10, minWidth: 180 },
+  voiceTrackHit: { flex: 1, height: 24, justifyContent: "center" }, // tall hit area for dragging
+  voiceTrack: { height: 4, borderRadius: 2, overflow: "hidden" },
+  voiceFill: { height: "100%", borderRadius: 2 },
+  voiceThumb: { position: "absolute", width: 12, height: 12, borderRadius: 6, marginLeft: -6, top: 6 },
+  voiceTime: { fontWeight: "600", fontVariant: ["tabular-nums"], minWidth: 34, textAlign: "right" },
   reqCard: { minWidth: 180 },
   reqTitle: { fontWeight: "800", fontSize: 15 },
   reqDetail: { marginTop: 4, fontSize: 13 },

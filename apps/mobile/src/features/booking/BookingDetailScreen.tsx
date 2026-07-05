@@ -56,6 +56,7 @@ export function BookingDetailScreen({ id }: { id: string }) {
 
 // ============================================================ APPOINTMENT
 function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string }) {
+  const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
   const confirm = useConfirm();
@@ -82,11 +83,19 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
   return (
     <ScrollView contentContainerStyle={s.body}>
       <View style={s.partyRow}>
-        <Avatar path={appt.counterparty.avatarPath} name={appt.counterparty.name} size={52} />
-        <View style={{ flex: 1 }}>
-          <Text style={s.partyName}>{appt.counterparty.name}</Text>
-          <Text style={s.muted}>{isArtist ? "Client" : "Artist"}</Text>
-        </View>
+        <Pressable
+          style={s.partyPerson}
+          onPress={() => router.push(`/artist/${appt.artistId}`)}
+          disabled={isArtist}
+          accessibilityRole={isArtist ? undefined : "button"}
+          accessibilityLabel={isArtist ? appt.counterparty.name : `View ${appt.counterparty.name}'s profile`}
+        >
+          <Avatar path={appt.counterparty.avatarPath} name={appt.counterparty.name} size={52} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.partyName}>{appt.counterparty.name}</Text>
+            <Text style={s.muted}>{isArtist ? "Client" : "Artist"}</Text>
+          </View>
+        </Pressable>
         <StatusChip status={appt.status} label={APPOINTMENT_STATUS_LABEL[appt.status]} />
       </View>
 
@@ -443,6 +452,7 @@ const s = StyleSheet.create({
   muted: { color: "#A1A1AA" },
   flex1: { flex: 1 },
   partyRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  partyPerson: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   partyName: { fontSize: 18, fontWeight: "800" },
   infoCard: { backgroundColor: "#F9FAFB", borderRadius: 16, padding: 14, gap: 10 },
   infoRow: { flexDirection: "row", alignItems: "center", gap: 10 },
