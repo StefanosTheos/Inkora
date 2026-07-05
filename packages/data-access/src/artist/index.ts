@@ -219,6 +219,43 @@ export async function setArtistAvailability(client: InkoraClient, slots: Availab
   if (error) throw toAppError(error);
 }
 
+// ------------------------------------------------------------------ portfolio management
+async function ensureDefaultPortfolio(client: InkoraClient, uid: string): Promise<string> {
+  const { data: existing, error } = await client
+    .from("portfolios").select("id").eq("artist_id", uid)
+    .order("is_default", { ascending: false }).limit(1).maybeSingle<{ id: string }>();
+  if (error) throw toAppError(error);
+  if (existing) return existing.id;
+  const { data: created, error: cErr } = await client
+    .from("portfolios").insert({ artist_id: uid, title: "Portfolio", is_default: true }).select("id").single<{ id: string }>();
+  if (cErr || !created) throw toAppError(cErr ?? new Error("portfolio_create_failed"));
+  return created.id;
+}
+
+/** Upload an image to the artist's portfolio (storage + portfolio_images row). */
+export async function addPortfolioImage(
+  client: InkoraClient, body: ArrayBuffer | Blob, contentType: string, ext: string, caption?: string,
+): Promise<void> {
+  const { data: userRes } = await client.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) throw toAppError(new Error("Not signed in"));
+  const objectPath = `${uid}/${Date.now()}.${ext}`; // folder must be the uid (storage RLS)
+  const { error: upErr } = await client.storage.from("portfolio").upload(objectPath, body, { contentType, upsert: false });
+  if (upErr) throw toAppError(upErr);
+  const portfolioId = await ensureDefaultPortfolio(client, uid);
+  const { count } = await client.from("portfolio_images").select("id", { count: "exact", head: true }).eq("artist_id", uid);
+  const { error } = await client.from("portfolio_images").insert({
+    portfolio_id: portfolioId, artist_id: uid, image_path: `portfolio/${objectPath}`, caption: caption ?? null, sort_order: count ?? 0,
+  });
+  if (error) throw toAppError(error);
+}
+
+/** Remove a portfolio image (RLS: pimg_write owner-only). */
+export async function removePortfolioImage(client: InkoraClient, imageId: string): Promise<void> {
+  const { error } = await client.from("portfolio_images").delete().eq("id", imageId);
+  if (error) throw toAppError(error);
+}
+
 // ------------------------------------------------------------------ artist audience stats
 export interface ArtistStats {
   savedBy: number;
