@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { CountBadge } from "../../components/CountBadge";
+import { useBadgeCounts } from "../../lib/badges";
 import { registerPushToken, scheduleAppointmentReminders } from "../../lib/notifications";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, money, StatusChip } from "./components/ui";
@@ -19,6 +21,7 @@ export function MyBookingsScreen() {
   const [tab, setTab] = useState<Tab>("upcoming");
   const apptsQ = useMyAppointments(supabase);
   const reqsQ = useMyRequests(supabase, "client");
+  const { offers: offersUnread } = useBadgeCounts();
 
   useEffect(() => { void registerPushToken(); }, []);
   useEffect(() => {
@@ -38,7 +41,7 @@ export function MyBookingsScreen() {
       </View>
       <View style={s.tabs}>
         <TabButton label={`Upcoming${appts.length ? ` (${appts.length})` : ""}`} active={tab === "upcoming"} onPress={() => setTab("upcoming")} />
-        <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => setTab("requests")} />
+        <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => setTab("requests")} badge={offersUnread} />
       </View>
 
       <ScrollView contentContainerStyle={s.body}>
@@ -56,10 +59,11 @@ export function MyBookingsScreen() {
   );
 }
 
-function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function TabButton({ label, active, onPress, badge = 0 }: { label: string; active: boolean; onPress: () => void; badge?: number }) {
   return (
     <Pressable style={[s.tab, active && s.tabActive]} onPress={onPress}>
       <Text style={[s.tabText, active && s.tabTextActive]}>{label}</Text>
+      <CountBadge count={badge} />
     </Pressable>
   );
 }
@@ -108,7 +112,7 @@ const s = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 },
   title: { fontSize: 22, fontWeight: "800" },
   tabs: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 4 },
-  tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: "#F4F4F5" },
+  tab: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: "#F4F4F5" },
   tabActive: { backgroundColor: "#18181B" },
   tabText: { fontWeight: "700", color: "#52525B", fontSize: 13 },
   tabTextActive: { color: "#fff" },

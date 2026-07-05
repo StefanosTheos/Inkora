@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  awardDailyActive, redeemReferral, redeemVoucher, rewardKeys, useMyRedemptions, useProfileCompletion,
-  useReferralSummary, useRewardHistory, useRewards, useVouchers,
+  awardDailyActive, markTypeNotificationsRead, redeemReferral, redeemVoucher, rewardKeys, useMyRedemptions,
+  useProfileCompletion, useReferralSummary, useRewardHistory, useRewards, useVouchers,
 } from "@inkora/data-access";
 import {
   PROFILE_COMPLETION_LABELS, type ProfileCompletion, REWARD_REASON_LABEL, type RewardTransaction,
@@ -32,9 +32,15 @@ export function RewardsScreen() {
   const referral = useReferralSummary(supabase);
   const completion = useProfileCompletion(supabase);
 
-  // Daily check-in on open (idempotent per day server-side).
+  // Daily check-in on open (idempotent per day server-side), then clear the
+  // "new rewards" badge now that the user is looking at them.
   useEffect(() => {
-    void awardDailyActive(supabase).then(() => qc.invalidateQueries({ queryKey: rewardKeys.account }));
+    void (async () => {
+      await awardDailyActive(supabase);
+      await qc.invalidateQueries({ queryKey: rewardKeys.account });
+      await markTypeNotificationsRead(supabase, "reward");
+      await qc.invalidateQueries({ queryKey: ["notifications"] });
+    })();
   }, [qc]);
 
   const balance = account?.balance ?? 0;

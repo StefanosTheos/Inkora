@@ -39,6 +39,7 @@ export function UserDashboardScreen() {
   const journey = useJourney(supabase);
   const { notifications } = useNotifications(supabase);
   const rewardsUnread = notifications.filter((n) => !n.readAt && n.type === "reward").length;
+  const offersUnread = notifications.filter((n) => !n.readAt && n.type === "offer").length;
 
   const p = profile.data;
   const upcoming = upcomingQ.data ?? [];
@@ -125,7 +126,7 @@ export function UserDashboardScreen() {
         </View>
 
         {/* Upcoming appointments */}
-        <SectionHeader title="Upcoming" onSeeAll={() => router.push("/bookings")} />
+        <SectionHeader title="Upcoming" badge={offersUnread} onSeeAll={() => router.push("/bookings")} />
         {upcoming.length === 0 ? (
           <Empty icon="calendar-outline" text="No upcoming appointments." />
         ) : (
@@ -237,11 +238,16 @@ function Stat({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
-function SectionHeader({ title, onSeeAll }: { title: string; onSeeAll?: () => void }) {
+function SectionHeader({ title, onSeeAll, badge = 0 }: { title: string; onSeeAll?: () => void; badge?: number }) {
   return (
     <View style={s.sectionHead}>
       <Text style={s.sectionTitle} accessibilityRole="header">{title}</Text>
-      {onSeeAll ? <Pressable onPress={onSeeAll} hitSlop={8} accessibilityRole="button" accessibilityLabel={`See all ${title}`}><Text style={s.seeAll}>See all</Text></Pressable> : null}
+      {onSeeAll ? (
+        <Pressable onPress={onSeeAll} hitSlop={8} style={s.seeAllRow} accessibilityRole="button" accessibilityLabel={badge > 0 ? `See all ${title}, ${badge} new` : `See all ${title}`}>
+          <Text style={s.seeAll}>See all</Text>
+          <CountBadge count={badge} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -292,6 +298,7 @@ const s = StyleSheet.create({
   sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 20, marginBottom: 8 },
   sectionTitle: { fontSize: 18, fontWeight: "800" },
   seeAll: { color: "#E5484D", fontWeight: "700" },
+  seeAllRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   apptRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
   apptName: { fontWeight: "700", fontSize: 15 },
   apptSub: { color: "#71717A", fontSize: 13, marginTop: 2 },

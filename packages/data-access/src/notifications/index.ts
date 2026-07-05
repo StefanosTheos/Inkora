@@ -71,6 +71,20 @@ export async function markEntityNotificationsRead(client: InkoraClient, entityTy
     .is("read_at", null);
 }
 
+/** Mark all the caller's unread notifications of a given type as read (best
+ *  effort). Used when opening a screen that surfaces them (e.g. Rewards). */
+export async function markTypeNotificationsRead(client: InkoraClient, type: string): Promise<void> {
+  const { data: userRes } = await client.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) return;
+  await client
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("recipient_id", uid)
+    .eq("type", type)
+    .is("read_at", null);
+}
+
 const NOTIF_KEY = ["notifications"] as const;
 
 // One realtime channel shared by every useNotifications consumer (the header

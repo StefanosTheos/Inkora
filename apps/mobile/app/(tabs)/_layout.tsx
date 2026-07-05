@@ -1,14 +1,41 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@inkora/data-access";
 import { router, Tabs } from "expo-router";
 import type { ComponentProps } from "react";
+import { StyleSheet, View } from "react-native";
+
+import { useBadgeCounts } from "../../src/lib/badges";
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
+type IconProps = { color: string; size: number; focused: boolean };
 
 /** Tab icon that swaps to the filled variant when focused. */
 function tabIcon(active: IoniconName, inactive: IoniconName) {
-  return ({ color, size, focused }: { color: string; size: number; focused: boolean }) => (
+  return ({ color, size, focused }: IconProps) => (
     <Ionicons name={focused ? active : inactive} size={size} color={color} />
   );
+}
+
+/** Icon with an optional red notification dot in the top-right corner. */
+function DotIcon({ active, inactive, color, size, focused, show }: IconProps & { active: IoniconName; inactive: IoniconName; show: boolean }) {
+  return (
+    <View>
+      <Ionicons name={focused ? active : inactive} size={size} color={color} />
+      {show ? <View style={s.dot} /> : null}
+    </View>
+  );
+}
+
+function ChatsTabIcon(props: IconProps) {
+  const { chats } = useBadgeCounts();
+  return <DotIcon {...props} active="chatbubble" inactive="chatbubble-outline" show={chats > 0} />;
+}
+
+function ProfileTabIcon(props: IconProps) {
+  const { ctx } = useAuth();
+  const { rewards, offers, requests } = useBadgeCounts();
+  const show = ctx.roles.includes("artist") ? requests > 0 : rewards + offers > 0;
+  return <DotIcon {...props} active="person" inactive="person-outline" show={show} />;
 }
 
 export default function TabsLayout() {
@@ -25,7 +52,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="create" options={{ title: "Create", tabBarIcon: tabIcon("add-circle", "add-circle-outline") }} />
       <Tabs.Screen
         name="chats"
-        options={{ title: "Chats", tabBarIcon: tabIcon("chatbubble", "chatbubble-outline") }}
+        options={{ title: "Chats", tabBarIcon: (p) => <ChatsTabIcon {...p} /> }}
         listeners={{
           // Always land on the conversation list, even if a thread is still
           // on top of the Chats stack from a previous deep-link.
@@ -35,7 +62,11 @@ export default function TabsLayout() {
           },
         }}
       />
-      <Tabs.Screen name="profile" options={{ title: "Profile", tabBarIcon: tabIcon("person", "person-outline") }} />
+      <Tabs.Screen name="profile" options={{ title: "Profile", tabBarIcon: (p) => <ProfileTabIcon {...p} /> }} />
     </Tabs>
   );
 }
+
+const s = StyleSheet.create({
+  dot: { position: "absolute", top: -2, right: -3, width: 10, height: 10, borderRadius: 5, backgroundColor: "#E5484D", borderWidth: 1.5, borderColor: "#fff" },
+});

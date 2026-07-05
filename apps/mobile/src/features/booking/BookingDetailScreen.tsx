@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   bookingKeys, cancelAppointment, cancelRequest, completeAppointment, createOffer, declineRequest,
-  getChatSignedUrl, rescheduleAppointment, respondToOffer, submitReview, useAppointment, useAppointmentReview,
-  useArtistAvailability, useArtistDaySlots, useAuth, useBookingRequest, withdrawOffer,
+  getChatSignedUrl, markEntityNotificationsRead, rescheduleAppointment, respondToOffer, submitReview,
+  useAppointment, useAppointmentReview, useArtistAvailability, useArtistDaySlots, useAuth,
+  useBookingRequest, withdrawOffer,
 } from "@inkora/data-access";
 import {
   APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView, type OfferView, REQUEST_STATUS_LABEL,
@@ -274,6 +275,16 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
     toast.show("Offer sent");
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }
+
+  // Client viewing a request with offer(s): clear the "new offer" badge.
+  const offerIds = req.offers.map((o) => o.id).join(",");
+  useEffect(() => {
+    if (isArtist || !offerIds) return;
+    void (async () => {
+      await Promise.all(offerIds.split(",").map((oid) => markEntityNotificationsRead(supabase, "offer", oid)));
+      await qc.invalidateQueries({ queryKey: ["notifications"] });
+    })();
+  }, [isArtist, offerIds, qc]);
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     try { await fn(); await invalidate(); }
