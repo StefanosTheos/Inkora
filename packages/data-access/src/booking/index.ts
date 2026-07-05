@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
+import { markEntityNotificationsRead } from "../notifications";
 
 const BOOKING_BUCKET = "chat-attachments"; // reference photos reuse the private attachments bucket
 
@@ -195,6 +196,8 @@ export async function getBookingRequest(client: InkoraClient, id: string): Promi
 export async function declineRequest(client: InkoraClient, id: string): Promise<void> {
   const { error } = await client.from("appointment_requests").update({ status: "declined" }).eq("id", id);
   if (error) throw toAppError(error);
+  // Answering the request clears its "new" badge.
+  await markEntityNotificationsRead(client, "appointment_request", id);
 }
 
 export async function cancelRequest(client: InkoraClient, id: string): Promise<void> {
@@ -219,6 +222,8 @@ export async function createOffer(client: InkoraClient, input: OfferInput): Prom
   if (error) throw toAppError(error);
   // move the request into "offered" so the client sees it's answered
   await client.from("appointment_requests").update({ status: "offered" }).eq("id", input.requestId);
+  // Sending an offer answers the request — clear its "new" badge.
+  await markEntityNotificationsRead(client, "appointment_request", input.requestId);
 }
 
 export async function withdrawOffer(client: InkoraClient, offerId: string): Promise<void> {

@@ -55,6 +55,22 @@ export async function markAllNotificationsRead(client: InkoraClient): Promise<vo
   if (error) throw toAppError(error);
 }
 
+/** Mark the caller's unread notifications for a given entity as read (best effort).
+ *  Used when acting on an entity clears its "new" badge (e.g. answering a booking
+ *  request). Never throws so it can't fail the primary action. */
+export async function markEntityNotificationsRead(client: InkoraClient, entityType: string, entityId: string): Promise<void> {
+  const { data: userRes } = await client.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) return;
+  await client
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("recipient_id", uid)
+    .eq("entity_type", entityType)
+    .eq("entity_id", entityId)
+    .is("read_at", null);
+}
+
 const NOTIF_KEY = ["notifications"] as const;
 
 // One realtime channel shared by every useNotifications consumer (the header

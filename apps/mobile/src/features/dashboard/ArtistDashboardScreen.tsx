@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   useArtistProfile, useArtistReviews, useArtistStats, useAuth,
-  useMyAppointmentCount, useUpcomingAppointments,
+  useMyAppointmentCount, useNotifications, useUpcomingAppointments,
 } from "@inkora/data-access";
 import { APPOINTMENT_STATUS_LABEL } from "@inkora/domain";
 import { useRouter } from "expo-router";
@@ -9,6 +9,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
+import { CountBadge } from "../../components/CountBadge";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, StatusChip } from "../booking/components/ui";
 
@@ -22,6 +23,8 @@ export function ArtistDashboardScreen() {
   const upcomingQ = useUpcomingAppointments(supabase, 5);
   const apptCount = useMyAppointmentCount(supabase);
   const reviews = useArtistReviews(supabase, meId);
+  const { notifications } = useNotifications(supabase);
+  const requestsUnread = notifications.filter((n) => !n.readAt && n.type === "booking_request").length;
 
   const a = profile.data;
   const upcoming = upcomingQ.data ?? [];
@@ -99,7 +102,7 @@ export function ArtistDashboardScreen() {
         <SectionHeader title="Manage" />
         <View style={s.card}>
           <ActionRow icon="calendar-outline" label="Your schedule" onPress={() => router.push("/artist-dashboard")} />
-          <ActionRow icon="file-tray-full-outline" label="Booking requests" onPress={() => router.push("/artist-dashboard/requests")} />
+          <ActionRow icon="file-tray-full-outline" label="Booking requests" badge={requestsUnread} onPress={() => router.push("/artist-dashboard/requests")} />
           <ActionRow icon="time-outline" label="Availability" onPress={() => router.push("/artist-dashboard/availability")} />
           <ActionRow icon="images-outline" label="Portfolio" onPress={() => router.push("/artist-dashboard/portfolio")} />
           <ActionRow icon="person-outline" label="Edit profile" onPress={() => router.push("/profile/settings")} />
@@ -151,11 +154,12 @@ function Empty({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: str
     </View>
   );
 }
-function ActionRow({ icon, label, onPress, danger }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; danger?: boolean }) {
+function ActionRow({ icon, label, onPress, danger, badge = 0 }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; danger?: boolean; badge?: number }) {
   return (
-    <Pressable style={s.actionRow} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+    <Pressable style={s.actionRow} onPress={onPress} accessibilityRole="button" accessibilityLabel={badge > 0 ? `${label}, ${badge} new` : label}>
       <Ionicons name={icon} size={20} color={danger ? "#DC2626" : "#52525B"} />
       <Text style={[s.actionLabel, danger && { color: "#DC2626" }]}>{label}</Text>
+      <CountBadge count={badge} />
       {!danger && <Ionicons name="chevron-forward" size={16} color="#D4D4D8" />}
     </Pressable>
   );

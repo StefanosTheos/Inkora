@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { SavedDesignCard } from "@inkora/data-access";
 import {
-  dashboardKeys, removeSavedDesign, useAuth, useJourney, useMyAppointmentCount, useProfileSummary,
-  useRewards, useSavedArtists, useSavedDesigns, useUpcomingAppointments,
+  dashboardKeys, removeSavedDesign, useAuth, useJourney, useMyAppointmentCount, useNotifications,
+  useProfileSummary, useRewards, useSavedArtists, useSavedDesigns, useUpcomingAppointments,
 } from "@inkora/data-access";
 import {
   APPOINTMENT_STATUS_LABEL, fmtMonthYear, JOURNEY_STAGE_LABEL, JOURNEY_STAGES, journeyProgress,
@@ -15,6 +15,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
+import { CountBadge } from "../../components/CountBadge";
 import { GradientBg, TIER_GRADIENT } from "../../components/Gradient";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
@@ -36,6 +37,8 @@ export function UserDashboardScreen() {
   const savedArtists = useSavedArtists(supabase);
   const savedDesigns = useSavedDesigns(supabase);
   const journey = useJourney(supabase);
+  const { notifications } = useNotifications(supabase);
+  const rewardsUnread = notifications.filter((n) => !n.readAt && n.type === "reward").length;
 
   const p = profile.data;
   const upcoming = upcomingQ.data ?? [];
@@ -215,7 +218,7 @@ export function UserDashboardScreen() {
         <SectionHeader title="Settings" />
         <View style={s.settingsCard}>
           <SettingRow icon="notifications-outline" label="Notifications" onPress={() => router.push("/notifications")} />
-          <SettingRow icon="gift-outline" label="Rewards & referrals" onPress={() => router.push("/rewards")} />
+          <SettingRow icon="gift-outline" label="Rewards & referrals" badge={rewardsUnread} onPress={() => router.push("/rewards")} />
           <SettingRow icon="person-outline" label="Edit profile" onPress={() => router.push("/profile/settings")} />
           <SettingRow icon="settings-outline" label="Account settings" onPress={() => router.push("/profile/account")} />
           {isArtist && <SettingRow icon="briefcase-outline" label="Artist dashboard" onPress={() => router.push("/artist-dashboard")} />}
@@ -250,11 +253,12 @@ function Empty({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: str
     </View>
   );
 }
-function SettingRow({ icon, label, onPress, danger }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; danger?: boolean }) {
+function SettingRow({ icon, label, onPress, danger, badge = 0 }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; danger?: boolean; badge?: number }) {
   return (
-    <Pressable style={s.settingRow} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+    <Pressable style={s.settingRow} onPress={onPress} accessibilityRole="button" accessibilityLabel={badge > 0 ? `${label}, ${badge} new` : label}>
       <Ionicons name={icon} size={20} color={danger ? "#DC2626" : "#52525B"} />
       <Text style={[s.settingLabel, danger && { color: "#DC2626" }]}>{label}</Text>
+      <CountBadge count={badge} />
       {!danger && <Ionicons name="chevron-forward" size={16} color="#D4D4D8" />}
     </Pressable>
   );

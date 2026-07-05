@@ -10,7 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
@@ -256,6 +256,7 @@ function ReviewSection({ appt }: { appt: AppointmentView }) {
 function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: string }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const scrollRef = useRef<ScrollView>(null);
   const isArtist = req.artistId === meId;
   const [busy, setBusy] = useState(false);
 
@@ -264,6 +265,14 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
     await qc.invalidateQueries({ queryKey: bookingKeys.clientRequests });
     await qc.invalidateQueries({ queryKey: bookingKeys.artistRequests });
     await qc.invalidateQueries({ queryKey: bookingKeys.appointments });
+    await qc.invalidateQueries({ queryKey: ["notifications"] }); // refresh the "Booking requests" badge
+  }
+
+  // After sending an offer: confirm and scroll back to the top of the request.
+  async function handleOfferSent() {
+    await invalidate();
+    toast.show("Offer sent");
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
   }
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -277,7 +286,7 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
   const clientCanCancel = !isArtist && req.status !== "converted" && req.status !== "cancelled" && req.status !== "declined";
 
   return (
-    <ScrollView contentContainerStyle={s.body}>
+    <ScrollView ref={scrollRef} contentContainerStyle={s.body}>
       <View style={s.partyRow}>
         <Avatar path={req.counterparty.avatarPath} name={req.counterparty.name} size={52} />
         <View style={{ flex: 1 }}>
@@ -323,7 +332,7 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
       ))}
 
       {/* Artist: send an offer */}
-      {openForArtist && <ArtistOfferComposer req={req} onSent={invalidate} />}
+      {openForArtist && <ArtistOfferComposer req={req} onSent={handleOfferSent} />}
 
       {/* Artist decline */}
       {isArtist && (req.status === "pending" || req.status === "reviewing") && (
