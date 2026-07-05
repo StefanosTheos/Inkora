@@ -13,6 +13,7 @@ export * from "./location"; // city → coordinates geocoding (Nominatim)
 export * from "./messaging"; // conversations, realtime chat, uploads, typing, read receipts
 export * from "./notifications"; // realtime in-app inbox + unread count
 export * from "./onboarding"; // style questionnaire: deck, controller, preferences, recommendations
+export * from "./portfolio"; // portfolio piece detail (same UX as idea detail) + save
 export { QueryProvider } from "./providers/query-provider";
 export * from "./query-keys";
 export * from "./realtime";

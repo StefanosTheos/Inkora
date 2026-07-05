@@ -133,28 +133,54 @@ export async function getSavedArtists(client: InkoraClient): Promise<SavedArtist
     .sort((x, y) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0));
 }
 
-// ------------------------------------------------------------------ saved designs (saved ideas)
+// ------------------------------------------------------------------ saved designs (saved ideas + portfolio pieces)
 export interface SavedDesignCard {
-  id: IdeaId;
+  id: string;
+  targetType: "idea" | "portfolio_image";
   title: string | null;
   imagePath: string;
 }
 export async function getSavedDesigns(client: InkoraClient): Promise<SavedDesignCard[]> {
   const { data: favs, error: favErr } = await client
     .from("favorites")
-    .select("target_id, created_at")
-    .eq("target_type", "idea")
+    .select("target_id, target_type, created_at")
+    .in("target_type", ["idea", "portfolio_image"])
     .order("created_at", { ascending: false })
-    .limit(60);
+    .limit(80);
   if (favErr) throw toAppError(favErr);
-  const ids = (favs ?? []).map((f) => f.target_id);
-  if (ids.length === 0) return [];
-  const { data, error } = await client.from("tattoo_ideas").select("id, title, image_path").in("id", ids);
+  const rows = favs ?? [];
+  const ideaIds = rows.filter((f) => f.target_type === "idea").map((f) => f.target_id);
+  const pieceIds = rows.filter((f) => f.target_type === "portfolio_image").map((f) => f.target_id);
+  if (ideaIds.length === 0 && pieceIds.length === 0) return [];
+
+  const cards = new Map<string, SavedDesignCard>();
+  if (ideaIds.length > 0) {
+    const { data, error } = await client.from("tattoo_ideas").select("id, title, image_path").in("id", ideaIds);
+    if (error) throw toAppError(error);
+    for (const d of data ?? []) cards.set(d.id, { id: d.id, targetType: "idea", title: d.title, imagePath: d.image_path });
+  }
+  if (pieceIds.length > 0) {
+    const { data, error } = await client.from("portfolio_images").select("id, caption, image_path").in("id", pieceIds);
+    if (error) throw toAppError(error);
+    for (const d of data ?? []) cards.set(d.id, { id: d.id, targetType: "portfolio_image", title: d.caption, imagePath: d.image_path });
+  }
+  // Preserve the favorites (created_at desc) order.
+  const order = new Map(rows.map((f, i) => [f.target_id, i]));
+  return [...cards.values()].sort((x, y) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0));
+}
+
+/** Remove a saved design (either an idea or a portfolio piece). */
+export async function removeSavedDesign(client: InkoraClient, id: string, targetType: "idea" | "portfolio_image"): Promise<void> {
+  const { data: userRes } = await client.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) throw toAppError(new Error("You need to sign in."));
+  const { error } = await client
+    .from("favorites")
+    .delete()
+    .eq("profile_id", uid)
+    .eq("target_type", targetType)
+    .eq("target_id", id);
   if (error) throw toAppError(error);
-  const order = new Map(ids.map((id, i) => [id, i]));
-  return (data ?? [])
-    .map((d) => ({ id: d.id as IdeaId, title: d.title, imagePath: d.image_path }))
-    .sort((x, y) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0));
 }
 
 // ------------------------------------------------------------------ journey

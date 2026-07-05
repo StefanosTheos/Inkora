@@ -181,14 +181,21 @@ export function ArtistProfileScreen({ id }: { id: string }) {
 }
 
 function PortfolioGrid({ images, loading }: { images: PortfolioImage[]; loading: boolean }) {
+  const router = useRouter();
   if (loading) return <ActivityIndicator />;
   if (images.length === 0) return <Text style={s.muted}>No portfolio pieces yet.</Text>;
   return (
     <View style={s.grid}>
       {images.map((im) => (
-        <View key={im.id} style={s.gridItem}>
+        <Pressable
+          key={im.id}
+          style={s.gridItem}
+          onPress={() => router.push(`/portfolio/${im.id}`)}
+          accessibilityRole="imagebutton"
+          accessibilityLabel={im.caption ? `View design: ${im.caption}` : "View portfolio piece"}
+        >
           <Image source={{ uri: img(im.imagePath, 200) }} style={s.gridImg} contentFit="cover" />
-        </View>
+        </Pressable>
       ))}
     </View>
   );

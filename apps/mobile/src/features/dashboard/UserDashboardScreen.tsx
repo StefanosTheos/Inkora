@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import type { SavedDesignCard } from "@inkora/data-access";
 import {
-  dashboardKeys, setIdeaSaved, useAuth, useJourney, useMyAppointmentCount, useProfileSummary,
+  dashboardKeys, removeSavedDesign, useAuth, useJourney, useMyAppointmentCount, useProfileSummary,
   useRewards, useSavedArtists, useSavedDesigns, useUpcomingAppointments,
 } from "@inkora/data-access";
 import {
@@ -52,16 +53,16 @@ export function UserDashboardScreen() {
     }).then((ok) => { if (ok) void signOut(); });
   };
 
-  const confirmRemoveDesign = (id: string, title: string | null) => {
+  const confirmRemoveDesign = (design: SavedDesignCard) => {
     void confirm({
-      title: title ? `Remove "${title}"?` : "Remove design?",
+      title: design.title ? `Remove "${design.title}"?` : "Remove design?",
       message: "This removes it from your saved designs.",
       confirmLabel: "Remove",
       destructive: true,
     }).then(async (ok) => {
       if (!ok) return;
       try {
-        await setIdeaSaved(supabase, id, false);
+        await removeSavedDesign(supabase, design.id, design.targetType);
         await qc.invalidateQueries({ queryKey: dashboardKeys.savedDesigns });
       } catch (e) {
         toast.show((e as Error).message, "error");
@@ -198,7 +199,7 @@ export function UserDashboardScreen() {
                 </Pressable>
                 <Pressable
                   style={s.designRemove}
-                  onPress={() => confirmRemoveDesign(d.id, d.title)}
+                  onPress={() => confirmRemoveDesign(d)}
                   hitSlop={8}
                   accessibilityRole="button"
                   accessibilityLabel={d.title ? `Remove ${d.title} from saved designs` : "Remove design from saved"}
