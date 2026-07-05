@@ -175,6 +175,29 @@ export async function setArtistSaved(client: InkoraClient, artistId: string, sav
   }
 }
 
+// ------------------------------------------------------------------ edit own artist profile
+export interface ArtistProfileEdit {
+  headline?: string | null;
+  hourlyRate?: number | null;
+  minCharge?: number | null;
+  instagram?: string | null;
+  isAccepting?: boolean;
+}
+/** Update the caller's own artists row (RLS: artists_write_own). */
+export async function updateArtistProfile(client: InkoraClient, input: ArtistProfileEdit): Promise<void> {
+  const { data: userRes } = await client.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) throw toAppError(new Error("Not signed in"));
+  const patch: Record<string, unknown> = {};
+  if (input.headline !== undefined) patch.headline = input.headline;
+  if (input.hourlyRate !== undefined) patch.hourly_rate = input.hourlyRate;
+  if (input.minCharge !== undefined) patch.min_charge = input.minCharge;
+  if (input.instagram !== undefined) patch.instagram_handle = input.instagram;
+  if (input.isAccepting !== undefined) patch.is_accepting = input.isAccepting;
+  const { error } = await client.from("artists").update(patch).eq("id", uid);
+  if (error) throw toAppError(error);
+}
+
 // ------------------------------------------------------------------ artist audience stats
 export interface ArtistStats {
   savedBy: number;

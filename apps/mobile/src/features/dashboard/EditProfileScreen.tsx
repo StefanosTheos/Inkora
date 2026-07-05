@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { dashboardKeys, publicStorageUrl, rewardKeys, updateMyProfile, updateProfileLocation, uploadAvatar, useProfileSummary } from "@inkora/data-access";
+import { dashboardKeys, publicStorageUrl, rewardKeys, updateArtistProfile, updateMyProfile, updateProfileLocation, uploadAvatar, useArtistProfile, useAuth, useProfileSummary } from "@inkora/data-access";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -21,7 +21,11 @@ export function EditProfileScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
+  const { ctx } = useAuth();
+  const meId = ctx.userId ?? "";
+  const isArtist = ctx.roles.includes("artist");
   const profile = useProfileSummary(supabase);
+  const artist = useArtistProfile(supabase, isArtist ? meId : "");
 
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
@@ -31,6 +35,14 @@ export function EditProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+
+  // Artist-only fields
+  const [headline, setHeadline] = useState("");
+  const [hourlyRate, setHourlyRate] = useState("");
+  const [minCharge, setMinCharge] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [accepting, setAccepting] = useState(true);
+  const [artistHydrated, setArtistHydrated] = useState(false);
 
   useEffect(() => {
     if (profile.data && !hydrated) {
@@ -42,6 +54,17 @@ export function EditProfileScreen() {
       setHydrated(true);
     }
   }, [profile.data, hydrated]);
+
+  useEffect(() => {
+    if (isArtist && artist.data && !artistHydrated) {
+      setHeadline(artist.data.headline ?? "");
+      setHourlyRate(artist.data.hourlyRate != null ? String(artist.data.hourlyRate) : "");
+      setMinCharge(artist.data.minCharge != null ? String(artist.data.minCharge) : "");
+      setInstagram(artist.data.instagram ?? "");
+      setAccepting(artist.data.isAccepting);
+      setArtistHydrated(true);
+    }
+  }, [isArtist, artist.data, artistHydrated]);
 
   async function pickAvatar() {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsEditing: true, aspect: [1, 1] });
@@ -72,6 +95,12 @@ export function EditProfileScreen() {
       toast.show("Username: 3–30 lowercase letters, numbers or underscores", "error");
       return;
     }
+    const rateBad = hourlyRate.trim() !== "" && Number.isNaN(Number(hourlyRate));
+    const minChargeBad = minCharge.trim() !== "" && Number.isNaN(Number(minCharge));
+    if (isArtist && (rateBad || minChargeBad)) {
+      toast.show("Rate and minimum charge must be numbers", "error");
+      return;
+    }
     setSaving(true);
     try {
       await updateMyProfile(supabase, { displayName, username, bio });
@@ -79,11 +108,21 @@ export function EditProfileScreen() {
       const loc = await updateProfileLocation(supabase, city.trim());
       if (!loc.ok) throw new Error(loc.error.message);
       const located = loc.value != null;
+      if (isArtist && artistHydrated) {
+        await updateArtistProfile(supabase, {
+          headline: headline.trim() || null,
+          hourlyRate: hourlyRate.trim() ? Number(hourlyRate) : null,
+          minCharge: minCharge.trim() ? Number(minCharge) : null,
+          instagram: instagram.trim().replace(/^@/, "") || null,
+          isAccepting: accepting,
+        });
+      }
       await Promise.all([
         qc.invalidateQueries({ queryKey: dashboardKeys.profile }),
         qc.invalidateQueries({ queryKey: rewardKeys.completion }),
         qc.invalidateQueries({ queryKey: rewardKeys.account }),
         qc.invalidateQueries({ queryKey: ["my-location"] }),
+        qc.invalidateQueries({ queryKey: ["artist", meId] }),
       ]);
       toast.show(
         city.trim() && !located
@@ -150,6 +189,31 @@ export function EditProfileScreen() {
               <TextInput style={[s.input, s.multiline]} value={bio} onChangeText={setBio} placeholder="A little about you" multiline accessibilityLabel="Bio" />
             </Field>
 
+            {isArtist && (
+              <>
+                <Text style={s.sectionLabel}>Artist details</Text>
+                <Field label="Headline" hint="Shown under your name on your profile">
+                  <TextInput style={s.input} value={headline} onChangeText={setHeadline} placeholder="e.g. Fine-line & botanical" accessibilityLabel="Headline" />
+                </Field>
+                <Field label="Hourly rate" hint="Used for the client price estimate">
+                  <TextInput style={s.input} value={hourlyRate} onChangeText={setHourlyRate} keyboardType="number-pad" placeholder="e.g. 120" accessibilityLabel="Hourly rate" />
+                </Field>
+                <Field label="Minimum charge">
+                  <TextInput style={s.input} value={minCharge} onChangeText={setMinCharge} keyboardType="number-pad" placeholder="e.g. 80" accessibilityLabel="Minimum charge" />
+                </Field>
+                <Field label="Instagram">
+                  <TextInput style={s.input} value={instagram} onChangeText={setInstagram} autoCapitalize="none" placeholder="yourhandle" accessibilityLabel="Instagram handle" />
+                </Field>
+                <View style={s.switchRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.label}>Accepting new clients</Text>
+                    <Text style={s.hint}>Turn off to pause booking requests</Text>
+                  </View>
+                  <Switch value={accepting} onValueChange={setAccepting} trackColor={{ true: "#E5484D" }} accessibilityLabel="Accepting new clients" />
+                </View>
+              </>
+            )}
+
             <Pressable style={[s.saveBtn, saving && s.disabled]} disabled={saving} onPress={save} accessibilityRole="button" accessibilityState={{ disabled: saving }} accessibilityLabel="Save changes">
               <Text style={s.saveText}>{saving ? "Saving…" : "Save changes"}</Text>
             </Pressable>
@@ -183,6 +247,8 @@ const s = StyleSheet.create({
   camBadge: { position: "absolute", bottom: 0, right: 0, width: 30, height: 30, borderRadius: 15, backgroundColor: "#E5484D", alignItems: "center", justifyContent: "center", borderWidth: 3, borderColor: "#fff" },
   avatarAction: { color: "#E5484D", fontWeight: "700", fontSize: 14 },
   field: { marginBottom: 14 },
+  sectionLabel: { fontSize: 16, fontWeight: "800", color: "#18181B", marginTop: 8, marginBottom: 12 },
+  switchRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
   label: { fontWeight: "700", fontSize: 13, color: "#52525B", marginBottom: 6 },
   input: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
   multiline: { minHeight: 90, textAlignVertical: "top" },
