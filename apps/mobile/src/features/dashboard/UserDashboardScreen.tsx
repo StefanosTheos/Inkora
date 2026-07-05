@@ -1,17 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  useAuth, useJourney, useMyAppointmentCount, useProfileSummary,
+  dashboardKeys, setIdeaSaved, useAuth, useJourney, useMyAppointmentCount, useProfileSummary,
   useRewards, useSavedArtists, useSavedDesigns, useUpcomingAppointments,
 } from "@inkora/data-access";
 import {
   APPOINTMENT_STATUS_LABEL, fmtMonthYear, JOURNEY_STAGE_LABEL, JOURNEY_STAGES, journeyProgress,
   TIER_COLOR, TIER_LABEL, tierProgress,
 } from "@inkora/domain";
+import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, StatusChip } from "../booking/components/ui";
@@ -20,6 +22,8 @@ const monthYear = (iso?: string) => (iso ? fmtMonthYear(iso) : "—");
 
 export function UserDashboardScreen() {
   const router = useRouter();
+  const qc = useQueryClient();
+  const toast = useToast();
   const { ctx, signOut } = useAuth();
   const profile = useProfileSummary(supabase);
   const { account } = useRewards(supabase);
@@ -35,6 +39,25 @@ export function UserDashboardScreen() {
   const jProg = journeyProgress(journey.data ?? []);
   const savedCount = (savedArtists.data?.length ?? 0) + (savedDesigns.data?.length ?? 0);
   const isArtist = ctx.roles.includes("artist");
+
+  const confirmRemoveDesign = (id: string, title: string | null) =>
+    Alert.alert(title ? `Remove "${title}"?` : "Remove design?", "This removes it from your saved designs.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => {
+          void (async () => {
+            try {
+              await setIdeaSaved(supabase, id, false);
+              await qc.invalidateQueries({ queryKey: dashboardKeys.savedDesigns });
+            } catch (e) {
+              toast.show((e as Error).message, "error");
+            }
+          })();
+        },
+      },
+    ]);
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
@@ -153,14 +176,24 @@ export function UserDashboardScreen() {
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.hRow}>
             {(savedDesigns.data ?? []).map((d) => (
-              <Pressable
-                key={d.id}
-                onPress={() => router.push({ pathname: "/image-viewer", params: { path: d.imagePath, title: d.title ?? "" } })}
-                accessibilityRole="imagebutton"
-                accessibilityLabel={d.title ? `View design: ${d.title}` : "View saved design"}
-              >
-                <Image source={{ uri: imageUrl(d.imagePath, 110) }} style={s.designThumb} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" />
-              </Pressable>
+              <View key={d.id} style={s.designWrap}>
+                <Pressable
+                  onPress={() => router.push({ pathname: "/image-viewer", params: { path: d.imagePath, title: d.title ?? "" } })}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={d.title ? `View design: ${d.title}` : "View saved design"}
+                >
+                  <Image source={{ uri: imageUrl(d.imagePath, 110) }} style={s.designThumb} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" />
+                </Pressable>
+                <Pressable
+                  style={s.designRemove}
+                  onPress={() => confirmRemoveDesign(d.id, d.title)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={d.title ? `Remove ${d.title} from saved designs` : "Remove design from saved"}
+                >
+                  <Ionicons name="close" size={14} color="#fff" />
+                </Pressable>
+              </View>
             ))}
           </ScrollView>
         )}
@@ -257,7 +290,9 @@ const s = StyleSheet.create({
   savedArtist: { width: 84, alignItems: "center", gap: 4 },
   savedArtistName: { fontWeight: "700", fontSize: 12, textAlign: "center" },
   savedArtistMeta: { color: "#A1A1AA", fontSize: 11 },
+  designWrap: { width: 110 },
   designThumb: { width: 110, height: 140, borderRadius: 14, backgroundColor: "#E4E4E7" },
+  designRemove: { position: "absolute", top: 6, right: 6, width: 24, height: 24, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", gap: 6, paddingVertical: 20 },
   emptyText: { color: "#A1A1AA", fontSize: 13, textAlign: "center", paddingHorizontal: 24 },
   settingsCard: { borderWidth: 1, borderColor: "#F4F4F5", borderRadius: 16, overflow: "hidden" },
