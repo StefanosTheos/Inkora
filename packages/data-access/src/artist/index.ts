@@ -198,6 +198,27 @@ export async function updateArtistProfile(client: InkoraClient, input: ArtistPro
   if (error) throw toAppError(error);
 }
 
+// ------------------------------------------------------------------ edit weekly availability
+export interface AvailabilityInput {
+  dayOfWeek: number; // 0=Sun … 6=Sat
+  startTime: string; // "HH:MM:SS"
+  endTime: string;
+}
+/** Replace the caller's whole weekly availability (RLS: avail_write). */
+export async function setArtistAvailability(client: InkoraClient, slots: AvailabilityInput[], timezone = "UTC"): Promise<void> {
+  const { data: userRes } = await client.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) throw toAppError(new Error("Not signed in"));
+  const { error: delErr } = await client.from("artist_availability").delete().eq("artist_id", uid);
+  if (delErr) throw toAppError(delErr);
+  if (slots.length === 0) return;
+  const rows = slots.map((sl) => ({
+    artist_id: uid, day_of_week: sl.dayOfWeek, start_time: sl.startTime, end_time: sl.endTime, timezone,
+  }));
+  const { error } = await client.from("artist_availability").insert(rows);
+  if (error) throw toAppError(error);
+}
+
 // ------------------------------------------------------------------ artist audience stats
 export interface ArtistStats {
   savedBy: number;

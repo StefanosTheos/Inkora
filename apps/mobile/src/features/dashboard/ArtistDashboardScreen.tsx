@@ -100,6 +100,7 @@ export function ArtistDashboardScreen() {
         <View style={s.card}>
           <ActionRow icon="calendar-outline" label="Your schedule" onPress={() => router.push("/artist-dashboard")} />
           <ActionRow icon="file-tray-full-outline" label="Booking requests" onPress={() => router.push("/artist-dashboard/requests")} />
+          <ActionRow icon="time-outline" label="Availability" onPress={() => router.push("/artist-dashboard/availability")} />
           <ActionRow icon="images-outline" label="Portfolio" onPress={() => router.push("/artist-dashboard/portfolio")} />
           <ActionRow icon="person-outline" label="Edit profile" onPress={() => router.push("/profile/settings")} />
           <ActionRow icon="settings-outline" label="Account settings" onPress={() => router.push("/profile/account")} />
