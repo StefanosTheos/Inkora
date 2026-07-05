@@ -225,6 +225,14 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
               enabledWeekdays={enabledWeekdays.length ? enabledWeekdays : undefined}
             />
             {preferredDate ? <Text style={s.selectedDate}>Preferred: {fmtDate(preferredDate)}</Text> : null}
+            {preferredDate ? (
+              <View style={s.noticeBox}>
+                <Ionicons name="information-circle-outline" size={18} color="#B45309" />
+                <Text style={s.noticeText}>
+                  You can reschedule or cancel free of charge up to 4 days before your appointment. We&apos;ll remind you before the deadline.
+                </Text>
+              </View>
+            ) : null}
           </>
         )}
 
@@ -360,6 +368,8 @@ const s = StyleSheet.create({
   chipText: { fontWeight: "600", color: "#18181B", fontSize: 13 },
   chipTextActive: { color: "#fff" },
   selectedDate: { marginTop: 10, fontWeight: "700", color: "#E5484D" },
+  noticeBox: { flexDirection: "row", gap: 8, alignItems: "flex-start", marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: "#FEF3C7" },
+  noticeText: { flex: 1, color: "#92400E", fontSize: 13, lineHeight: 18 },
   refGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
   refImg: { width: 76, height: 76, borderRadius: 12 },
   addRef: { width: 76, height: 76, borderRadius: 12, backgroundColor: "#F4F4F5", alignItems: "center", justifyContent: "center" },

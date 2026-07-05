@@ -80,6 +80,29 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
 
   const active = appt.status === "scheduled" || appt.status === "rescheduled";
 
+  // Free reschedule/cancel up to 4 days before the appointment.
+  const FREE_WINDOW_DAYS = 4;
+  const startMs = new Date(appt.scheduledStart).getTime();
+  const freeUntilMs = startMs - FREE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const withinFeeWindow = Date.now() > freeUntilMs; // less than 4 days away
+  const freeUntilISO = new Date(freeUntilMs).toISOString();
+
+  function onReschedulePress() {
+    // Seeker inside the fee window: warn that a new deposit applies, then open
+    // the normal reschedule picker. (The deposit/payment step will be wired in
+    // between the confirm and the picker later.)
+    if (!isArtist && withinFeeWindow) {
+      void confirm({
+        title: "Free reschedule window has passed",
+        message: "This appointment is less than 4 days away, so rescheduling now requires a new deposit.",
+        confirmLabel: "Reschedule anyway",
+        cancelLabel: "Keep appointment",
+      }).then((ok) => { if (ok) setRescheduling(true); });
+      return;
+    }
+    setRescheduling(true);
+  }
+
   return (
     <ScrollView contentContainerStyle={s.body}>
       <View style={s.partyRow}>
@@ -123,7 +146,7 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
         />
       ) : active ? (
         <View style={s.actions}>
-          <SecondaryBtn label="Reschedule" onPress={() => setRescheduling(true)} disabled={busy} />
+          <SecondaryBtn label="Reschedule" onPress={onReschedulePress} disabled={busy} />
           {isArtist && <SecondaryBtn label="Mark completed" onPress={() => run(() => completeAppointment(supabase, appt.id))} disabled={busy} />}
           <DangerBtn
             label="Cancel appointment"
@@ -138,6 +161,21 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
               }).then((ok) => { if (ok) void run(() => cancelAppointment(supabase, appt.id)); });
             }}
           />
+        </View>
+      ) : null}
+
+      {active && !isArtist ? (
+        <View style={[s.notice, withinFeeWindow && s.noticeWarn]}>
+          <Ionicons
+            name={withinFeeWindow ? "alert-circle-outline" : "information-circle-outline"}
+            size={18}
+            color={withinFeeWindow ? "#B91C1C" : "#B45309"}
+          />
+          <Text style={[s.noticeText, withinFeeWindow && s.noticeTextWarn]}>
+            {withinFeeWindow
+              ? "The free reschedule/cancel window has passed. Rescheduling now requires a new deposit."
+              : `You can reschedule or cancel free of charge until ${fmtDate(freeUntilISO)} (4 days before your appointment).`}
+          </Text>
         </View>
       ) : null}
     </ScrollView>
@@ -486,6 +524,10 @@ const s = StyleSheet.create({
   slotChipActive: { backgroundColor: "#E5484D", borderColor: "#E5484D" },
   slotChipText: { fontWeight: "700", color: "#18181B" },
   slotChipTextActive: { color: "#fff" },
+  notice: { flexDirection: "row", gap: 8, alignItems: "flex-start", padding: 12, borderRadius: 12, backgroundColor: "#FEF3C7" },
+  noticeWarn: { backgroundColor: "#FEE2E2" },
+  noticeText: { flex: 1, color: "#92400E", fontSize: 13, lineHeight: 18 },
+  noticeTextWarn: { color: "#B91C1C" },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 6 },
   reviewDone: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F0FDF4", borderRadius: 12, padding: 12, marginTop: 4 },
   reviewDoneText: { color: "#166534", fontWeight: "700" },

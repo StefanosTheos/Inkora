@@ -74,8 +74,8 @@ const s = StyleSheet.create({
   actions: { flexDirection: "row", gap: 10, marginTop: 12 },
   btn: { flex: 1, paddingVertical: 13, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   cancel: { borderWidth: 1, borderColor: "#E4E4E7", backgroundColor: "#fff" },
-  cancelText: { fontWeight: "700", fontSize: 15, color: "#18181B" },
+  cancelText: { fontWeight: "700", fontSize: 15, color: "#18181B", textAlign: "center" },
   confirm: { backgroundColor: "#18181B" },
   confirmDanger: { backgroundColor: "#E5484D" },
-  confirmText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  confirmText: { color: "#fff", fontWeight: "800", fontSize: 15, textAlign: "center" },
 });

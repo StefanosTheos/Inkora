@@ -10,18 +10,20 @@ const MIN_SCALE = 1;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /**
- * Full-screen pinch-to-zoom + pan image viewer. Dependency-free (built-in
- * Animated + bubbling touch events), so it works on Android without any
- * native module. Pinch with two fingers to zoom, drag to pan when zoomed,
- * tap the ✕ (or the backdrop while not zoomed) to close.
+ * Pinch-to-zoom + pan image surface. Dependency-free (built-in Animated +
+ * bubbling touch events), so it works on Android without any native module.
+ * Pinch with two fingers to zoom, drag to pan when zoomed, tap the ✕ (or the
+ * backdrop while not zoomed) to close.
  *
  * Uses onTouch* bubbling events (not PanResponder) because PanResponder's
  * multi-touch delivery inside a Modal is flaky on Android; and animations run
  * on the JS driver so setValue() during a gesture always applies.
+ *
+ * Fills its parent — use inside a Modal (ImageZoomModal) or a full-screen route.
  */
-export function ImageZoomModal({
-  visible, uri, onClose, label,
-}: { visible: boolean; uri: string; onClose: () => void; label?: string }) {
+export function ZoomableImage({
+  uri, onRequestClose, label,
+}: { uri: string; onRequestClose?: () => void; label?: string }) {
   const scale = useRef(new Animated.Value(1)).current;
   const tx = useRef(new Animated.Value(0)).current;
   const ty = useRef(new Animated.Value(0)).current;
@@ -41,7 +43,7 @@ export function ImageZoomModal({
     }
   };
 
-  const close = () => { reset(false); onClose(); };
+  const close = () => { reset(false); onRequestClose?.(); };
 
   const onTouchStart = () => { g.mode = 0; g.moved = false; };
 
@@ -84,29 +86,40 @@ export function ImageZoomModal({
   const { width, height } = Dimensions.get("window");
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={close} statusBarTranslucent>
-      <View
-        style={s.backdrop}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onTouchCancel={onTouchEnd}
-      >
-        <View style={s.stage} pointerEvents="none">
-          <Animated.View style={{ transform: [{ translateX: tx }, { translateY: ty }, { scale }] }}>
-            <Image
-              source={{ uri }}
-              style={{ width, height }}
-              contentFit="contain"
-              accessibilityRole="image"
-              accessibilityLabel={label ?? "Zoomable design"}
-            />
-          </Animated.View>
-        </View>
+    <View
+      style={s.backdrop}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
+    >
+      <View style={s.stage} pointerEvents="none">
+        <Animated.View style={{ transform: [{ translateX: tx }, { translateY: ty }, { scale }] }}>
+          <Image
+            source={{ uri }}
+            style={{ width, height }}
+            contentFit="contain"
+            accessibilityRole="image"
+            accessibilityLabel={label ?? "Zoomable image"}
+          />
+        </Animated.View>
+      </View>
+      {onRequestClose ? (
         <Pressable style={s.close} onPress={close} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
           <Ionicons name="close" size={26} color="#fff" />
         </Pressable>
-      </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** Full-screen modal wrapper around ZoomableImage. */
+export function ImageZoomModal({
+  visible, uri, onClose, label,
+}: { visible: boolean; uri: string; onClose: () => void; label?: string }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      <ZoomableImage uri={uri} onRequestClose={onClose} label={label} />
     </Modal>
   );
 }
