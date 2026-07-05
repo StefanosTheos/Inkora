@@ -175,6 +175,23 @@ export async function setArtistSaved(client: InkoraClient, artistId: string, sav
   }
 }
 
+// ------------------------------------------------------------------ artist audience stats
+export interface ArtistStats {
+  savedBy: number;
+  designSaves: number;
+}
+export async function getArtistStats(client: InkoraClient, artistId?: string): Promise<ArtistStats> {
+  const { data, error } = await client
+    .rpc("artist_stats", { p_artist_id: artistId ?? undefined })
+    .returns<{ saved_by: number; design_saves: number }[]>();
+  if (error) throw toAppError(error);
+  const row = data?.[0];
+  return { savedBy: row?.saved_by ?? 0, designSaves: row?.design_saves ?? 0 };
+}
+export function useArtistStats(client: InkoraClient, artistId?: string) {
+  return useQuery({ queryKey: ["artist-stats", artistId ?? "me"], queryFn: () => getArtistStats(client, artistId) });
+}
+
 // ------------------------------------------------------------------ hooks
 /** Saved state + optimistic toggle for one artist. Refreshes the dashboard's
  *  saved list. Saving is pure curation — it does not award points. */

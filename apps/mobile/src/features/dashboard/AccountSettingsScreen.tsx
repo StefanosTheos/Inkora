@@ -101,21 +101,25 @@ export function AccountSettingsScreen() {
             <Row label="Role" value={isArtist ? "Artist" : "Seeker"} last />
           </View>
 
-          {/* Preferences */}
-          <Text style={s.section} accessibilityRole="header">Preferences</Text>
-          <View style={s.card}>
-            <View style={[s.rowFlex, s.rowBorder]}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.rowLabel}>Search radius</Text>
-                <Text style={s.rowHint}>How far to look for artists & studios</Text>
+          {/* Preferences — seeker-only (search radius drives discovery) */}
+          {!isArtist && (
+            <>
+              <Text style={s.section} accessibilityRole="header">Preferences</Text>
+              <View style={s.card}>
+                <View style={[s.rowFlex, s.rowBorder]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.rowLabel}>Search radius</Text>
+                    <Text style={s.rowHint}>How far to look for artists & studios</Text>
+                  </View>
+                  <View style={s.stepper}>
+                    <Pressable style={s.stepBtn} onPress={() => changeRadius(radius - 5)} accessibilityRole="button" accessibilityLabel="Decrease search radius"><Ionicons name="remove" size={18} color="#18181B" /></Pressable>
+                    <Text style={s.stepValue} accessibilityLabel={`Search radius ${radius} kilometres`}>{radius} km</Text>
+                    <Pressable style={s.stepBtn} onPress={() => changeRadius(radius + 5)} accessibilityRole="button" accessibilityLabel="Increase search radius"><Ionicons name="add" size={18} color="#18181B" /></Pressable>
+                  </View>
+                </View>
               </View>
-              <View style={s.stepper}>
-                <Pressable style={s.stepBtn} onPress={() => changeRadius(radius - 5)} accessibilityRole="button" accessibilityLabel="Decrease search radius"><Ionicons name="remove" size={18} color="#18181B" /></Pressable>
-                <Text style={s.stepValue} accessibilityLabel={`Search radius ${radius} kilometres`}>{radius} km</Text>
-                <Pressable style={s.stepBtn} onPress={() => changeRadius(radius + 5)} accessibilityRole="button" accessibilityLabel="Increase search radius"><Ionicons name="add" size={18} color="#18181B" /></Pressable>
-              </View>
-            </View>
-          </View>
+            </>
+          )}
 
           {/* Notifications */}
           <Text style={s.section} accessibilityRole="header">Notifications</Text>

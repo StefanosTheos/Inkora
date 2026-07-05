@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   startDirectConversation, useArtistAvailability, useArtistOffers, useArtistPortfolio,
-  useArtistProfile, useArtistReviews, useArtistSaved,
+  useArtistProfile, useArtistReviews, useArtistSaved, useAuth,
 } from "@inkora/data-access";
 import {
   type ArtistOffer, type AvailabilitySlot, type Complexity, DAY_LABELS,
@@ -34,6 +34,8 @@ export function ArtistProfileScreen({ id }: { id: string }) {
   const router = useRouter();
   const toast = useToast();
   const insets = useSafeAreaInsets();
+  const { ctx } = useAuth();
+  const isSelf = !!ctx.userId && ctx.userId === id;
   const profile = useArtistProfile(supabase, id);
   const portfolio = useArtistPortfolio(supabase, id);
   const reviews = useArtistReviews(supabase, id);
@@ -135,39 +137,45 @@ export function ArtistProfileScreen({ id }: { id: string }) {
         </View>
       </ScrollView>
 
-      {/* Sticky CTA */}
-      <View style={[s.cta, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <Pressable
-          style={[s.ctaSave, save.saved && s.ctaSaveActive]}
-          onPress={onToggleSave}
-          disabled={save.isToggling}
-          accessibilityRole="button"
-          accessibilityState={{ selected: save.saved }}
-          accessibilityLabel={save.saved ? "Saved. Tap to remove from your saved artists" : "Save artist"}
-        >
-          <Ionicons name={save.saved ? "heart" : "heart-outline"} size={24} color={save.saved ? "#E5484D" : "#18181B"} />
-        </Pressable>
-        <Pressable
-          style={s.ctaSecondary}
-          onPress={async () => {
-            try {
-              const cid = await startDirectConversation(supabase, a.id);
-              router.push(`/chats/${cid}`);
-            } catch (e) {
-              toast.show((e as Error).message, "error");
-            }
-          }}
-        >
-          <Text style={s.ctaSecondaryText}>Message</Text>
-        </Pressable>
-        <Pressable
-          style={[s.ctaPrimary, !a.isAccepting && s.ctaDisabled]}
-          disabled={!a.isAccepting}
-          onPress={() => router.push({ pathname: "/booking-request", params: { artistId: a.id } })}
-        >
-          <Text style={s.ctaPrimaryText}>{a.isAccepting ? "Request booking" : "Not accepting"}</Text>
-        </Pressable>
-      </View>
+      {/* Sticky CTA — hidden on your own profile (can't save/message/book yourself) */}
+      {isSelf ? (
+        <View style={[s.cta, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <Text style={s.selfNote}>This is your public profile — edit it from your dashboard.</Text>
+        </View>
+      ) : (
+        <View style={[s.cta, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <Pressable
+            style={[s.ctaSave, save.saved && s.ctaSaveActive]}
+            onPress={onToggleSave}
+            disabled={save.isToggling}
+            accessibilityRole="button"
+            accessibilityState={{ selected: save.saved }}
+            accessibilityLabel={save.saved ? "Saved. Tap to remove from your saved artists" : "Save artist"}
+          >
+            <Ionicons name={save.saved ? "heart" : "heart-outline"} size={24} color={save.saved ? "#E5484D" : "#18181B"} />
+          </Pressable>
+          <Pressable
+            style={s.ctaSecondary}
+            onPress={async () => {
+              try {
+                const cid = await startDirectConversation(supabase, a.id);
+                router.push(`/chats/${cid}`);
+              } catch (e) {
+                toast.show((e as Error).message, "error");
+              }
+            }}
+          >
+            <Text style={s.ctaSecondaryText}>Message</Text>
+          </Pressable>
+          <Pressable
+            style={[s.ctaPrimary, !a.isAccepting && s.ctaDisabled]}
+            disabled={!a.isAccepting}
+            onPress={() => router.push({ pathname: "/booking-request", params: { artistId: a.id } })}
+          >
+            <Text style={s.ctaPrimaryText}>{a.isAccepting ? "Request booking" : "Not accepting"}</Text>
+          </Pressable>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -281,6 +289,7 @@ const s = StyleSheet.create({
   availDay: { fontWeight: "700", width: 60 },
   availTime: { color: "#3F3F46" },
   cta: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", gap: 10, padding: 12, paddingTop: 10, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#E4E4E7" },
+  selfNote: { flex: 1, textAlign: "center", color: "#71717A", fontWeight: "600", paddingVertical: 8 },
   ctaSave: { width: 54, borderRadius: 14, borderWidth: 1, borderColor: "#E4E4E7", alignItems: "center", justifyContent: "center" },
   ctaSaveActive: { borderColor: "#E5484D", backgroundColor: "#FEF2F2" },
   ctaSecondary: { flex: 1, padding: 16, borderRadius: 14, borderWidth: 1, borderColor: "#E4E4E7", alignItems: "center" },

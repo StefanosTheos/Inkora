@@ -2226,6 +2226,10 @@ export type Database = {
         Args: { p_accept: boolean; p_offer_id: string }
         Returns: string
       }
+      artist_stats: {
+        Args: { p_artist_id?: string }
+        Returns: { saved_by: number; design_saves: number }[]
+      }
       search_artists: {
         Args: {
           p_accepting_only?: boolean
