@@ -13,6 +13,7 @@ import { useRouter } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { GradientBg, TIER_GRADIENT } from "../../components/Gradient";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
@@ -89,6 +90,8 @@ export function UserDashboardScreen() {
           accessibilityRole="button"
           accessibilityLabel={`Rewards. ${(account?.balance ?? 0).toLocaleString()} points, ${TIER_LABEL[prog.current]} tier. Tap for details`}
         >
+          <GradientBg {...TIER_GRADIENT[prog.current]} />
+          <View style={[s.rewardBloom, { backgroundColor: TIER_COLOR[prog.current] }]} />
           <View style={{ flex: 1 }}>
             <Text style={s.rewardLabel}>Rewards</Text>
             <Text style={s.rewardBalance}>{(account?.balance ?? 0).toLocaleString()} pts</Text>
@@ -259,7 +262,8 @@ const s = StyleSheet.create({
   since: { color: "#A1A1AA", fontSize: 12, marginTop: 2 },
   editBtn: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
   editText: { fontWeight: "700" },
-  rewardCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#18181B", borderRadius: 20, padding: 16, marginTop: 4 },
+  rewardCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#18181B", borderRadius: 20, padding: 16, marginTop: 4, overflow: "hidden" },
+  rewardBloom: { position: "absolute", top: -60, right: -30, width: 170, height: 170, borderRadius: 85, opacity: 0.25 },
   rewardLabel: { color: "#A1A1AA", fontWeight: "600", fontSize: 13 },
   rewardBalance: { color: "#fff", fontSize: 26, fontWeight: "900", marginTop: 2 },
   rewardTrack: { height: 5, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.15)", marginTop: 8 },

@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { GradientBg, TIER_GRADIENT } from "../../components/Gradient";
 import { useToast } from "../../components/Toast";
 import { supabase } from "../../lib/supabase";
 
@@ -75,6 +76,8 @@ export function RewardsScreen() {
       <ScrollView contentContainerStyle={s.body}>
         {/* Balance hero */}
         <View style={s.hero} accessible accessibilityLabel={`Your points: ${balance.toLocaleString()}. ${TIER_LABEL[prog.current]} tier.`}>
+          <GradientBg {...TIER_GRADIENT[prog.current]} />
+          <View style={[s.heroBloom, { backgroundColor: TIER_COLOR[prog.current] }]} />
           <Text style={s.heroLabel}>Your points</Text>
           <Text style={s.heroBalance}>{balance.toLocaleString()}</Text>
           <View style={[s.tierBadge, { backgroundColor: TIER_COLOR[prog.current] }]}>
@@ -250,7 +253,8 @@ const s = StyleSheet.create({
   topTitle: { fontSize: 18, fontWeight: "800" },
   body: { padding: 16, gap: 10, paddingBottom: 48 },
   muted: { color: "#A1A1AA" },
-  hero: { backgroundColor: "#18181B", borderRadius: 24, padding: 24, alignItems: "center", gap: 8 },
+  hero: { backgroundColor: "#18181B", borderRadius: 24, padding: 24, alignItems: "center", gap: 8, overflow: "hidden" },
+  heroBloom: { position: "absolute", top: -80, right: -60, width: 240, height: 240, borderRadius: 120, opacity: 0.25 },
   heroLabel: { color: "#A1A1AA", fontWeight: "600" },
   heroBalance: { color: "#fff", fontSize: 48, fontWeight: "900", letterSpacing: -1 },
   tierBadge: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },

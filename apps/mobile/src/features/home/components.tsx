@@ -2,35 +2,14 @@ import type { HomeArtist, IdeaCard, NearbyStudio, Promotion, StyleCard } from "@
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { GradientBg } from "../../components/Gradient";
+
 // On-brand promo gradients (top accent → dark plum bottom, so text stays legible).
 const PROMO_GRADIENTS = [
   { from: "#E5484D", to: "#241A33" }, // brand red → plum
   { from: "#6D28D9", to: "#1E1B2E" }, // violet → plum
   { from: "#F2704D", to: "#2A1E38" }, // coral → plum
 ];
-
-const hexToRgb = (h: string): [number, number, number] => {
-  const n = parseInt(h.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-};
-const lerpColor = (a: string, b: string, t: number): string => {
-  const [ar, ag, ab] = hexToRgb(a);
-  const [br, bg, bb] = hexToRgb(b);
-  return `rgb(${Math.round(ar + (br - ar) * t)},${Math.round(ag + (bg - ag) * t)},${Math.round(ab + (bb - ab) * t)})`;
-};
-
-/** Dependency-free vertical gradient: stacked equal-height strips of interpolated
- *  colour (no native module → works on a plain reload). */
-function GradientBg({ from, to }: { from: string; to: string }) {
-  const steps = 24;
-  return (
-    <View style={StyleSheet.absoluteFill}>
-      {Array.from({ length: steps }).map((_, i) => (
-        <View key={i} style={{ flex: 1, backgroundColor: lerpColor(from, to, i / (steps - 1)) }} />
-      ))}
-    </View>
-  );
-}
 
 // -------------------------------------------------------------- Search bar
 export function SearchBar({ onPress }: { onPress: () => void }) {
