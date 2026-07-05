@@ -1,5 +1,5 @@
 import {
-  computePreferences, publicStorageUrl, topStyleSlugs, updateProfileLocation, useAuth,
+  becomeArtist, computePreferences, publicStorageUrl, topStyleSlugs, updateProfileLocation, useAuth,
   useFinishOnboarding, useOnboardingController, useRecommendedArtists, useStyleDeck,
 } from "@inkora/data-access";
 import type { RecommendedArtist, StyleCard, StylePreference } from "@inkora/domain";
@@ -14,6 +14,61 @@ import { supabase } from "../../lib/supabase";
 const CARD_COLORS = ["#1F1B2E", "#3B2F4A", "#2E2A3F", "#42313B", "#283042", "#3A2E2E"];
 
 export function OnboardingFlow() {
+  const [mode, setMode] = useState<"choose" | "seeker">("choose");
+  if (mode === "choose") return <RoleChoice onSeeker={() => setMode("seeker")} />;
+  return <SeekerOnboarding />;
+}
+
+// ---------------------------------------------------------------- role choice
+function RoleChoice({ onSeeker }: { onSeeker: () => void }) {
+  const { refresh } = useAuth();
+  const finish = useFinishOnboarding(supabase);
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [headline, setHeadline] = useState("");
+
+  async function onArtist() {
+    setBusy(true);
+    const res = await becomeArtist(supabase, headline.trim() || undefined);
+    if (!res.ok) { setBusy(false); toast.show(res.error.message, "error"); return; }
+    // Mark onboarded (no style prefs needed for artists), then re-mint the session.
+    const fin = await finish.mutateAsync({});
+    if (!fin.ok) { setBusy(false); toast.show(fin.error.message, "error"); return; }
+    await refresh(); // artist role + onboarded → root gate routes to Home
+    setBusy(false);
+  }
+
+  return (
+    <ScrollView contentContainerStyle={s.roleWrap}>
+      <Text style={s.title}>How will you use Inkora?</Text>
+      <Text style={[s.muted, { marginBottom: 20 }]}>You can change this anytime in settings.</Text>
+
+      <Pressable style={s.roleCard} onPress={onSeeker} disabled={busy} accessibilityRole="button" accessibilityLabel="Find a tattoo">
+        <Text style={s.roleTitle}>🔍  Find a tattoo</Text>
+        <Text style={s.roleDesc}>Discover artists and studios, save ideas, and book consultations.</Text>
+      </Pressable>
+
+      <View style={s.roleCard}>
+        <Text style={s.roleTitle}>🎨  I&apos;m a tattoo artist</Text>
+        <Text style={s.roleDesc}>Get an artist profile to showcase your work and take booking requests.</Text>
+        <Text style={s.roleFieldLabel}>Headline (optional)</Text>
+        <TextInput
+          style={s.headlineInput}
+          placeholder="e.g. Fine-line & botanical"
+          value={headline}
+          onChangeText={setHeadline}
+          accessibilityLabel="Artist headline"
+        />
+        <Pressable style={s.roleBtn} onPress={onArtist} disabled={busy} accessibilityRole="button" accessibilityLabel="Continue as artist">
+          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.roleBtnText}>Continue as artist</Text>}
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
+}
+
+// ---------------------------------------------------------------- seeker flow
+function SeekerOnboarding() {
   const deck = useStyleDeck(supabase);
   const styles = deck.data ?? [];
   const c = useOnboardingController(styles);
@@ -195,6 +250,14 @@ function ArtistRow({ artist }: { artist: RecommendedArtist }) {
 
 const s = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 8 },
+  roleWrap: { padding: 20, paddingTop: 48, flexGrow: 1 },
+  roleCard: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 16, padding: 18, marginBottom: 14, gap: 6 },
+  roleTitle: { fontSize: 18, fontWeight: "800", color: "#18181B" },
+  roleDesc: { color: "#71717A", fontSize: 14, lineHeight: 20 },
+  roleFieldLabel: { fontSize: 13, fontWeight: "600", color: "#52525B", marginTop: 10 },
+  headlineInput: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 10, padding: 12, fontSize: 15, marginTop: 6 },
+  roleBtn: { backgroundColor: "#E5484D", borderRadius: 12, paddingVertical: 13, alignItems: "center", marginTop: 10 },
+  roleBtnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   container: { flex: 1, padding: 20, paddingTop: 8 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 8 },
   back: { color: "#E5484D", fontWeight: "600", fontSize: 16 },
