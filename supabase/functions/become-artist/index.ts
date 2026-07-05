@@ -27,6 +27,15 @@ Deno.serve(async (req) => {
       .upsert({ id: user.id, headline: headline ?? null }, { onConflict: "id", ignoreDuplicates: true });
     if (artistErr) return json({ error: artistErr.message }, 400);
 
+    // Keep account types separate: an artist is not also a seeker. Nothing in RLS
+    // or the app requires the seeker role, so drop it once artist is granted.
+    const { error: seekerErr } = await svc
+      .from("role_grants")
+      .delete()
+      .eq("profile_id", user.id)
+      .eq("role", "seeker");
+    if (seekerErr) return json({ error: seekerErr.message }, 400);
+
     await svc.from("audit_log").insert({
       actor_id: user.id,
       action: "role.grant",
