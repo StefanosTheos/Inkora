@@ -4,9 +4,10 @@ import { formatRoleLabel } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useConfirm } from "../../components/ConfirmDialog";
 import { useToast } from "../../components/Toast";
 import { getPushPermission } from "../../lib/notifications";
 import { supabase } from "../../lib/supabase";
@@ -16,6 +17,7 @@ export function AccountSettingsScreen() {
   const qc = useQueryClient();
   const { ctx, signOut } = useAuth();
   const toast = useToast();
+  const confirm = useConfirm();
   const settings = useAccountSettings(supabase);
 
   const [email, setEmail] = useState("");
@@ -62,12 +64,21 @@ export function AccountSettingsScreen() {
       toast.show((e as Error).message, "error");
     }
   }
+  function confirmSignOut() {
+    void confirm({
+      title: "Sign out?",
+      message: "You'll need to sign in again to book, chat and see your rewards.",
+      confirmLabel: "Sign out",
+      destructive: true,
+    }).then((ok) => { if (ok) void signOut(); });
+  }
   function confirmDelete() {
-    Alert.alert(
-      "Delete account?",
-      "This permanently removes your profile, bookings and saved items. This can’t be undone. For the demo, contact support to complete deletion.",
-      [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => { void Linking.openURL("mailto:support@inkora.app?subject=Delete%20my%20account"); } }],
-    );
+    void confirm({
+      title: "Delete account?",
+      message: "This permanently removes your profile, bookings and saved items. This can’t be undone. For the demo, contact support to complete deletion.",
+      confirmLabel: "Delete",
+      destructive: true,
+    }).then((ok) => { if (ok) void Linking.openURL("mailto:support@inkora.app?subject=Delete%20my%20account"); });
   }
 
   return (
@@ -130,7 +141,7 @@ export function AccountSettingsScreen() {
           {/* Danger zone */}
           <Text style={[s.section, { color: "#DC2626" }]} accessibilityRole="header">Danger zone</Text>
           <View style={s.card}>
-            <LinkRow icon="log-out-outline" label="Sign out" onPress={signOut} />
+            <LinkRow icon="log-out-outline" label="Sign out" onPress={confirmSignOut} />
             <LinkRow icon="trash-outline" label="Delete account" danger onPress={confirmDelete} last />
           </View>
           <View style={{ height: 24 }} />

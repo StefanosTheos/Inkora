@@ -12,10 +12,11 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useConfirm } from "../../components/ConfirmDialog";
 import { useToast } from "../../components/Toast";
 import { supabase } from "../../lib/supabase";
 import { MonthCalendar } from "./components/MonthCalendar";
@@ -57,6 +58,7 @@ export function BookingDetailScreen({ id }: { id: string }) {
 function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const confirm = useConfirm();
   const isArtist = appt.artistId === meId;
   const [busy, setBusy] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
@@ -117,10 +119,15 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
           <DangerBtn
             label="Cancel appointment"
             disabled={busy}
-            onPress={() => Alert.alert("Cancel appointment?", "The other person will be notified.", [
-              { text: "Keep", style: "cancel" },
-              { text: "Cancel it", style: "destructive", onPress: () => { void run(() => cancelAppointment(supabase, appt.id)); } },
-            ])}
+            onPress={() => {
+              void confirm({
+                title: "Cancel appointment?",
+                message: `${isArtist ? "The client" : "The artist"} will be notified.`,
+                confirmLabel: "Cancel it",
+                cancelLabel: "Keep",
+                destructive: true,
+              }).then((ok) => { if (ok) void run(() => cancelAppointment(supabase, appt.id)); });
+            }}
           />
         </View>
       ) : null}
@@ -481,7 +488,7 @@ const s = StyleSheet.create({
   primaryText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   secondary: { flex: 1, minWidth: 120, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   secondaryText: { color: "#18181B", fontWeight: "700", fontSize: 15 },
-  danger: { borderWidth: 1, borderColor: "#FECACA", borderRadius: 14, paddingVertical: 14, alignItems: "center", marginTop: 4 },
+  danger: { flex: 1, minWidth: 120, borderWidth: 1, borderColor: "#FECACA", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   dangerText: { color: "#DC2626", fontWeight: "700", fontSize: 15 },
   disabled: { opacity: 0.4 },
 });

@@ -11,10 +11,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useConfirm } from "../../components/ConfirmDialog";
 import { GradientBg, TIER_GRADIENT } from "../../components/Gradient";
 import { useToast } from "../../components/Toast";
 import { supabase } from "../../lib/supabase";
@@ -23,6 +24,7 @@ export function RewardsScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
+  const confirm = useConfirm();
   const { account, isLoading } = useRewards(supabase);
   const history = useRewardHistory(supabase);
   const vouchers = useVouchers(supabase);
@@ -38,30 +40,27 @@ export function RewardsScreen() {
   const balance = account?.balance ?? 0;
   const prog = tierProgress(account?.lifetimeEarned ?? 0);
 
-  async function onRedeem(v: Voucher) {
+  function onRedeem(v: Voucher) {
     if (balance < v.costPoints) { toast.show(`You need ${v.costPoints - balance} more points for this`, "error"); return; }
-    Alert.alert("Redeem reward?", `Spend ${v.costPoints} points on “${v.title}”?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Redeem",
-        onPress: () => {
-          void (async () => {
-            try {
-              const code = await redeemVoucher(supabase, v.id, `${v.id}-${Date.now()}`);
-              await Promise.all([
-                qc.invalidateQueries({ queryKey: rewardKeys.account }),
-                qc.invalidateQueries({ queryKey: rewardKeys.redemptions }),
-                qc.invalidateQueries({ queryKey: rewardKeys.history }),
-                qc.invalidateQueries({ queryKey: rewardKeys.vouchers }),
-              ]);
-              toast.show(`Redeemed! Code ${code} — see Your rewards`);
-            } catch (e) {
-              toast.show((e as Error).message, "error");
-            }
-          })();
-        },
-      },
-    ]);
+    void confirm({
+      title: "Redeem reward?",
+      message: `Spend ${v.costPoints} points on “${v.title}”?`,
+      confirmLabel: "Redeem",
+    }).then(async (ok) => {
+      if (!ok) return;
+      try {
+        const code = await redeemVoucher(supabase, v.id, `${v.id}-${Date.now()}`);
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: rewardKeys.account }),
+          qc.invalidateQueries({ queryKey: rewardKeys.redemptions }),
+          qc.invalidateQueries({ queryKey: rewardKeys.history }),
+          qc.invalidateQueries({ queryKey: rewardKeys.vouchers }),
+        ]);
+        toast.show(`Redeemed! Code ${code} — see Your rewards`);
+      } catch (e) {
+        toast.show((e as Error).message, "error");
+      }
+    });
   }
 
   if (isLoading) return <SafeAreaView style={s.safe} edges={["top"]}><ActivityIndicator style={{ marginTop: 40 }} /></SafeAreaView>;

@@ -1,6 +1,7 @@
 import { AuthProvider, QueryProvider } from "@inkora/data-access";
 import React from "react";
 
+import { ConfirmProvider } from "../components/ConfirmDialog";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { ToastProvider } from "../components/Toast";
 import { mobileOAuth } from "../lib/oauth-adapter";
@@ -18,7 +19,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <ErrorBoundary>
       <QueryProvider client={queryClient}>
         <AuthProvider client={supabase} oauth={mobileOAuth}>
-          <ToastProvider>{children}</ToastProvider>
+          <ToastProvider>
+            <ConfirmProvider>{children}</ConfirmProvider>
+          </ToastProvider>
         </AuthProvider>
       </QueryProvider>
     </ErrorBoundary>

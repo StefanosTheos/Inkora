@@ -10,9 +10,10 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useConfirm } from "../../components/ConfirmDialog";
 import { GradientBg, TIER_GRADIENT } from "../../components/Gradient";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
@@ -25,6 +26,7 @@ export function UserDashboardScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const toast = useToast();
+  const confirm = useConfirm();
   const { ctx, signOut } = useAuth();
   const profile = useProfileSummary(supabase);
   const { account } = useRewards(supabase);
@@ -41,24 +43,31 @@ export function UserDashboardScreen() {
   const savedCount = (savedArtists.data?.length ?? 0) + (savedDesigns.data?.length ?? 0);
   const isArtist = ctx.roles.includes("artist");
 
-  const confirmRemoveDesign = (id: string, title: string | null) =>
-    Alert.alert(title ? `Remove "${title}"?` : "Remove design?", "This removes it from your saved designs.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: () => {
-          void (async () => {
-            try {
-              await setIdeaSaved(supabase, id, false);
-              await qc.invalidateQueries({ queryKey: dashboardKeys.savedDesigns });
-            } catch (e) {
-              toast.show((e as Error).message, "error");
-            }
-          })();
-        },
-      },
-    ]);
+  const confirmSignOut = () => {
+    void confirm({
+      title: "Sign out?",
+      message: "You'll need to sign in again to book, chat and see your rewards.",
+      confirmLabel: "Sign out",
+      destructive: true,
+    }).then((ok) => { if (ok) void signOut(); });
+  };
+
+  const confirmRemoveDesign = (id: string, title: string | null) => {
+    void confirm({
+      title: title ? `Remove "${title}"?` : "Remove design?",
+      message: "This removes it from your saved designs.",
+      confirmLabel: "Remove",
+      destructive: true,
+    }).then(async (ok) => {
+      if (!ok) return;
+      try {
+        await setIdeaSaved(supabase, id, false);
+        await qc.invalidateQueries({ queryKey: dashboardKeys.savedDesigns });
+      } catch (e) {
+        toast.show((e as Error).message, "error");
+      }
+    });
+  };
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
@@ -209,7 +218,7 @@ export function UserDashboardScreen() {
           <SettingRow icon="person-outline" label="Edit profile" onPress={() => router.push("/profile/settings")} />
           <SettingRow icon="settings-outline" label="Account settings" onPress={() => router.push("/profile/account")} />
           {isArtist && <SettingRow icon="briefcase-outline" label="Artist dashboard" onPress={() => router.push("/artist-dashboard")} />}
-          <SettingRow icon="log-out-outline" label="Sign out" danger onPress={signOut} />
+          <SettingRow icon="log-out-outline" label="Sign out" danger onPress={confirmSignOut} />
         </View>
       </ScrollView>
     </SafeAreaView>
