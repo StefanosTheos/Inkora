@@ -6,6 +6,10 @@ import { useQuery } from "@tanstack/react-query";
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
 
+/** A membership that hasn't reached a terminal state — drives the Apply button. */
+export type ActiveMembership = { studioId: string; status: "requested" | "invited" | "active" | "suspended" };
+const NON_TERMINAL = ["requested", "invited", "active", "suspended"] as const;
+
 interface RosterMember {
   status: string;
   artists: {
@@ -135,6 +139,43 @@ export async function getRosterAvailability(client: InkoraClient, artistIds: str
   const map: Record<string, Set<number>> = {};
   for (const r of data ?? []) (map[r.artist_id] ??= new Set()).add(r.day_of_week);
   return Object.fromEntries(Object.entries(map).map(([k, v]) => [k, Array.from(v).sort((a, b) => a - b)]));
+}
+
+// ---- Artist → studio applications -----------------------------------
+
+/** The caller's current non-terminal membership (or null). Used to decide
+ *  whether an artist can apply to a studio and what state to show. */
+export async function getMyMembership(client: InkoraClient, artistId: string): Promise<ActiveMembership | null> {
+  if (!artistId) return null;
+  const { data, error } = await client
+    .from("studio_memberships")
+    .select("studio_id, status")
+    .eq("artist_id", artistId)
+    .in("status", NON_TERMINAL as unknown as string[])
+    .maybeSingle<{ studio_id: string; status: ActiveMembership["status"] }>();
+  if (error) throw toAppError(error);
+  return data ? { studioId: data.studio_id, status: data.status } : null;
+}
+
+/** Artist applies to work at a studio. Returns the resulting status ('requested'). */
+export async function applyToStudio(client: InkoraClient, studioId: string): Promise<string> {
+  const { data, error } = await client.rpc("apply_to_studio", { p_studio_id: studioId });
+  if (error) throw toAppError(error);
+  return (data as string) ?? "requested";
+}
+
+/** Artist withdraws their own pending application. */
+export async function withdrawStudioApplication(client: InkoraClient, studioId: string): Promise<void> {
+  const { error } = await client.rpc("withdraw_studio_application", { p_studio_id: studioId });
+  if (error) throw toAppError(error);
+}
+
+export function useMyMembership(client: InkoraClient, artistId: string) {
+  return useQuery({
+    queryKey: ["my-membership", artistId],
+    queryFn: () => getMyMembership(client, artistId),
+    enabled: !!artistId,
+  });
 }
 
 export function useStudioProfile(client: InkoraClient, slug: string) {

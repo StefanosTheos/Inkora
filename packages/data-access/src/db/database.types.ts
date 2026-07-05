@@ -2230,6 +2230,18 @@ export type Database = {
         Args: { p_artist_id?: string }
         Returns: { saved_by: number; design_saves: number }[]
       }
+      apply_to_studio: {
+        Args: { p_studio_id: string }
+        Returns: string
+      }
+      withdraw_studio_application: {
+        Args: { p_studio_id: string }
+        Returns: undefined
+      }
+      respond_studio_application: {
+        Args: { p_studio_id: string; p_artist_id: string; p_accept: boolean }
+        Returns: string
+      }
       search_artists: {
         Args: {
           p_accepting_only?: boolean
