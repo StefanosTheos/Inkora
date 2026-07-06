@@ -1,12 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { SavedDesignCard } from "@inkora/data-access";
 import {
-  dashboardKeys, removeSavedDesign, useAuth, useJourney, useMyAppointmentCount, useNotifications,
+  dashboardKeys, removeSavedDesign, useAuth, useBookingJourneys, useMyAppointmentCount, useNotifications,
   useProfileSummary, useRewards, useSavedArtists, useSavedDesigns, useUpcomingAppointments,
 } from "@inkora/data-access";
 import {
-  APPOINTMENT_STATUS_LABEL, fmtMonthYear, JOURNEY_STAGE_LABEL, JOURNEY_STAGES, journeyProgress,
-  TIER_COLOR, TIER_LABEL, tierProgress,
+  APPOINTMENT_STATUS_LABEL, fmtMonthYear, TIER_COLOR, TIER_LABEL, tierProgress,
 } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
@@ -21,6 +20,7 @@ import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, StatusChip } from "../booking/components/ui";
+import { JourneyCard } from "../journey/JourneyCard";
 
 const monthYear = (iso?: string) => (iso ? fmtMonthYear(iso) : "—");
 
@@ -36,15 +36,16 @@ export function UserDashboardScreen() {
   const apptCount = useMyAppointmentCount(supabase);
   const savedArtists = useSavedArtists(supabase);
   const savedDesigns = useSavedDesigns(supabase);
-  const journey = useJourney(supabase);
+  const journeys = useBookingJourneys(supabase);
   const { notifications } = useNotifications(supabase);
   const rewardsUnread = notifications.filter((n) => !n.readAt && n.type === "reward").length;
   const offersUnread = notifications.filter((n) => !n.readAt && n.type === "offer").length;
+  const journeyUnread = notifications.filter((n) => !n.readAt && n.type === "journey").length;
 
   const p = profile.data;
   const upcoming = upcomingQ.data ?? [];
   const prog = tierProgress(account?.lifetimeEarned ?? 0);
-  const jProg = journeyProgress(journey.data ?? []);
+  const journeyList = journeys.data ?? [];
   const savedCount = (savedArtists.data?.length ?? 0) + (savedDesigns.data?.length ?? 0);
   const isArtist = ctx.roles.includes("artist");
 
@@ -148,27 +149,15 @@ export function UserDashboardScreen() {
           ))
         )}
 
-        {/* Tattoo journey */}
-        <SectionHeader title="Your tattoo journey" />
-        <View style={s.journeyCard}>
-          {jProg.stageIndex < 0 ? (
-            <Text style={s.muted}>Save ideas and book a session to start tracking your tattoo journey.</Text>
-          ) : (
-            <>
-              <View style={s.journeyTrack}><View style={[s.journeyFill, { width: `${Math.round(jProg.pct * 100)}%` }]} /></View>
-              <View style={s.stageRow}>
-                {JOURNEY_STAGES.map((st, i) => (
-                  <View key={st} style={s.stage}>
-                    <View style={[s.stageDot, i <= jProg.stageIndex && s.stageDotOn]}>
-                      {i <= jProg.stageIndex ? <Ionicons name="checkmark" size={12} color="#fff" /> : null}
-                    </View>
-                    <Text style={[s.stageLabel, i <= jProg.stageIndex && s.stageLabelOn]}>{JOURNEY_STAGE_LABEL[st]}</Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-        </View>
+        {/* Tattoo journey — one card per booking, end to end */}
+        <SectionHeader title="Your tattoo journey" badge={journeyUnread} onSeeAll={journeyList.length > 3 ? () => router.push("/journey") : undefined} />
+        {journeyList.length === 0 ? (
+          <Empty icon="footsteps-outline" text="Book a session to start tracking your tattoo journey end to end." />
+        ) : (
+          journeyList.slice(0, 3).map((j) => (
+            <JourneyCard key={j.appointmentId} journey={j} onPress={() => router.push(`/journey/${j.appointmentId}`)} />
+          ))
+        )}
 
         {/* Saved artists */}
         <SectionHeader title="Saved artists" />
@@ -302,15 +291,6 @@ const s = StyleSheet.create({
   apptRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
   apptName: { fontWeight: "700", fontSize: 15 },
   apptSub: { color: "#71717A", fontSize: 13, marginTop: 2 },
-  journeyCard: { borderWidth: 1, borderColor: "#F4F4F5", borderRadius: 16, padding: 16 },
-  journeyTrack: { height: 6, borderRadius: 3, backgroundColor: "#F4F4F5" },
-  journeyFill: { height: 6, borderRadius: 3, backgroundColor: "#E5484D" },
-  stageRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
-  stage: { alignItems: "center", flex: 1, gap: 4 },
-  stageDot: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#E4E4E7", alignItems: "center", justifyContent: "center" },
-  stageDotOn: { backgroundColor: "#E5484D" },
-  stageLabel: { fontSize: 10, color: "#A1A1AA", fontWeight: "600" },
-  stageLabelOn: { color: "#18181B" },
   hRow: { gap: 12, paddingVertical: 4 },
   savedArtist: { width: 84, alignItems: "center", gap: 4 },
   savedArtistName: { fontWeight: "700", fontSize: 12, textAlign: "center" },

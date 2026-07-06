@@ -24,11 +24,13 @@ export type JourneyEntryType =
 
 export type NotificationType =
   | "message" | "booking_request" | "booking_update"
-  | "offer" | "review" | "reward" | "follow" | "system";
+  | "offer" | "review" | "reward" | "follow" | "system"
+  | "membership_request" | "journey";
 export type RewardTxnType = "earn" | "redeem" | "adjust" | "expire" | "refund";
 export type RewardReason =
   | "signup" | "daily_active" | "save" | "message_sent"
-  | "booking_completed" | "review_left" | "referral" | "redemption" | "manual_adjust";
+  | "booking_completed" | "review_left" | "referral" | "redemption" | "manual_adjust"
+  | "journey_milestone" | "journey_completed";
 export type RewardTier = "bronze" | "silver" | "gold" | "platinum";
 export type ModerationStatus = "pending" | "approved" | "rejected";
 export type DevicePlatform = "ios" | "android" | "web";

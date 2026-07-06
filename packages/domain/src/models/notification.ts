@@ -34,6 +34,8 @@ export const NOTIFICATION_ICON: Record<NotificationType, string> = {
   reward: "🎁",
   follow: "➕",
   system: "🔔",
+  membership_request: "🎨",
+  journey: "📸",
 };
 
 /**

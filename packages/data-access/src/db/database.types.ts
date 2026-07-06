@@ -837,6 +837,57 @@ export type Database = {
           },
         ]
       }
+      journey_milestones: {
+        Row: {
+          appointment_id: string
+          completed_at: string | null
+          created_at: string
+          due_at: string
+          id: string
+          kind: string
+          photo_path: string | null
+          profile_id: string
+          reminded_at: string | null
+        }
+        Insert: {
+          appointment_id: string
+          completed_at?: string | null
+          created_at?: string
+          due_at: string
+          id?: string
+          kind: string
+          photo_path?: string | null
+          profile_id: string
+          reminded_at?: string | null
+        }
+        Update: {
+          appointment_id?: string
+          completed_at?: string | null
+          created_at?: string
+          due_at?: string
+          id?: string
+          kind?: string
+          photo_path?: string | null
+          profile_id?: string
+          reminded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journey_milestones_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journey_milestones_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_preferences: {
         Row: {
           channels: Json
@@ -1392,6 +1443,7 @@ export type Database = {
           id: string
           is_published: boolean
           overall_rating: number
+          photo_paths: string[]
           studio_id: string | null
           title: string | null
           updated_at: string
@@ -1405,6 +1457,7 @@ export type Database = {
           id?: string
           is_published?: boolean
           overall_rating: number
+          photo_paths?: string[]
           studio_id?: string | null
           title?: string | null
           updated_at?: string
@@ -1418,6 +1471,7 @@ export type Database = {
           id?: string
           is_published?: boolean
           overall_rating?: number
+          photo_paths?: string[]
           studio_id?: string | null
           title?: string | null
           updated_at?: string
@@ -2233,6 +2287,10 @@ export type Database = {
       apply_to_studio: {
         Args: { p_studio_id: string }
         Returns: string
+      }
+      complete_journey_milestone: {
+        Args: { p_appointment_id: string; p_kind: string; p_photo_path: string }
+        Returns: undefined
       }
       public_seeker_profile: {
         Args: { p_profile_id: string }

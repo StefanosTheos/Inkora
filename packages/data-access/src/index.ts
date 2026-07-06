@@ -9,6 +9,7 @@ export * from "./errors";
 export * from "./home"; // home page sections + infinite feed
 export * from "./hooks";
 export * from "./ideas"; // tattoo idea detail, similar ideas, save design
+export * from "./journey"; // per-booking tattoo journey: stages, milestones, photo uploads
 export * from "./location"; // city → coordinates geocoding (Nominatim)
 export * from "./messaging"; // conversations, realtime chat, uploads, typing, read receipts
 export * from "./notifications"; // realtime in-app inbox + unread count

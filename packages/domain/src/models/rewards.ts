@@ -106,4 +106,6 @@ export const REWARD_REASON_LABEL: Record<RewardReason, string> = {
   referral: "Referral",
   redemption: "Voucher redeemed",
   manual_adjust: "Adjustment",
+  journey_milestone: "Healing photo added",
+  journey_completed: "Journey completed",
 };

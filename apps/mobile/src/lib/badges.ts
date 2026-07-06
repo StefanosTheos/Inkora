@@ -15,6 +15,7 @@ export function useBadgeCounts() {
     rewards: unread.filter((n) => n.type === "reward").length,
     offers: unread.filter((n) => n.type === "offer").length,
     requests: unread.filter((n) => n.type === "booking_request").length,
+    journey: unread.filter((n) => n.type === "journey").length,
     chats: (convs.data ?? []).filter((c) => c.unread).length,
   };
 }

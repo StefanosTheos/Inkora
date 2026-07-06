@@ -36,3 +36,35 @@ export function journeyProgress(entries: { entryType: JourneyEntryType }[]): { s
   }
   return { stageIndex: max, pct: max < 0 ? 0 : (max + 1) / JOURNEY_STAGES.length };
 }
+
+// ---- Per-booking journey (each appointment tracked end to end) -------------
+export type MilestoneKind = "week" | "month" | "year";
+
+export const MILESTONE_LABEL: Record<MilestoneKind, string> = {
+  week: "1 week",
+  month: "1 month",
+  year: "1 year",
+};
+
+export interface JourneyMilestone {
+  kind: MilestoneKind;
+  dueAt: string;
+  photoPath: string | null;
+  completed: boolean;
+  /** due (date reached) and not yet completed — needs the user's attention. */
+  due: boolean;
+}
+
+export interface BookingJourney {
+  appointmentId: AppointmentId;
+  artistId: ArtistId | null;
+  artistName: string;
+  scheduledStart: string;
+  status: string;
+  hasReview: boolean;
+  /** Furthest ticked checkpoint, index into JOURNEY_STAGES (0..4). */
+  stageIndex: number;
+  milestones: JourneyMilestone[];
+  /** How many milestones are due and unaddressed (drives the badge). */
+  dueCount: number;
+}
