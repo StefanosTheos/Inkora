@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   bookingKeys, createBookingRequest, publicStorageUrl, uploadBookingReference, useArtistAvailability,
-  useArtistProfile, useStudioProfile, useStudioRosterAvailability,
+  useArtistProfile, useSavedDesigns, useStudioProfile, useStudioRosterAvailability,
 } from "@inkora/data-access";
 import { useAuth } from "@inkora/data-access";
 import { type ArtistId, type BookingRequestInput, DAY_LABELS, type StudioRosterArtist } from "@inkora/domain";
@@ -11,7 +11,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -72,6 +72,8 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
   const [budgetMax, setBudgetMax] = useState("");
   const [refs, setRefs] = useState<{ uri: string; path: string }[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [savedPickerOpen, setSavedPickerOpen] = useState(false);
+  const savedDesigns = useSavedDesigns(supabase);
 
   const cur = STEPS[step];
   // Budget is optional, but if given it must be sane: whole non-negative
@@ -102,6 +104,27 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
         const path = await uploadBookingReference(supabase, uploaderId, buf, asset.mimeType ?? "image/jpeg", ext);
         setRefs((r) => [...r, { uri: asset.uri, path }]);
       }
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // Attach one of the seeker's saved designs: copy its public image into the
+  // booking's private references so every reference is uniform.
+  async function addFromSaved(imagePath: string) {
+    const uploaderId = ctx.userId;
+    if (!uploaderId) { toast.show("Please sign in to add references", "error"); return; }
+    const url = img(imagePath);
+    if (!url) return;
+    setSavedPickerOpen(false);
+    setUploading(true);
+    try {
+      const buf = await (await fetch(url)).arrayBuffer();
+      const png = imagePath.toLowerCase().endsWith(".png");
+      const path = await uploadBookingReference(supabase, uploaderId, buf, png ? "image/png" : "image/jpeg", png ? "png" : "jpg");
+      setRefs((r) => [...r, { uri: url, path }]);
     } catch (e) {
       toast.show((e as Error).message, "error");
     } finally {
@@ -157,7 +180,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
           <View key={label} style={s.progressItem}><View style={[s.progressBar, i <= step && s.progressBarActive]} /></View>
         ))}
       </View>
-      <Text style={s.stepLabel}>Step {step + 1} of {STEPS.length} · {cur}</Text>
+      <Text style={s.stepLabel}>Step {step + 1} of {STEPS.length} · {cur === "Budget" ? "Budget & reference photos" : cur}</Text>
 
       <ScrollView style={s.flex} contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
         {cur === "Artist" && (
@@ -245,12 +268,25 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
             </View>
             {budgetInvalid ? <Text style={s.errorText}>Your minimum budget can’t be higher than your maximum.</Text> : null}
             <Text style={s.q}>Reference photos</Text>
-            <View style={s.refGrid}>
-              {refs.map((r) => <Image key={r.path} source={{ uri: r.uri }} style={s.refImg} contentFit="cover" />)}
-              <Pressable style={s.addRef} onPress={addReference} disabled={uploading}>
-                {uploading ? <ActivityIndicator /> : <Ionicons name="add" size={28} color="#71717A" />}
+            <View style={s.refButtons}>
+              <Pressable style={s.addRef} onPress={addReference} disabled={uploading} accessibilityRole="button" accessibilityLabel="Add a photo from your device">
+                {uploading ? <ActivityIndicator /> : (
+                  <>
+                    <Ionicons name="camera-outline" size={24} color="#71717A" />
+                    <Text style={s.addRefText}>Upload</Text>
+                  </>
+                )}
+              </Pressable>
+              <Pressable style={s.addRef} onPress={() => setSavedPickerOpen(true)} disabled={uploading} accessibilityRole="button" accessibilityLabel="Add from your saved designs">
+                <Ionicons name="heart-outline" size={24} color="#71717A" />
+                <Text style={s.addRefText}>Saved</Text>
               </Pressable>
             </View>
+            {refs.length > 0 && (
+              <View style={s.refGrid}>
+                {refs.map((r) => <Image key={r.path} source={{ uri: r.uri }} style={s.refImg} contentFit="cover" />)}
+              </View>
+            )}
           </>
         )}
 
@@ -285,6 +321,37 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
           </Pressable>
         )}
       </View>
+
+      {/* Pick from saved designs */}
+      <Modal visible={savedPickerOpen} animationType="slide" onRequestClose={() => setSavedPickerOpen(false)}>
+        <View style={[s.modal, { paddingTop: insets.top + 6 }]}>
+          <View style={s.modalHeader}>
+            <Text style={s.modalTitle} accessibilityRole="header">Saved designs</Text>
+            <Pressable onPress={() => setSavedPickerOpen(false)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
+              <Ionicons name="close" size={26} color="#18181B" />
+            </Pressable>
+          </View>
+          {savedDesigns.isLoading ? (
+            <ActivityIndicator style={{ marginTop: 32 }} />
+          ) : (savedDesigns.data ?? []).length === 0 ? (
+            <Text style={s.modalEmpty}>You haven&apos;t saved any designs yet. Tap the heart on a design to save it.</Text>
+          ) : (
+            <ScrollView contentContainerStyle={s.modalGrid}>
+              {(savedDesigns.data ?? []).map((d) => (
+                <Pressable
+                  key={`${d.targetType}-${d.id}`}
+                  style={s.savedItem}
+                  onPress={() => void addFromSaved(d.imagePath)}
+                  accessibilityRole="button"
+                  accessibilityLabel={d.title ? `Add ${d.title}` : "Add saved design"}
+                >
+                  <Image source={{ uri: img(d.imagePath) }} style={s.savedImg} contentFit="cover" />
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -370,9 +437,18 @@ const s = StyleSheet.create({
   selectedDate: { marginTop: 10, fontWeight: "700", color: "#E5484D" },
   noticeBox: { flexDirection: "row", gap: 8, alignItems: "flex-start", marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: "#FEF3C7" },
   noticeText: { flex: 1, color: "#92400E", fontSize: 13, lineHeight: 18 },
+  refButtons: { flexDirection: "row", gap: 8, marginTop: 8 },
   refGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
   refImg: { width: 76, height: 76, borderRadius: 12 },
-  addRef: { width: 76, height: 76, borderRadius: 12, backgroundColor: "#F4F4F5", alignItems: "center", justifyContent: "center" },
+  addRef: { width: 76, height: 76, borderRadius: 12, backgroundColor: "#F4F4F5", alignItems: "center", justifyContent: "center", gap: 3 },
+  addRefText: { fontSize: 11, color: "#71717A", fontWeight: "600" },
+  modal: { flex: 1, backgroundColor: "#fff" },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
+  modalTitle: { fontSize: 18, fontWeight: "800" },
+  modalEmpty: { color: "#A1A1AA", textAlign: "center", marginTop: 40, paddingHorizontal: 32, lineHeight: 20 },
+  modalGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 16 },
+  savedItem: { width: "31%", aspectRatio: 1, borderRadius: 12, overflow: "hidden", backgroundColor: "#E4E4E7" },
+  savedImg: { width: "100%", height: "100%" },
   optionCard: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 16, padding: 12, marginTop: 10 },
   optionCardActive: { borderColor: "#E5484D", backgroundColor: "#FEF2F2" },
   optionIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center" },
