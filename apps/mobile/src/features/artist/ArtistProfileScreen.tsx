@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  startDirectConversation, useArtistAvailability, useArtistOffers, useArtistPortfolio,
+  startDirectConversation, useArtistAvailability, useArtistFlashes, useArtistPortfolio,
   useArtistProfile, useArtistReviews, useArtistSaved, useAuth,
 } from "@inkora/data-access";
 import {
-  type ArtistOffer, type AvailabilitySlot, type Complexity, DAY_LABELS,
+  type AvailabilitySlot, type Complexity, DAY_LABELS,
   estimatePrice, formatAmount, formatStyleSlug, type PortfolioImage, type ReviewItem,
 } from "@inkora/domain";
 import { Image } from "expo-image";
@@ -23,11 +23,11 @@ import { Chip } from "../discovery/components";
 const img = (p?: string | null, size?: number) => imageUrl(p, size);
 const money = formatAmount;
 const hhmm = (t: string) => t.slice(0, 5);
-type Tab = "portfolio" | "reviews" | "offers" | "availability";
+type Tab = "portfolio" | "reviews" | "flashes" | "availability";
 const TABS: { key: Tab; label: string }[] = [
   { key: "portfolio", label: "Portfolio" },
   { key: "reviews", label: "Reviews" },
-  { key: "offers", label: "Offers" },
+  { key: "flashes", label: "Flashes" },
   { key: "availability", label: "Availability" },
 ];
 const COMPLEXITY: Complexity[] = ["simple", "medium", "complex"];
@@ -41,7 +41,7 @@ export function ArtistProfileScreen({ id }: { id: string }) {
   const profile = useArtistProfile(supabase, id);
   const portfolio = useArtistPortfolio(supabase, id);
   const reviews = useArtistReviews(supabase, id);
-  const offers = useArtistOffers(supabase, id);
+  const flashes = useArtistFlashes(supabase, id);
   const availability = useArtistAvailability(supabase, id);
   const save = useArtistSaved(supabase, id);
   const [tab, setTab] = useState<Tab>("portfolio");
@@ -134,7 +134,7 @@ export function ArtistProfileScreen({ id }: { id: string }) {
         <View style={s.tabContent}>
           {tab === "portfolio" && <PortfolioGrid images={portfolio.data ?? []} loading={portfolio.isLoading} />}
           {tab === "reviews" && <Reviews items={reviews.data ?? []} loading={reviews.isLoading} avg={a.ratingAvg} count={a.ratingCount} />}
-          {tab === "offers" && <Offers items={offers.data ?? []} loading={offers.isLoading} />}
+          {tab === "flashes" && <FlashGrid images={flashes.data ?? []} loading={flashes.isLoading} />}
           {tab === "availability" && <Availability slots={availability.data ?? []} loading={availability.isLoading} />}
         </View>
       </ScrollView>
@@ -235,21 +235,27 @@ function Reviews({ items, loading, avg, count }: { items: ReviewItem[]; loading:
   );
 }
 
-function Offers({ items, loading }: { items: ArtistOffer[]; loading: boolean }) {
+function FlashGrid({ images, loading }: { images: PortfolioImage[]; loading: boolean }) {
+  const router = useRouter();
   if (loading) return <ActivityIndicator />;
-  if (items.length === 0) return <Text style={s.muted}>No offers right now.</Text>;
+  if (images.length === 0) return <Text style={s.muted}>No flash designs yet.</Text>;
   return (
-    <View>
-      {items.map((o) => (
-        <View key={o.id} style={s.offerCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.offerTitle}>{o.title}</Text>
-            {o.description ? <Text style={s.muted}>{o.description}</Text> : null}
-          </View>
-          {o.priceAmount != null ? <Text style={s.offerPrice}>{money(o.priceAmount, o.currencyCode)}</Text> : null}
-        </View>
-      ))}
-    </View>
+    <>
+      <Text style={s.flashHint}>Ready-to-tattoo designs — book one directly, no consultation needed.</Text>
+      <View style={s.grid}>
+        {images.map((im) => (
+          <Pressable
+            key={im.id}
+            style={s.gridItem}
+            onPress={() => router.push(`/portfolio/${im.id}`)}
+            accessibilityRole="imagebutton"
+            accessibilityLabel={im.caption ? `View flash design: ${im.caption}` : "View flash design"}
+          >
+            <Image source={{ uri: img(im.imagePath, 200) }} style={s.gridImg} contentFit="cover" />
+          </Pressable>
+        ))}
+      </View>
+    </>
   );
 }
 
@@ -310,9 +316,7 @@ const s = StyleSheet.create({
   reviewStars: { color: "#E5484D", fontSize: 13, marginTop: 1 },
   reviewTitle: { fontWeight: "600", marginTop: 8 },
   reviewBody: { color: "#3F3F46", marginTop: 2 },
-  offerCard: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 12, padding: 14, marginBottom: 10 },
-  offerTitle: { fontWeight: "700", fontSize: 15 },
-  offerPrice: { fontWeight: "800", color: "#E5484D", fontSize: 16 },
+  flashHint: { color: "#71717A", fontSize: 13, marginBottom: 12, lineHeight: 18 },
   availRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
   availDay: { fontWeight: "700", width: 60 },
   availTime: { color: "#3F3F46" },

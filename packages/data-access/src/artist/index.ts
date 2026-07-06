@@ -60,11 +60,12 @@ export async function getArtistProfile(client: InkoraClient, id: string): Promis
 }
 
 // ------------------------------------------------------------------ portfolio
-export async function getArtistPortfolio(client: InkoraClient, id: string): Promise<PortfolioImage[]> {
+async function listArtistImages(client: InkoraClient, id: string, kind: "portfolio" | "flash"): Promise<PortfolioImage[]> {
   const { data, error } = await client
     .from("portfolio_images")
     .select("id, image_path, caption, placement, moderation_status")
     .eq("artist_id", id)
+    .eq("kind", kind)
     .neq("moderation_status", "rejected")
     .order("sort_order", { ascending: true });
   if (error) throw toAppError(error);
@@ -76,6 +77,15 @@ export async function getArtistPortfolio(client: InkoraClient, id: string): Prom
     placement: r.placement,
     moderationStatus: r.moderation_status,
   }));
+}
+
+export function getArtistPortfolio(client: InkoraClient, id: string): Promise<PortfolioImage[]> {
+  return listArtistImages(client, id, "portfolio");
+}
+
+/** Ready-to-tattoo flash designs the artist has uploaded. */
+export function getArtistFlashes(client: InkoraClient, id: string): Promise<PortfolioImage[]> {
+  return listArtistImages(client, id, "flash");
 }
 
 // ------------------------------------------------------------------ reviews
@@ -237,9 +247,10 @@ async function ensureDefaultPortfolio(client: InkoraClient, uid: string): Promis
   return created.id;
 }
 
-/** Upload an image to the artist's portfolio (storage + portfolio_images row). */
+/** Upload an image to the artist's portfolio or flashes (storage + portfolio_images row). */
 export async function addPortfolioImage(
-  client: InkoraClient, body: ArrayBuffer | Blob, contentType: string, ext: string, caption?: string,
+  client: InkoraClient, body: ArrayBuffer | Blob, contentType: string, ext: string,
+  caption?: string, kind: "portfolio" | "flash" = "portfolio",
 ): Promise<void> {
   const { data: userRes } = await client.auth.getUser();
   const uid = userRes.user?.id;
@@ -248,9 +259,9 @@ export async function addPortfolioImage(
   const { error: upErr } = await client.storage.from("portfolio").upload(objectPath, body, { contentType, upsert: false });
   if (upErr) throw toAppError(upErr);
   const portfolioId = await ensureDefaultPortfolio(client, uid);
-  const { count } = await client.from("portfolio_images").select("id", { count: "exact", head: true }).eq("artist_id", uid);
+  const { count } = await client.from("portfolio_images").select("id", { count: "exact", head: true }).eq("artist_id", uid).eq("kind", kind);
   const { error } = await client.from("portfolio_images").insert({
-    portfolio_id: portfolioId, artist_id: uid, image_path: `portfolio/${objectPath}`, caption: caption ?? null, sort_order: count ?? 0,
+    portfolio_id: portfolioId, artist_id: uid, image_path: `portfolio/${objectPath}`, caption: caption ?? null, sort_order: count ?? 0, kind,
   });
   if (error) throw toAppError(error);
 }
@@ -310,6 +321,9 @@ export function useArtistProfile(client: InkoraClient, id: string) {
 }
 export function useArtistPortfolio(client: InkoraClient, id: string) {
   return useQuery({ queryKey: ["artist-portfolio", id], queryFn: () => getArtistPortfolio(client, id), enabled: !!id });
+}
+export function useArtistFlashes(client: InkoraClient, id: string) {
+  return useQuery({ queryKey: ["artist-flashes", id], queryFn: () => getArtistFlashes(client, id), enabled: !!id });
 }
 export function useArtistReviews(client: InkoraClient, id: string) {
   return useQuery({ queryKey: ["artist-reviews", id], queryFn: () => getArtistReviews(client, id), enabled: !!id });

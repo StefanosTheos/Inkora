@@ -1041,6 +1041,7 @@ export type Database = {
           height: number | null
           id: string
           image_path: string
+          kind: string
           moderation_status: Database["public"]["Enums"]["moderation_status"]
           placement: string | null
           portfolio_id: string
@@ -1054,6 +1055,7 @@ export type Database = {
           height?: number | null
           id?: string
           image_path: string
+          kind?: string
           moderation_status?: Database["public"]["Enums"]["moderation_status"]
           placement?: string | null
           portfolio_id: string
@@ -1067,6 +1069,7 @@ export type Database = {
           height?: number | null
           id?: string
           image_path?: string
+          kind?: string
           moderation_status?: Database["public"]["Enums"]["moderation_status"]
           placement?: string | null
           portfolio_id?: string
