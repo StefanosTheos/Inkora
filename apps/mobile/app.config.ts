@@ -11,6 +11,9 @@ const UNIVERSAL_LINK_HOST = "inkora.app";
 const GOOGLE_SERVICES = "./google-services.json";
 const hasGoogleServices = existsSync(GOOGLE_SERVICES);
 
+const LOGO = "./assets/images/inkora_logo.png";        // full logo (with text) — splash
+const ICON = "./assets/images/inkora_logo_notext.png"; // mark only — app icon
+
 const config: ExpoConfig = {
   name: "Inkora",
   slug: "inkora",
@@ -18,11 +21,15 @@ const config: ExpoConfig = {
   version: "0.0.0",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
+  icon: ICON,
   plugins: [
     "expo-router",
     "expo-secure-store",
     ["expo-av", { microphonePermission: "Allow Inkora to record voice messages." }],
     ["expo-notifications", { color: "#E5484D" }],
+    // Native splash: same logo + size as the animated intro so the handoff
+    // is seamless (imageWidth matches AnimatedSplash's 240px logo).
+    ["expo-splash-screen", { image: LOGO, imageWidth: 240, resizeMode: "contain", backgroundColor: "#000000" }],
   ],
   ios: {
     supportsTablet: false,
@@ -31,6 +38,7 @@ const config: ExpoConfig = {
   },
   android: {
     package: "app.inkora.mobile",
+    adaptiveIcon: { foregroundImage: ICON, backgroundColor: "#000000" },
     ...(hasGoogleServices ? { googleServicesFile: GOOGLE_SERVICES } : {}),
     // TODO: intentFilters for App Links (autoVerify) on https://inkora.app/*
   },

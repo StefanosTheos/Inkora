@@ -1,26 +1,34 @@
-import { useAuth } from "@inkora/data-access";
 import { SplashScreen, Stack } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { View } from "react-native";
 
+import { AnimatedSplash } from "../src/components/AnimatedSplash";
 import { useProtectedRoute } from "../src/lib/use-protected-route";
 import { AppProviders } from "../src/providers";
 
-// Hold the splash until the session is restored to avoid an auth-state flash.
+// Hold the native (static) splash until JS has painted, then hand off to the
+// animated intro so there's no flash of the app underneath.
 void SplashScreen.preventAutoHideAsync();
 
 function Gate() {
   useProtectedRoute();
-  const { status } = useAuth();
+  const [introDone, setIntroDone] = useState(false);
+
   useEffect(() => {
-    if (status !== "loading") void SplashScreen.hideAsync();
-  }, [status]);
+    // Reveal the animated splash (already painted) by hiding the native one.
+    void SplashScreen.hideAsync();
+  }, []);
+
   // A root Stack keeps (tabs) mounted when a sibling route (e.g. /rewards,
   // /bookings, /profile/settings) is pushed, so Back returns to the active
   // tab instead of re-mounting the tabs at Home.
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(modals)" options={{ presentation: "modal" }} />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(modals)" options={{ presentation: "modal" }} />
+      </Stack>
+      {!introDone ? <AnimatedSplash onDone={() => setIntroDone(true)} /> : null}
+    </View>
   );
 }
 
