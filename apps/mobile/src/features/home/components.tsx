@@ -65,7 +65,7 @@ export function CategoryCard({ style, uri, onPress }: { style: StyleCard; uri?: 
       <View style={s.categoryImgWrap}>
         {uri ? <Image source={{ uri }} style={s.categoryImg} contentFit="cover" /> : null}
       </View>
-      <Text style={s.categoryName} numberOfLines={1}>{style.name}</Text>
+      <Text style={s.categoryName} numberOfLines={2}>{style.name}</Text>
     </Pressable>
   );
 }
@@ -139,7 +139,7 @@ const s = StyleSheet.create({
   category: { width: 84, marginLeft: 12, alignItems: "center" },
   categoryImgWrap: { width: 84, height: 84, borderRadius: 14, overflow: "hidden", backgroundColor: "#E4E4E7" },
   categoryImg: { width: "100%", height: "100%" },
-  categoryName: { marginTop: 6, fontSize: 12, fontWeight: "600", textAlign: "center" },
+  categoryName: { marginTop: 6, fontSize: 12, fontWeight: "600", textAlign: "center", alignSelf: "stretch" },
   artist: { width: 120, marginLeft: 12 },
   avatar: { width: 120, height: 120, borderRadius: 16, backgroundColor: "#1F1B2E", alignItems: "center", justifyContent: "center", overflow: "hidden" },
   avatarImg: { width: "100%", height: "100%" },
