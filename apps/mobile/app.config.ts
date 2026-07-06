@@ -11,8 +11,8 @@ const UNIVERSAL_LINK_HOST = "inkora.app";
 const GOOGLE_SERVICES = "./google-services.json";
 const hasGoogleServices = existsSync(GOOGLE_SERVICES);
 
-const LOGO = "./assets/images/inkora_logo.png";        // full logo (with text) — splash
-const ICON = "./assets/images/inkora_logo_notext.png"; // mark only — app icon
+const LOGO = "./assets/images/inkora_logo.png";                 // full logo (with text) — splash
+const ICON = "./assets/images/inkora_icon.png"; // mark only, extra-padded — app icon
 
 const config: ExpoConfig = {
   name: "Inkora",
