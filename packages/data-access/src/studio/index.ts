@@ -107,12 +107,13 @@ interface StudioReviewRow {
   title: string | null;
   body: string | null;
   created_at: string;
+  photo_paths: string[] | null;
   profiles: { display_name: string; avatar_path: string | null } | null;
 }
 export async function getStudioReviews(client: InkoraClient, studioId: string): Promise<ReviewItem[]> {
   const { data, error } = await client
     .from("reviews")
-    .select("id, author_id, overall_rating, title, body, created_at, profiles!reviews_author_id_fkey(display_name, avatar_path)")
+    .select("id, author_id, overall_rating, title, body, created_at, photo_paths, profiles!reviews_author_id_fkey(display_name, avatar_path)")
     .eq("studio_id", studioId)
     .eq("is_published", true)
     .order("created_at", { ascending: false })
@@ -127,6 +128,7 @@ export async function getStudioReviews(client: InkoraClient, studioId: string): 
     title: r.title,
     body: r.body,
     createdAt: r.created_at,
+    photoPaths: r.photo_paths ?? [],
   }));
 }
 

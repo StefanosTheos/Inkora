@@ -37,6 +37,8 @@ export interface ReviewItem {
   title: string | null;
   body: string | null;
   createdAt: string;
+  /** Tattoo progress/journey photos the seeker attached (public bucket paths). */
+  photoPaths: string[];
 }
 
 /** Public snapshot of a seeker, shown when tapping their review. */
@@ -59,6 +61,7 @@ export interface SeekerReview {
   title: string | null;
   body: string | null;
   createdAt: string;
+  photoPaths: string[];
 }
 
 export interface ArtistOffer {

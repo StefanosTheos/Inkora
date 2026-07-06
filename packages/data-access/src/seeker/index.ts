@@ -40,6 +40,7 @@ interface WrittenReviewRow {
   title: string | null;
   body: string | null;
   created_at: string;
+  photo_paths: string[] | null;
   artists: { profiles: { display_name: string } | null } | null;
   studios: { name: string } | null;
 }
@@ -48,7 +49,7 @@ interface WrittenReviewRow {
 export async function getSeekerReviews(client: InkoraClient, authorId: string): Promise<SeekerReview[]> {
   const { data, error } = await client
     .from("reviews")
-    .select("id, overall_rating, title, body, created_at, artists(profiles(display_name)), studios(name)")
+    .select("id, overall_rating, title, body, created_at, photo_paths, artists(profiles(display_name)), studios(name)")
     .eq("author_id", authorId)
     .eq("is_published", true)
     .order("created_at", { ascending: false })
@@ -62,6 +63,7 @@ export async function getSeekerReviews(client: InkoraClient, authorId: string): 
     title: r.title,
     body: r.body,
     createdAt: r.created_at,
+    photoPaths: r.photo_paths ?? [],
   }));
 }
 

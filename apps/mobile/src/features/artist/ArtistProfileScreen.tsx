@@ -13,6 +13,7 @@ import { useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ReviewPhotoStrip } from "../../components/ReviewPhotoStrip";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
@@ -212,7 +213,7 @@ function Reviews({ items, loading, avg, count }: { items: ReviewItem[]; loading:
         <Pressable
           key={r.id}
           style={s.reviewCard}
-          onPress={() => r.authorId && router.push(`/seeker/${r.authorId}`)}
+          onPress={() => r.authorId && router.push({ pathname: "/seeker/[id]", params: { id: r.authorId, reviewId: r.id } })}
           disabled={!r.authorId}
           accessibilityRole="button"
           accessibilityLabel={`View ${r.authorName}'s profile`}
@@ -227,6 +228,7 @@ function Reviews({ items, loading, avg, count }: { items: ReviewItem[]; loading:
           </View>
           {r.title ? <Text style={s.reviewTitle}>{r.title}</Text> : null}
           {r.body ? <Text style={s.reviewBody}>{r.body}</Text> : null}
+          <ReviewPhotoStrip paths={r.photoPaths} />
         </Pressable>
       ))}
     </View>

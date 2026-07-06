@@ -1,24 +1,30 @@
 import { Ionicons } from "@expo/vector-icons";
 import { usePublicSeekerProfile, useSeekerReviews } from "@inkora/data-access";
 import type { SeekerReview } from "@inkora/domain";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ImageZoomModal } from "../../components/ImageZoomModal";
+import { ReviewPhotoStrip } from "../../components/ReviewPhotoStrip";
+import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDate } from "../booking/components/ui";
 
-// Journey milestones the user will fill in later (upload flow comes later).
+// The healing milestones a review's journey photos map onto, in order.
 const JOURNEY_MILESTONES = [
   { key: "week", label: "1 week after" },
   { key: "month", label: "1 month after" },
   { key: "year", label: "1 year after" },
 ];
 
-export function SeekerProfileScreen({ id }: { id: string }) {
+export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; featuredReviewId?: string }) {
   const router = useRouter();
   const profile = usePublicSeekerProfile(supabase, id);
   const reviews = useSeekerReviews(supabase, id);
+  const [zoomUri, setZoomUri] = useState<string | null>(null);
 
   if (profile.isLoading) {
     return (
@@ -37,6 +43,13 @@ export function SeekerProfileScreen({ id }: { id: string }) {
       </SafeAreaView>
     );
   }
+
+  // Feature the tapped review's journey at the top; show the rest below.
+  const allReviews = reviews.data ?? [];
+  const featured = featuredReviewId ? allReviews.find((r) => r.id === featuredReviewId) : undefined;
+  const journeyPhotos = featured?.photoPaths ?? [];
+  const otherReviews = featured ? allReviews.filter((r) => r.id !== featured.id) : allReviews;
+  const firstName = p.displayName.split(" ")[0] ?? p.displayName;
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
@@ -58,38 +71,56 @@ export function SeekerProfileScreen({ id }: { id: string }) {
           <Stat label="Reviews" value={String(p.reviewsCount)} />
         </View>
 
-        {/* Tattoo journey */}
+        {/* Tattoo journey — the featured review's healing photos (1wk/1mo/1yr) */}
         <Text style={s.sectionTitle} accessibilityRole="header">Tattoo journey</Text>
-        <Text style={s.sectionHint}>Healing progress shared by {p.displayName.split(" ")[0]}.</Text>
+        <Text style={s.sectionHint}>
+          {featured ? `Healing progress from ${firstName}'s ${featured.subjectName} tattoo.` : `Healing progress shared by ${firstName}.`}
+        </Text>
         <View style={s.journeyRow}>
-          {JOURNEY_MILESTONES.map((m) => (
-            <View key={m.key} style={s.journeyCard}>
-              <View style={s.journeyPlaceholder}>
-                <Ionicons name="image-outline" size={22} color="#D4D4D8" />
+          {JOURNEY_MILESTONES.map((m, i) => {
+            const photo = journeyPhotos[i];
+            return (
+              <View key={m.key} style={s.journeyCard}>
+                {photo ? (
+                  <Pressable
+                    style={s.journeyPhotoWrap}
+                    onPress={() => setZoomUri(imageUrl(photo, 1200) ?? null)}
+                    accessibilityRole="imagebutton"
+                    accessibilityLabel={`${m.label} photo, tap to zoom`}
+                  >
+                    <Image source={{ uri: imageUrl(photo, 240) }} style={s.journeyPhoto} contentFit="cover" />
+                  </Pressable>
+                ) : (
+                  <View style={s.journeyPlaceholder}>
+                    <Ionicons name="image-outline" size={22} color="#D4D4D8" />
+                  </View>
+                )}
+                <Text style={s.journeyLabel}>{m.label}</Text>
+                {!photo ? <Text style={s.journeyEmpty}>Not shared yet</Text> : null}
               </View>
-              <Text style={s.journeyLabel}>{m.label}</Text>
-              <Text style={s.journeyEmpty}>Not shared yet</Text>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
-        {/* Reviews written by this seeker */}
-        <Text style={s.sectionTitle} accessibilityRole="header">Reviews</Text>
+        {/* Other reviews written by this seeker */}
+        <Text style={s.sectionTitle} accessibilityRole="header">{featured ? "Other reviews" : "Reviews"}</Text>
         {reviews.isLoading ? (
           <ActivityIndicator style={{ marginTop: 12 }} />
-        ) : (reviews.data ?? []).length === 0 ? (
-          <Text style={s.muted}>No reviews yet.</Text>
+        ) : otherReviews.length === 0 ? (
+          <Text style={s.muted}>No other reviews yet.</Text>
         ) : (
-          (reviews.data ?? []).map((r: SeekerReview) => (
+          otherReviews.map((r: SeekerReview) => (
             <View key={r.id} style={s.reviewCard}>
               <Text style={s.reviewHead}>{r.subjectName} · ★ {r.overallRating}</Text>
               {r.title ? <Text style={s.reviewTitle}>{r.title}</Text> : null}
               {r.body ? <Text style={s.reviewBody}>{r.body}</Text> : null}
+              <ReviewPhotoStrip paths={r.photoPaths} />
               <Text style={s.reviewDate}>{fmtDate(r.createdAt)}</Text>
             </View>
           ))
         )}
       </ScrollView>
+      <ImageZoomModal visible={!!zoomUri} uri={zoomUri ?? ""} onClose={() => setZoomUri(null)} label="Tattoo progress" />
     </SafeAreaView>
   );
 }
@@ -132,6 +163,8 @@ const s = StyleSheet.create({
   journeyRow: { flexDirection: "row", gap: 8 },
   journeyCard: { flex: 1, alignItems: "center" },
   journeyPlaceholder: { width: "100%", aspectRatio: 1, borderRadius: 12, backgroundColor: "#F4F4F5", borderWidth: 1, borderColor: "#EEE", borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
+  journeyPhotoWrap: { width: "100%", aspectRatio: 1, borderRadius: 12, overflow: "hidden", backgroundColor: "#E4E4E7" },
+  journeyPhoto: { width: "100%", height: "100%" },
   journeyLabel: { fontWeight: "700", fontSize: 12, marginTop: 6, color: "#18181B", textAlign: "center" },
   journeyEmpty: { color: "#A1A1AA", fontSize: 11, marginTop: 1 },
   reviewCard: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 12, padding: 12, marginTop: 10 },
