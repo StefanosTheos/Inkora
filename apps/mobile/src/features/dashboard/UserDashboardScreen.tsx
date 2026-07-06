@@ -150,11 +150,11 @@ export function UserDashboardScreen() {
         )}
 
         {/* Tattoo journey — one card per booking, end to end */}
-        <SectionHeader title="Your tattoo journey" badge={journeyUnread} onSeeAll={journeyList.length > 3 ? () => router.push("/journey") : undefined} />
+        <SectionHeader title="Your tattoo journey" badge={journeyUnread} onSeeAll={journeyList.length > 1 || journeyUnread > 0 ? () => router.push("/journey") : undefined} />
         {journeyList.length === 0 ? (
           <Empty icon="footsteps-outline" text="Book a session to start tracking your tattoo journey end to end." />
         ) : (
-          journeyList.slice(0, 3).map((j) => (
+          journeyList.slice(0, 1).map((j) => (
             <JourneyCard key={j.appointmentId} journey={j} onPress={() => router.push(`/journey/${j.appointmentId}`)} />
           ))
         )}
