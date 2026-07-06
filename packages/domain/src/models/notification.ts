@@ -54,6 +54,8 @@ export function notificationHref(n: Pick<Notification, "type" | "data" | "entity
     case "booking_update":
     case "offer":
       return "/bookings";
+    case "journey":
+      return n.entityId ? `/journey/${n.entityId}` : "/journey";
     case "reward":
       return "/rewards";
     default:

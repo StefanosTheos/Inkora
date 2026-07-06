@@ -12,6 +12,9 @@ describe("notificationHref", () => {
   it("routes a message notification to its conversation", () => {
     expect(notificationHref({ type: "message", data: {}, entityId: "c9", entityType: "conversation" })).toBe("/chats/c9");
   });
+  it("routes a journey milestone reminder to its journey page", () => {
+    expect(notificationHref({ type: "journey", data: { kind: "week", milestoneId: "m1" }, entityId: "a7", entityType: "appointment" })).toBe("/journey/a7");
+  });
   it("falls back per type", () => {
     expect(notificationHref({ type: "reward", data: {}, entityId: null, entityType: null })).toBe("/rewards");
     expect(notificationHref({ type: "system", data: {}, entityId: null, entityType: null })).toBe("/notifications");
