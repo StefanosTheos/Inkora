@@ -205,6 +205,7 @@ function ReviewSection({ appt }: { appt: AppointmentView }) {
         qc.invalidateQueries({ queryKey: bookingKeys.review(appt.id) }),
         qc.invalidateQueries({ queryKey: ["artist-reviews", appt.artistId] }),
         qc.invalidateQueries({ queryKey: ["artist", appt.artistId] }),
+        qc.invalidateQueries({ queryKey: ["booking-journeys"] }),
       ]);
       toast.show("Thanks for your review!");
       setOpen(false);

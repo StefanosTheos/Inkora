@@ -30,6 +30,16 @@ export function JourneyDetailScreen({ appointmentId }: { appointmentId: string }
 
   async function uploadFor(kind: MilestoneKind) {
     if (!meId) return;
+    const ms = j?.milestones.find((m) => m.kind === kind);
+    if (ms && !ms.completed && !ms.due) {
+      toast.show(`This photo unlocks on ${fmtDate(ms.dueAt)}`, "error");
+      return;
+    }
+    // This upload finishes the journey if the review is in and the other two
+    // photos are already done.
+    const completingNow = !!j && j.hasReview
+      && j.milestones.filter((m) => m.completed).length === 2
+      && !(j.milestones.find((m) => m.kind === kind)?.completed);
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
     if (res.canceled || !res.assets[0]) return;
     const asset = res.assets[0];
@@ -40,7 +50,7 @@ export function JourneyDetailScreen({ appointmentId }: { appointmentId: string }
       await uploadJourneyPhoto(supabase, appointmentId, kind, meId, buf, asset.mimeType ?? "image/jpeg", ext);
       await qc.invalidateQueries({ queryKey: journeyKeys.bookings });
       await qc.invalidateQueries({ queryKey: ["notifications"] });
-      toast.show("Photo added · +20 pts");
+      toast.show(completingNow ? "Journey complete! +100 pts 🎉" : "Photo added · +20 pts");
     } catch (e) {
       toast.show((e as Error).message, "error");
     } finally {
@@ -80,14 +90,25 @@ export function JourneyDetailScreen({ appointmentId }: { appointmentId: string }
                 <MilestoneRow key={m.kind} m={m} busy={busy === m.kind} onAdd={() => uploadFor(m.kind)} onZoom={(uri) => setZoomUri(uri)} />
               ))}
 
+              {/* Review status */}
+              <View style={[s.reviewStatus, j.hasReview ? s.reviewStatusDone : s.reviewStatusPending]}>
+                <Ionicons name={j.hasReview ? "checkmark-circle" : "alert-circle-outline"} size={18} color={j.hasReview ? "#16A34A" : "#B45309"} />
+                <Text style={[s.reviewStatusText, { color: j.hasReview ? "#166534" : "#92400E" }]}>
+                  {j.hasReview ? "Review submitted" : "Review not submitted yet"}
+                </Text>
+              </View>
+
               {!j.hasReview ? (
                 <Pressable style={s.reviewBtn} onPress={() => router.push(`/booking/${appointmentId}`)} accessibilityRole="button" accessibilityLabel="Leave a review">
                   <Text style={s.reviewBtnText}>Leave a review to complete your journey</Text>
                 </Pressable>
               ) : j.stageIndex >= 4 ? (
                 <View style={s.doneBanner}>
-                  <Ionicons name="trophy" size={18} color="#16A34A" />
-                  <Text style={s.doneText}>Journey complete — thanks for sharing your healing!</Text>
+                  <Ionicons name="trophy" size={22} color="#16A34A" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.doneTitle}>Congratulations! You completed this journey 🎉</Text>
+                    <Text style={s.doneText}>Journey complete — thanks for sharing your healing.</Text>
+                  </View>
                 </View>
               ) : null}
             </>
@@ -115,18 +136,21 @@ function MilestoneRow({ m, busy, onAdd, onZoom }: { m: JourneyMilestone; busy: b
       </View>
     );
   }
+  // Locked until the healing milestone's date arrives.
   return (
     <View style={s.msRow}>
       <View style={[s.msThumb, s.msThumbEmpty, m.due && s.msThumbDue]}>
-        <Ionicons name="camera-outline" size={22} color={m.due ? "#E5484D" : "#D4D4D8"} />
+        <Ionicons name={m.due ? "camera-outline" : "lock-closed-outline"} size={22} color={m.due ? "#E5484D" : "#D4D4D8"} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={s.msLabel}>{label}</Text>
-        <Text style={[s.msSub, m.due && s.msDue]}>{m.due ? "Due now — add your photo" : `Due ${fmtDate(m.dueAt)}`}</Text>
+        <Text style={[s.msSub, m.due && s.msDue]}>{m.due ? "Ready — add your photo" : `Unlocks ${fmtDate(m.dueAt)}`}</Text>
       </View>
-      <Pressable style={[s.addBtn, busy && s.addBtnBusy]} onPress={onAdd} disabled={busy} accessibilityRole="button" accessibilityLabel={`Add ${label} photo`}>
-        {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.addBtnText}>Add</Text>}
-      </Pressable>
+      {m.due ? (
+        <Pressable style={[s.addBtn, busy && s.addBtnBusy]} onPress={onAdd} disabled={busy} accessibilityRole="button" accessibilityLabel={`Add ${label} photo`}>
+          {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={s.addBtnText}>Add</Text>}
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -156,6 +180,11 @@ const s = StyleSheet.create({
   addBtnText: { color: "#fff", fontWeight: "800" },
   reviewBtn: { marginTop: 16, backgroundColor: "#18181B", borderRadius: 14, paddingVertical: 15, alignItems: "center" },
   reviewBtnText: { color: "#fff", fontWeight: "800" },
-  doneBanner: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16, backgroundColor: "#F0FDF4", borderRadius: 12, padding: 12 },
-  doneText: { color: "#16A34A", fontWeight: "700", flex: 1 },
+  reviewStatus: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12 },
+  reviewStatusDone: { backgroundColor: "#F0FDF4" },
+  reviewStatusPending: { backgroundColor: "#FEF3C7" },
+  reviewStatusText: { fontWeight: "700", fontSize: 14 },
+  doneBanner: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 16, backgroundColor: "#F0FDF4", borderRadius: 12, padding: 14 },
+  doneTitle: { color: "#166534", fontWeight: "800", fontSize: 15 },
+  doneText: { color: "#16A34A", fontWeight: "600", marginTop: 2 },
 });

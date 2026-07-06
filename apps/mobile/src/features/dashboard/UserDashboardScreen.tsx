@@ -40,12 +40,17 @@ export function UserDashboardScreen() {
   const { notifications } = useNotifications(supabase);
   const rewardsUnread = notifications.filter((n) => !n.readAt && n.type === "reward").length;
   const offersUnread = notifications.filter((n) => !n.readAt && n.type === "offer").length;
-  const journeyUnread = notifications.filter((n) => !n.readAt && n.type === "journey").length;
 
   const p = profile.data;
   const upcoming = upcomingQ.data ?? [];
   const prog = tierProgress(account?.lifetimeEarned ?? 0);
   const journeyList = journeys.data ?? [];
+  // Pending journey actions: due healing photos + any completed booking still
+  // missing its review. Shown on the section's "See all" so it's visible up front.
+  const journeyTodo = journeyList.reduce(
+    (n, j) => n + j.dueCount + (j.status === "completed" && !j.hasReview ? 1 : 0),
+    0,
+  );
   const savedCount = (savedArtists.data?.length ?? 0) + (savedDesigns.data?.length ?? 0);
   const isArtist = ctx.roles.includes("artist");
 
@@ -150,7 +155,7 @@ export function UserDashboardScreen() {
         )}
 
         {/* Tattoo journey — one card per booking, end to end */}
-        <SectionHeader title="Your tattoo journey" badge={journeyUnread} onSeeAll={journeyList.length > 1 || journeyUnread > 0 ? () => router.push("/journey") : undefined} />
+        <SectionHeader title="Your tattoo journey" badge={journeyTodo} onSeeAll={journeyList.length > 1 || journeyTodo > 0 ? () => router.push("/journey") : undefined} />
         {journeyList.length === 0 ? (
           <Empty icon="footsteps-outline" text="Book a session to start tracking your tattoo journey end to end." />
         ) : (
