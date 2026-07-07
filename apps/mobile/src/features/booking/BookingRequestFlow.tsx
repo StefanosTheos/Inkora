@@ -150,13 +150,15 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
         preferredDate,
         referencePaths: refs.map((r) => r.path),
       };
-      const id = await createBookingRequest(supabase, input);
+      const { conversationId } = await createBookingRequest(supabase, input);
       analytics.capture(
         { name: "booking_requested", props: { artistId: effectiveArtistId as ArtistId, hasReference: refs.length > 0, budgetSet: !!(budgetMin || budgetMax) } },
         ctx,
       );
       await qc.invalidateQueries({ queryKey: bookingKeys.clientRequests });
-      router.replace(`/booking/${id}`);
+      await qc.invalidateQueries({ queryKey: ["conversations"] });
+      // Land in the chat with the artist, where the request snapshot now lives.
+      router.replace(`/chats/${conversationId}`);
     } catch (e) {
       toast.show((e as Error).message, "error");
       setSubmitting(false);

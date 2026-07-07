@@ -1,6 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { getChatSignedUrl, publicStorageUrl, uploadChatFile, useAuth, useChat, useConversations } from "@inkora/data-access";
+import {
+  bookingKeys, declineRequest, getChatSignedUrl, publicStorageUrl, uploadChatFile,
+  useAuth, useChat, useConversations,
+} from "@inkora/data-access";
 import { type ArtistId, type ConversationId, type Message, messageKind } from "@inkora/domain";
+import { useQueryClient } from "@tanstack/react-query";
 import { Audio, type AVPlaybackStatus } from "expo-av";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -12,10 +16,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useConfirm } from "../../components/ConfirmDialog";
 import { useToast } from "../../components/Toast";
 import { analytics } from "../../lib/analytics";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
+import { fmtDate, money } from "../booking/components/ui";
 
 const mmss = (ms: number) => {
   const s = Math.round(ms / 1000);
@@ -187,6 +193,7 @@ function Bubble({ message, mine, isLastMine, seen }: { message: Message; mine: b
         {kind === "image" && <ChatImage path={message.attachments[0]?.path} />}
         {kind === "voice" && <VoicePlayer path={message.attachments[0]?.path} durationMs={message.attachments[0]?.durationMs ?? 0} mine={mine} />}
         {(kind === "quote" || kind === "consultation") && <RequestCard message={message} kind={kind} mine={mine} />}
+        {kind === "booking_request" && <BookingRequestCard message={message} mine={mine} />}
       </View>
       {mine && isLastMine && <Text style={s.receipt}>{seen ? "Seen" : "Sent"}</Text>}
     </View>
@@ -330,6 +337,67 @@ function RequestCard({ message, kind, mine }: { message: Message; kind: "quote" 
   );
 }
 
+interface BookingReqMeta {
+  requestId?: string; artistId?: string; title?: string; placement?: string | null;
+  size?: string | null; isColor?: boolean | null; preferredDate?: string | null;
+  budgetMin?: number | null; budgetMax?: number | null;
+}
+
+/** Snapshot of a booking request in the chat. The artist gets quick actions. */
+function BookingRequestCard({ message, mine }: { message: Message; mine: boolean }) {
+  const router = useRouter();
+  const { ctx } = useAuth();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [busy, setBusy] = useState(false);
+  const md = (message.metadata ?? {}) as BookingReqMeta;
+  const requestId = md.requestId ?? "";
+  const isArtist = !!ctx.userId && ctx.userId === md.artistId;
+  const color = mine ? "#fff" : "#18181B";
+  const sub = mine ? "rgba(255,255,255,0.85)" : "#52525B";
+  const detail = [
+    md.placement,
+    md.size,
+    md.isColor == null ? null : md.isColor ? "Color" : "Black & grey",
+    md.preferredDate ? `Prefers ${fmtDate(md.preferredDate)}` : null,
+    md.budgetMin || md.budgetMax ? `Budget ${money(md.budgetMin ?? null, "EUR")}–${money(md.budgetMax ?? null, "EUR")}` : null,
+  ].filter(Boolean).join(" · ");
+
+  const open = () => { if (requestId) router.push(`/booking/${requestId}`); };
+
+  async function onDecline() {
+    const ok = await confirm({ title: "Decline request?", message: "The client will be notified.", confirmLabel: "Decline", cancelLabel: "Keep", destructive: true });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await declineRequest(supabase, requestId);
+      await qc.invalidateQueries({ queryKey: bookingKeys.artistRequests });
+      await qc.invalidateQueries({ queryKey: bookingKeys.request(requestId) });
+      toast.show("Request declined");
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Pressable style={s.reqCard} onPress={open} accessibilityRole="button" accessibilityLabel="View booking request">
+      <Text style={[s.reqTitle, { color }]}>📩 Booking request</Text>
+      {md.title ? <Text style={[s.bookingReqName, { color }]} numberOfLines={2}>{md.title}</Text> : null}
+      {detail ? <Text style={[s.reqDetail, { color: sub }]}>{detail}</Text> : null}
+      {isArtist ? (
+        <View style={s.bookingReqActions}>
+          <Pressable style={[s.brBtn, s.brPrimary]} onPress={open} disabled={busy} accessibilityRole="button" accessibilityLabel="Accept and send an offer"><Text style={s.brPrimaryText}>Accept</Text></Pressable>
+          <Pressable style={[s.brBtn, s.brSecondary]} onPress={open} disabled={busy} accessibilityRole="button" accessibilityLabel="Edit and send an offer"><Text style={s.brSecondaryText}>Edit</Text></Pressable>
+          <Pressable style={[s.brBtn, s.brSecondary]} onPress={onDecline} disabled={busy} accessibilityRole="button" accessibilityLabel="Decline request"><Text style={[s.brSecondaryText, { color: "#E5484D" }]}>Decline</Text></Pressable>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
 const s = StyleSheet.create({
   flex: { flex: 1, backgroundColor: "#fff" },
   header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
@@ -361,6 +429,13 @@ const s = StyleSheet.create({
   reqCard: { minWidth: 180 },
   reqTitle: { fontWeight: "800", fontSize: 15 },
   reqDetail: { marginTop: 4, fontSize: 13 },
+  bookingReqName: { fontWeight: "700", fontSize: 14, marginTop: 2 },
+  bookingReqActions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+  brBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  brPrimary: { backgroundColor: "#18181B" },
+  brPrimaryText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  brSecondary: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#E4E4E7" },
+  brSecondaryText: { color: "#18181B", fontWeight: "700", fontSize: 13 },
   receipt: { fontSize: 11, color: "#A1A1AA", alignSelf: "flex-end", marginTop: 2, marginRight: 4 },
   actions: { flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingVertical: 8 },
   actionBtn: { backgroundColor: "#F4F4F5", borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10 },

@@ -1,11 +1,12 @@
 import type {
   AppointmentId, AppointmentRequestId, AppointmentRequestView, AppointmentView, ArtistId,
-  BookingRequestInput, CounterpartyRef, OfferInput, OfferView, ProfileId, StudioId,
+  BookingRequestInput, ConversationId, CounterpartyRef, OfferInput, OfferView, ProfileId, StudioId,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
+import { sendMessage, startDirectConversation } from "../messaging";
 import { markEntityNotificationsRead } from "../notifications";
 
 const BOOKING_BUCKET = "chat-attachments"; // reference photos reuse the private attachments bucket
@@ -145,8 +146,13 @@ async function meId(client: InkoraClient): Promise<string> {
 }
 
 // ------------------------------------------------------------------ requests
-export async function createBookingRequest(client: InkoraClient, input: BookingRequestInput): Promise<AppointmentRequestId> {
+export async function createBookingRequest(
+  client: InkoraClient, input: BookingRequestInput,
+): Promise<{ id: AppointmentRequestId; conversationId: ConversationId }> {
   const me = await meId(client);
+  // Every request opens (or reuses) a direct chat with the artist and drops a
+  // snapshot card there, so the request lives in the conversation too.
+  const conversationId = await startDirectConversation(client, input.artistId);
   const preferred = input.preferredDate ? [`[${input.preferredDate},${addDay(input.preferredDate)})`] : [];
   const { data, error } = await client
     .from("appointment_requests")
@@ -154,7 +160,7 @@ export async function createBookingRequest(client: InkoraClient, input: BookingR
       client_id: me,
       artist_id: input.artistId,
       studio_id: input.studioId ?? null,
-      conversation_id: input.conversationId ?? null,
+      conversation_id: conversationId,
       idea_id: input.ideaId ?? null,
       title: input.title,
       description: input.description ?? null,
@@ -169,7 +175,26 @@ export async function createBookingRequest(client: InkoraClient, input: BookingR
     .select("id")
     .single();
   if (error) throw toAppError(error);
-  return data.id as AppointmentRequestId;
+  const requestId = data.id as AppointmentRequestId;
+
+  await sendMessage(client, conversationId, me, {
+    type: "booking_card",
+    body: `📩 Booking request: ${input.title}`,
+    metadata: {
+      kind: "booking_request",
+      requestId,
+      artistId: input.artistId,
+      title: input.title,
+      placement: input.placement ?? null,
+      size: input.approxSize ?? null,
+      isColor: input.isColor ?? null,
+      preferredDate: input.preferredDate ?? null,
+      budgetMin: input.budgetMin ?? null,
+      budgetMax: input.budgetMax ?? null,
+    },
+  });
+
+  return { id: requestId, conversationId };
 }
 
 export async function listMyRequests(client: InkoraClient, role: "client" | "artist"): Promise<AppointmentRequestView[]> {

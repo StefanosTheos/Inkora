@@ -35,7 +35,7 @@ export interface Message {
 }
 
 /** Refined message kind for rendering (metadata.kind overrides the enum type). */
-export type MessageKind = "text" | "image" | "voice" | "quote" | "consultation" | "system" | "booking_card";
+export type MessageKind = "text" | "image" | "voice" | "quote" | "consultation" | "system" | "booking_card" | "booking_request";
 
 export function messageKind(m: Pick<Message, "type" | "metadata">): MessageKind {
   const k = m.metadata?.["kind"];

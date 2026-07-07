@@ -47,7 +47,7 @@ export function RequestForm({ artistId, studioSlug }: { artistId?: string; studi
         budgetMax: budgetMax ? Number(budgetMax) : null,
         preferredDate: preferredDate || null,
       };
-      const id = await createBookingRequest(client, input);
+      const { id } = await createBookingRequest(client, input);
       router.replace(`/booking/${id}`);
     } catch (e) {
       alert((e as Error).message);
