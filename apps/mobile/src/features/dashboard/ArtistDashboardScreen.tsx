@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   useArtistProfile, useArtistReviews, useArtistStats, useAuth,
-  useMyAppointmentCount, useNotifications, useUpcomingAppointments,
+  useMyAppointmentCount, useMyRequests, useUpcomingAppointments,
 } from "@inkora/data-access";
 import { APPOINTMENT_STATUS_LABEL } from "@inkora/domain";
 import { useRouter } from "expo-router";
@@ -23,8 +23,9 @@ export function ArtistDashboardScreen() {
   const upcomingQ = useUpcomingAppointments(supabase, 5);
   const apptCount = useMyAppointmentCount(supabase);
   const reviews = useArtistReviews(supabase, meId);
-  const { notifications } = useNotifications(supabase);
-  const requestsUnread = notifications.filter((n) => !n.readAt && n.type === "booking_request").length;
+  // New requests = ones the artist hasn't answered yet (pending / reviewing).
+  const requests = useMyRequests(supabase, "artist");
+  const newRequests = (requests.data ?? []).filter((r) => r.status === "pending" || r.status === "reviewing").length;
 
   const a = profile.data;
   const upcoming = upcomingQ.data ?? [];
@@ -102,7 +103,7 @@ export function ArtistDashboardScreen() {
         <SectionHeader title="Manage" />
         <View style={s.card}>
           <ActionRow icon="calendar-outline" label="Your schedule" onPress={() => router.push("/artist-dashboard")} />
-          <ActionRow icon="file-tray-full-outline" label="Booking requests" badge={requestsUnread} onPress={() => router.push("/artist-dashboard/requests")} />
+          <ActionRow icon="file-tray-full-outline" label="Booking requests" badge={newRequests} onPress={() => router.push("/artist-dashboard/requests")} />
           <ActionRow icon="time-outline" label="Availability" onPress={() => router.push("/artist-dashboard/availability")} />
           <ActionRow icon="images-outline" label="Portfolio / Flashes" onPress={() => router.push("/artist-dashboard/portfolio")} />
           <ActionRow icon="person-outline" label="Edit profile" onPress={() => router.push("/profile/settings")} />
