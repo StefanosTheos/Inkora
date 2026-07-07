@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  bookingKeys, declineRequest, getChatSignedUrl, publicStorageUrl, uploadChatFile,
-  useAuth, useChat, useConversations,
+  bookingKeys, declineRequest, getChatSignedUrl, publicStorageUrl, respondToOffer, uploadChatFile,
+  useAuth, useChat, useConversations, useOfferStatus,
 } from "@inkora/data-access";
 import { type ArtistId, type ConversationId, type Message, messageKind } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
@@ -21,7 +21,8 @@ import { useToast } from "../../components/Toast";
 import { analytics } from "../../lib/analytics";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
-import { fmtDate, money } from "../booking/components/ui";
+import { fmtDate, fmtDateTime, money } from "../booking/components/ui";
+import { OfferComposerSheet } from "../booking/OfferComposerSheet";
 
 const mmss = (ms: number) => {
   const s = Math.round(ms / 1000);
@@ -194,6 +195,8 @@ function Bubble({ message, mine, isLastMine, seen }: { message: Message; mine: b
         {kind === "voice" && <VoicePlayer path={message.attachments[0]?.path} durationMs={message.attachments[0]?.durationMs ?? 0} mine={mine} />}
         {(kind === "quote" || kind === "consultation") && <RequestCard message={message} kind={kind} mine={mine} />}
         {kind === "booking_request" && <BookingRequestCard message={message} mine={mine} />}
+        {kind === "offer" && <BookingOfferCard message={message} mine={mine} />}
+        {kind === "appointment" && <BookingApptCard message={message} mine={mine} />}
       </View>
       {mine && isLastMine && <Text style={s.receipt}>{seen ? "Seen" : "Sent"}</Text>}
     </View>
@@ -343,6 +346,12 @@ interface BookingReqMeta {
   budgetMin?: number | null; budgetMax?: number | null;
 }
 
+interface OfferMeta {
+  offerId?: string; requestId?: string; artistId?: string;
+  proposedStart?: string | null; priceAmount?: number | null; currencyCode?: string | null; message?: string | null;
+}
+interface ApptMeta { appointmentId?: string; proposedStart?: string | null; priceAmount?: number | null }
+
 /** Snapshot of a booking request in the chat. The artist gets quick actions. */
 function BookingRequestCard({ message, mine }: { message: Message; mine: boolean }) {
   const router = useRouter();
@@ -351,6 +360,7 @@ function BookingRequestCard({ message, mine }: { message: Message; mine: boolean
   const toast = useToast();
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
+  const [composer, setComposer] = useState<{ open: boolean; prefill: string | null }>({ open: false, prefill: null });
   const md = (message.metadata ?? {}) as BookingReqMeta;
   const requestId = md.requestId ?? "";
   const isArtist = !!ctx.userId && ctx.userId === md.artistId;
@@ -363,8 +373,6 @@ function BookingRequestCard({ message, mine }: { message: Message; mine: boolean
     md.preferredDate ? `Prefers ${fmtDate(md.preferredDate)}` : null,
     md.budgetMin || md.budgetMax ? `Budget ${money(md.budgetMin ?? null, "EUR")}–${money(md.budgetMax ?? null, "EUR")}` : null,
   ].filter(Boolean).join(" · ");
-
-  const open = () => { if (requestId) router.push(`/booking/${requestId}`); };
 
   async function onDecline() {
     const ok = await confirm({ title: "Decline request?", message: "The client will be notified.", confirmLabel: "Decline", cancelLabel: "Keep", destructive: true });
@@ -383,17 +391,107 @@ function BookingRequestCard({ message, mine }: { message: Message; mine: boolean
   }
 
   return (
-    <Pressable style={s.reqCard} onPress={open} accessibilityRole="button" accessibilityLabel="View booking request">
+    <Pressable style={s.reqCard} onPress={() => { if (requestId) router.push(`/booking/${requestId}`); }} accessibilityRole="button" accessibilityLabel="View booking request">
       <Text style={[s.reqTitle, { color }]}>📩 Booking request</Text>
       {md.title ? <Text style={[s.bookingReqName, { color }]} numberOfLines={2}>{md.title}</Text> : null}
       {detail ? <Text style={[s.reqDetail, { color: sub }]}>{detail}</Text> : null}
       {isArtist ? (
         <View style={s.bookingReqActions}>
-          <Pressable style={[s.brBtn, s.brPrimary]} onPress={open} disabled={busy} accessibilityRole="button" accessibilityLabel="Accept and send an offer"><Text style={s.brPrimaryText}>Accept</Text></Pressable>
-          <Pressable style={[s.brBtn, s.brSecondary]} onPress={open} disabled={busy} accessibilityRole="button" accessibilityLabel="Edit and send an offer"><Text style={s.brSecondaryText}>Edit</Text></Pressable>
+          <Pressable style={[s.brBtn, s.brPrimary]} onPress={() => setComposer({ open: true, prefill: md.preferredDate ?? null })} disabled={busy} accessibilityRole="button" accessibilityLabel="Accept and send an offer"><Text style={s.brPrimaryText}>Accept</Text></Pressable>
+          <Pressable style={[s.brBtn, s.brSecondary]} onPress={() => setComposer({ open: true, prefill: null })} disabled={busy} accessibilityRole="button" accessibilityLabel="Edit and send an offer"><Text style={s.brSecondaryText}>Edit</Text></Pressable>
           <Pressable style={[s.brBtn, s.brSecondary]} onPress={onDecline} disabled={busy} accessibilityRole="button" accessibilityLabel="Decline request"><Text style={[s.brSecondaryText, { color: "#E5484D" }]}>Decline</Text></Pressable>
         </View>
       ) : null}
+      {isArtist ? (
+        <OfferComposerSheet
+          visible={composer.open}
+          requestId={requestId}
+          artistId={md.artistId ?? ""}
+          prefillDate={composer.prefill}
+          onClose={() => setComposer({ open: false, prefill: null })}
+          onSent={() => toast.show("Offer sent")}
+        />
+      ) : null}
+    </Pressable>
+  );
+}
+
+function offerStatusLabel(status: string, isArtist: boolean): string {
+  switch (status) {
+    case "pending": return isArtist ? "Waiting for the client to respond" : "Awaiting your response";
+    case "accepted": return "Accepted ✓";
+    case "declined": return "Declined";
+    case "withdrawn": return "Withdrawn";
+    case "expired": return "Expired";
+    default: return status;
+  }
+}
+
+/** Offer snapshot in the chat. The client can Accept/Decline while it's pending. */
+function BookingOfferCard({ message, mine }: { message: Message; mine: boolean }) {
+  const router = useRouter();
+  const { ctx } = useAuth();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const md = (message.metadata ?? {}) as OfferMeta;
+  const offerId = md.offerId ?? "";
+  const isArtist = !!ctx.userId && ctx.userId === md.artistId;
+  const status = useOfferStatus(supabase, offerId).data ?? "pending";
+  const color = mine ? "#fff" : "#18181B";
+  const sub = mine ? "rgba(255,255,255,0.85)" : "#52525B";
+  const line = [
+    md.proposedStart ? fmtDateTime(md.proposedStart) : null,
+    md.priceAmount != null ? money(md.priceAmount, md.currencyCode ?? "EUR") : null,
+  ].filter(Boolean).join(" · ");
+
+  async function respond(accept: boolean) {
+    setBusy(true);
+    try {
+      const apptId = await respondToOffer(supabase, offerId, accept);
+      await qc.invalidateQueries({ queryKey: ["offer-status", offerId] });
+      await qc.invalidateQueries({ queryKey: bookingKeys.appointments });
+      await qc.invalidateQueries({ queryKey: bookingKeys.clientRequests });
+      if (accept && apptId) router.push(`/booking/${apptId}`);
+      else toast.show("Offer declined");
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={s.reqCard}>
+      <Text style={[s.reqTitle, { color }]}>🏷️ Offer</Text>
+      {line ? <Text style={[s.bookingReqName, { color }]}>{line}</Text> : null}
+      {md.message ? <Text style={[s.reqDetail, { color: sub }]}>{md.message}</Text> : null}
+      {status === "pending" && !isArtist ? (
+        <View style={s.bookingReqActions}>
+          <Pressable style={[s.brBtn, s.brPrimary]} onPress={() => respond(true)} disabled={busy} accessibilityRole="button" accessibilityLabel="Accept offer"><Text style={s.brPrimaryText}>Accept</Text></Pressable>
+          <Pressable style={[s.brBtn, s.brSecondary]} onPress={() => respond(false)} disabled={busy} accessibilityRole="button" accessibilityLabel="Decline offer"><Text style={[s.brSecondaryText, { color: "#E5484D" }]}>Decline</Text></Pressable>
+        </View>
+      ) : (
+        <Text style={[s.reqDetail, { color: sub, marginTop: 8, fontWeight: "700" }]}>{offerStatusLabel(status, isArtist)}</Text>
+      )}
+    </View>
+  );
+}
+
+/** Confirmed appointment snapshot in the chat. */
+function BookingApptCard({ message, mine }: { message: Message; mine: boolean }) {
+  const router = useRouter();
+  const md = (message.metadata ?? {}) as ApptMeta;
+  const color = mine ? "#fff" : "#18181B";
+  const sub = mine ? "rgba(255,255,255,0.85)" : "#52525B";
+  const line = [
+    md.proposedStart ? fmtDateTime(md.proposedStart) : null,
+    md.priceAmount != null ? money(md.priceAmount, "EUR") : null,
+  ].filter(Boolean).join(" · ");
+  return (
+    <Pressable style={s.reqCard} onPress={() => { if (md.appointmentId) router.push(`/booking/${md.appointmentId}`); }} accessibilityRole="button" accessibilityLabel="View appointment">
+      <Text style={[s.reqTitle, { color }]}>✅ Booking confirmed</Text>
+      {line ? <Text style={[s.reqDetail, { color: sub }]}>{line}</Text> : null}
     </Pressable>
   );
 }

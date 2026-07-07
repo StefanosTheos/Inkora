@@ -233,7 +233,7 @@ export async function cancelRequest(client: InkoraClient, id: string): Promise<v
 // ------------------------------------------------------------------ offers
 export async function createOffer(client: InkoraClient, input: OfferInput): Promise<void> {
   const me = await meId(client);
-  const { error } = await client.from("offers").insert({
+  const { data: offerRow, error } = await client.from("offers").insert({
     request_id: input.requestId,
     artist_id: me,
     proposed_start: input.proposedStart,
@@ -243,12 +243,42 @@ export async function createOffer(client: InkoraClient, input: OfferInput): Prom
     currency_code: input.currencyCode ?? "EUR",
     message: input.message ?? null,
     expires_at: input.expiresAt ?? null,
-  });
+  }).select("id").single();
   if (error) throw toAppError(error);
   // move the request into "offered" so the client sees it's answered
   await client.from("appointment_requests").update({ status: "offered" }).eq("id", input.requestId);
   // Sending an offer answers the request — clear its "new" badge.
   await markEntityNotificationsRead(client, "appointment_request", input.requestId);
+
+  // Post an offer snapshot into the request's chat so the client sees it there.
+  const { data: reqRow } = await client
+    .from("appointment_requests").select("conversation_id").eq("id", input.requestId)
+    .maybeSingle<{ conversation_id: string | null }>();
+  if (reqRow?.conversation_id) {
+    await sendMessage(client, reqRow.conversation_id, me, {
+      type: "booking_card",
+      body: "🏷️ Offer sent",
+      metadata: {
+        kind: "offer",
+        offerId: offerRow.id,
+        requestId: input.requestId,
+        artistId: me,
+        proposedStart: input.proposedStart,
+        priceAmount: input.priceAmount,
+        currencyCode: input.currencyCode ?? "EUR",
+        message: input.message ?? null,
+      },
+    });
+  }
+}
+
+export async function getOfferStatus(client: InkoraClient, offerId: string): Promise<string | null> {
+  const { data, error } = await client.from("offers").select("status").eq("id", offerId).maybeSingle<{ status: string }>();
+  if (error) throw toAppError(error);
+  return data?.status ?? null;
+}
+export function useOfferStatus(client: InkoraClient, offerId: string) {
+  return useQuery({ queryKey: ["offer-status", offerId], queryFn: () => getOfferStatus(client, offerId), enabled: !!offerId });
 }
 
 export async function withdrawOffer(client: InkoraClient, offerId: string): Promise<void> {
@@ -260,7 +290,34 @@ export async function withdrawOffer(client: InkoraClient, offerId: string): Prom
 export async function respondToOffer(client: InkoraClient, offerId: string, accept: boolean): Promise<string | null> {
   const { data, error } = await client.rpc("respond_offer", { p_offer_id: offerId, p_accept: accept });
   if (error) throw toAppError(error);
-  return (data as string | null) ?? null;
+  const appointmentId = (data as string | null) ?? null;
+
+  // On accept, drop a "booking confirmed" snapshot into the chat (best effort).
+  if (accept && appointmentId) {
+    try {
+      const me = await meId(client);
+      const { data: off } = await client.from("offers").select("request_id").eq("id", offerId).maybeSingle<{ request_id: string }>();
+      const reqId = off?.request_id;
+      const { data: req } = reqId
+        ? await client.from("appointment_requests").select("conversation_id").eq("id", reqId).maybeSingle<{ conversation_id: string | null }>()
+        : { data: null };
+      const { data: appt } = await client.from("appointments").select("scheduled_start, price_amount").eq("id", appointmentId).maybeSingle<{ scheduled_start: string; price_amount: number | null }>();
+      if (req?.conversation_id) {
+        await sendMessage(client, req.conversation_id, me, {
+          type: "booking_card",
+          body: "✅ Booking confirmed",
+          metadata: {
+            kind: "appointment",
+            appointmentId,
+            proposedStart: appt?.scheduled_start ?? null,
+            priceAmount: appt?.price_amount ?? null,
+            currencyCode: "EUR",
+          },
+        });
+      }
+    } catch { /* the confirmation card is best-effort; never fail the accept */ }
+  }
+  return appointmentId;
 }
 
 // ------------------------------------------------------------------ appointments
