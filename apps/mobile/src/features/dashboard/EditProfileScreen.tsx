@@ -103,7 +103,11 @@ export function EditProfileScreen() {
     }
     setSaving(true);
     try {
-      await updateMyProfile(supabase, { displayName, username, bio });
+      // Only send username when it actually changed — re-sending the current
+      // one needlessly hits the unique check (fails when saving other fields
+      // like the "accepting" toggle).
+      const usernameChanged = username.trim() !== (profile.data?.username ?? "");
+      await updateMyProfile(supabase, { displayName, bio, username: usernameChanged ? username : undefined });
       // City is geocoded to coordinates (owner-only) so Nearby / distance work.
       const loc = await updateProfileLocation(supabase, city.trim());
       if (!loc.ok) throw new Error(loc.error.message);
