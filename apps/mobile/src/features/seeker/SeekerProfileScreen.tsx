@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { usePublicSeekerProfile, useSeekerReviews } from "@inkora/data-access";
+import { startDirectConversation, useAuth, usePublicSeekerProfile, useSeekerReviews } from "@inkora/data-access";
 import type { SeekerReview } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -9,6 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ImageZoomModal } from "../../components/ImageZoomModal";
 import { ReviewPhotoStrip } from "../../components/ReviewPhotoStrip";
+import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDate } from "../booking/components/ui";
@@ -22,9 +23,21 @@ const JOURNEY_MILESTONES = [
 
 export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; featuredReviewId?: string }) {
   const router = useRouter();
+  const toast = useToast();
+  const { ctx } = useAuth();
   const profile = usePublicSeekerProfile(supabase, id);
   const reviews = useSeekerReviews(supabase, id);
   const [zoomUri, setZoomUri] = useState<string | null>(null);
+  // Artists can start a chat with the seeker from here.
+  const canMessage = ctx.roles.includes("artist") && !!ctx.userId && ctx.userId !== id;
+  async function messageSeeker() {
+    try {
+      const cid = await startDirectConversation(supabase, id);
+      router.push(`/chats/${cid}`);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    }
+  }
 
   if (profile.isLoading) {
     return (
@@ -70,6 +83,13 @@ export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; feat
           <Stat label="Bookings" value={String(p.bookingsCount)} />
           <Stat label="Reviews" value={String(p.reviewsCount)} />
         </View>
+
+        {canMessage ? (
+          <Pressable style={s.messageBtn} onPress={messageSeeker} accessibilityRole="button" accessibilityLabel={`Message ${p.displayName}`}>
+            <Ionicons name="chatbubble-outline" size={18} color="#fff" />
+            <Text style={s.messageBtnText}>Message</Text>
+          </Pressable>
+        ) : null}
 
         {/* Tattoo journey — the featured review's healing photos (1wk/1mo/1yr) */}
         <Text style={s.sectionTitle} accessibilityRole="header">Tattoo journey</Text>
@@ -156,6 +176,8 @@ const s = StyleSheet.create({
   since: { color: "#A1A1AA", fontSize: 13 },
   stats: { flexDirection: "row", gap: 10, marginTop: 12, marginBottom: 8 },
   statBox: { flex: 1, backgroundColor: "#F4F4F5", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
+  messageBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#18181B", borderRadius: 14, paddingVertical: 13, marginTop: 4 },
+  messageBtnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   statValue: { fontSize: 20, fontWeight: "900", color: "#18181B" },
   statLabel: { color: "#71717A", fontSize: 12, fontWeight: "600", marginTop: 2 },
   sectionTitle: { fontSize: 18, fontWeight: "800", marginTop: 20 },

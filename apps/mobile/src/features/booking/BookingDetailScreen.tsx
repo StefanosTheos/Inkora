@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   bookingKeys, cancelAppointment, cancelRequest, completeAppointment, createOffer, declineRequest,
-  getChatSignedUrl, markEntityNotificationsRead, rescheduleAppointment, respondToOffer, submitReview,
+  getChatSignedUrl, markEntityNotificationsRead, rescheduleAppointment, respondToOffer,
+  startDirectConversation, submitReview,
   useAppointment, useAppointmentReview, useArtistAvailability, useArtistDaySlots, useAuth,
   useBookingRequest, withdrawOffer,
 } from "@inkora/data-access";
@@ -29,6 +30,19 @@ const DURATIONS = [
   { label: "3h", minutes: 180 },
   { label: "Full day", minutes: 360 },
 ];
+
+type Toast = ReturnType<typeof useToast>;
+type Router = ReturnType<typeof useRouter>;
+
+/** Artist opens (or reuses) a direct chat with the client. */
+async function messageClient(router: Router, toast: Toast, clientId: string) {
+  try {
+    const cid = await startDirectConversation(supabase, clientId);
+    router.push(`/chats/${cid}`);
+  } catch (e) {
+    toast.show((e as Error).message, "error");
+  }
+}
 
 export function BookingDetailScreen({ id }: { id: string }) {
   const router = useRouter();
@@ -120,6 +134,11 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
             <Text style={s.muted}>{isArtist ? "Client" : "Artist"}</Text>
           </View>
         </Pressable>
+        {isArtist ? (
+          <Pressable style={s.msgBtn} onPress={() => messageClient(router, toast, appt.clientId)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Message client">
+            <Ionicons name="chatbubble-outline" size={20} color="#18181B" />
+          </Pressable>
+        ) : null}
         <StatusChip status={appt.status} label={APPOINTMENT_STATUS_LABEL[appt.status]} />
       </View>
 
@@ -305,6 +324,11 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
           <Text style={s.partyName}>{req.counterparty.name}</Text>
           <Text style={s.muted}>{isArtist ? "Client" : "Artist"}</Text>
         </View>
+        {isArtist ? (
+          <Pressable style={s.msgBtn} onPress={() => messageClient(router, toast, req.clientId)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Message client">
+            <Ionicons name="chatbubble-outline" size={20} color="#18181B" />
+          </Pressable>
+        ) : null}
         <StatusChip status={req.status} label={REQUEST_STATUS_LABEL[req.status]} />
       </View>
 
@@ -512,6 +536,7 @@ const s = StyleSheet.create({
   flex1: { flex: 1 },
   partyRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   partyPerson: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
+  msgBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: "#E4E4E7", alignItems: "center", justifyContent: "center" },
   partyName: { fontSize: 18, fontWeight: "800" },
   infoCard: { backgroundColor: "#F9FAFB", borderRadius: 16, padding: 14, gap: 10 },
   infoRow: { flexDirection: "row", alignItems: "center", gap: 10 },
