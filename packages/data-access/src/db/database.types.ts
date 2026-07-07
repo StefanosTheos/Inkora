@@ -2295,6 +2295,10 @@ export type Database = {
         Args: { p_appointment_id: string; p_kind: string; p_photo_path: string }
         Returns: undefined
       }
+      delete_conversation: {
+        Args: { p_conversation_id: string }
+        Returns: undefined
+      }
       public_seeker_profile: {
         Args: { p_profile_id: string }
         Returns: {

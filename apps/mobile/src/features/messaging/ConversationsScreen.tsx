@@ -1,11 +1,14 @@
-import { publicStorageUrl, useConversations } from "@inkora/data-access";
+import { deleteConversation, publicStorageUrl, useConversations } from "@inkora/data-access";
 import { type ConversationSummary, timeAgo } from "@inkora/domain";
 import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useConfirm } from "../../components/ConfirmDialog";
+import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
 
@@ -13,7 +16,30 @@ const img = (p?: string | null) => (p ? publicStorageUrl(env.SUPABASE_URL, p) : 
 
 export function ConversationsScreen() {
   const router = useRouter();
+  const confirm = useConfirm();
+  const toast = useToast();
   const convs = useConversations(supabase);
+  // Refresh when returning to the list so a chat just opened (which marks it
+  // read) no longer shows the unread dot / bold text.
+  const refetch = convs.refetch;
+  useFocusEffect(useCallback(() => { void refetch(); }, [refetch]));
+
+  async function onDelete(conv: ConversationSummary) {
+    const ok = await confirm({
+      title: "Are you sure you want to delete this chat?",
+      message: "Any bookings or requests are still valid after the chat is deleted.",
+      confirmLabel: "Yes",
+      cancelLabel: "No",
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteConversation(supabase, conv.id);
+      await refetch();
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    }
+  }
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
@@ -22,10 +48,10 @@ export function ConversationsScreen() {
         data={convs.data ?? []}
         estimatedItemSize={72}
         keyExtractor={(c) => c.id}
-        renderItem={({ item }) => <Row conv={item} onPress={() => router.push(`/chats/${item.id}`)} />}
+        renderItem={({ item }) => <Row conv={item} onPress={() => router.push(`/chats/${item.id}`)} onLongPress={() => void onDelete(item)} />}
         ListEmptyComponent={
           convs.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> : (
-            <Text style={s.empty}>No conversations yet. Message an artist to start one.</Text>
+            <Text style={s.empty}>No conversations yet. Message a client/artist to start one.</Text>
           )
         }
       />
@@ -33,9 +59,9 @@ export function ConversationsScreen() {
   );
 }
 
-function Row({ conv, onPress }: { conv: ConversationSummary; onPress: () => void }) {
+function Row({ conv, onPress, onLongPress }: { conv: ConversationSummary; onPress: () => void; onLongPress: () => void }) {
   return (
-    <Pressable style={s.row} onPress={onPress}>
+    <Pressable style={s.row} onPress={onPress} onLongPress={onLongPress} delayLongPress={350} accessibilityHint="Long-press to delete this chat">
       <View style={s.avatar}>
         {img(conv.otherAvatarPath) ? <Image source={{ uri: img(conv.otherAvatarPath) }} style={s.avatarImg} contentFit="cover" /> : (
           <Text style={s.avatarInitial}>{conv.otherName.charAt(0).toUpperCase()}</Text>

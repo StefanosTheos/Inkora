@@ -56,7 +56,7 @@ export async function listConversations(client: InkoraClient): Promise<Conversat
     .limit(100)
     .returns<ConvRow[]>();
   if (error) throw toAppError(error);
-  return (data ?? []).map((c) => {
+  return (data ?? []).filter((c) => c.last_message_at != null).map((c) => {
     const parts = c.conversation_participants ?? [];
     const mine = parts.find((p) => p.profile_id === me);
     const other = parts.find((p) => p.profile_id !== me);
@@ -138,6 +138,13 @@ export async function startDirectConversation(client: InkoraClient, otherId: str
   const { data, error } = await client.rpc("start_direct_conversation", { p_other: otherId });
   if (error) throw toAppError(error);
   return data as ConversationId;
+}
+
+/** Delete a conversation (participant-only, via RPC). Messages + participants
+ *  cascade; any linked booking request keeps its data (conversation_id set null). */
+export async function deleteConversation(client: InkoraClient, conversationId: string): Promise<void> {
+  const { error } = await client.rpc("delete_conversation", { p_conversation_id: conversationId });
+  if (error) throw toAppError(error);
 }
 
 /** Start/open the conversation that represents a studio (with its owner). */
