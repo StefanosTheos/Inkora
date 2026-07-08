@@ -1,5 +1,6 @@
 import type { AuthContext as DomainAuthContext, ProfileId } from "@inkora/domain";
 import type { Session } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import type { InkoraClient } from "../client/types";
@@ -38,6 +39,7 @@ export function AuthProvider({ client, oauth = unsupportedOAuth, children }: Aut
   });
   // onboarded_at is authoritative from the DB; cache it across token refreshes.
   const onboardedRef = useRef<boolean>(false);
+  const qc = useQueryClient();
 
   const buildCtx = useCallback((session: Session | null): DomainAuthContext => {
     if (!session) return EMPTY_CTX;
@@ -93,6 +95,22 @@ export function AuthProvider({ client, oauth = unsupportedOAuth, children }: Aut
       sub.subscription.unsubscribe();
     };
   }, [client, apply]);
+
+  // Keep the query cache in sync with the session lifecycle. At cold start the
+  // badge/dynamic queries (chats, notifications, points, requests…) mount and
+  // fetch before the session is restored, so they cache empty results. Once the
+  // session is ready, refetch every active query so all badges/data populate
+  // immediately — no need to visit each screen to trigger it. On sign-out, drop
+  // the cache so the next user doesn't inherit the previous one's data. During
+  // "loading" we leave the rehydrated offline cache untouched for instant paint.
+  const userId = state.ctx.userId;
+  useEffect(() => {
+    if (state.status === "authenticated" && userId) {
+      void qc.invalidateQueries();
+    } else if (state.status === "unauthenticated") {
+      qc.clear();
+    }
+  }, [state.status, userId, qc]);
 
   const api = useMemo<AuthContextValue>(() => {
     return {
