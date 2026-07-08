@@ -1,19 +1,18 @@
 import type { ArtistSearchParams, StyleCard } from "@inkora/domain";
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Chip } from "./components";
 
 const DISTANCES = [5, 10, 25, 50];
 const RATINGS = [4.0, 4.5];
 
-export function FilterSheet({ visible, onClose, styles, params, onChange, hasLocation, showAccepting = true }: {
+export function FilterSheet({ visible, onClose, styles, params, onChange, hasLocation }: {
   visible: boolean;
   onClose: () => void;
   styles: StyleCard[];
   params: ArtistSearchParams;
   onChange: (patch: Partial<ArtistSearchParams>) => void;
   hasLocation: boolean;
-  showAccepting?: boolean;
 }) {
   const toggleStyle = (slug: string) => {
     const has = params.styleSlugs.includes(slug);
@@ -27,7 +26,7 @@ export function FilterSheet({ visible, onClose, styles, params, onChange, hasLoc
         <View style={s.handle} />
         <View style={s.header}>
           <Text style={s.title}>Filters</Text>
-          <Pressable onPress={() => onChange({ styleSlugs: [], radiusKm: null, minRating: 0, acceptingOnly: false })} hitSlop={8}>
+          <Pressable onPress={() => onChange({ styleSlugs: [], radiusKm: null, minRating: 0 })} hitSlop={8}>
             <Text style={s.clear}>Clear all</Text>
           </Pressable>
         </View>
@@ -55,13 +54,6 @@ export function FilterSheet({ visible, onClose, styles, params, onChange, hasLoc
               <Chip key={r} label={`★ ${r.toFixed(1)}+`} active={params.minRating === r} onPress={() => onChange({ minRating: r })} />
             ))}
           </View>
-
-          {showAccepting && (
-            <View style={s.switchRow}>
-              <Text style={s.switchLabel}>Accepting new clients only</Text>
-              <Switch value={!!params.acceptingOnly} onValueChange={(v) => onChange({ acceptingOnly: v })} accessibilityLabel="Accepting new clients only" />
-            </View>
-          )}
         </ScrollView>
 
         <Pressable style={s.doneBtn} onPress={onClose}>
@@ -81,8 +73,6 @@ const s = StyleSheet.create({
   clear: { color: "#E5484D", fontWeight: "600" },
   section: { fontSize: 14, fontWeight: "700", marginTop: 16, marginBottom: 8 },
   wrap: { flexDirection: "row", flexWrap: "wrap", rowGap: 8 },
-  switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 20 },
-  switchLabel: { fontSize: 15, fontWeight: "600" },
   doneBtn: { backgroundColor: "#E5484D", padding: 16, borderRadius: 14, alignItems: "center", marginTop: 20 },
   doneText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });

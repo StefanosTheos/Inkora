@@ -190,7 +190,6 @@ export function DiscoverScreen() {
         params={artistParams}
         onChange={onChange}
         hasLocation={near != null}
-        showAccepting={!isStudios}
       />
     </SafeAreaView>
   );
