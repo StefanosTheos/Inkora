@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CountBadge } from "../../components/CountBadge";
 import { useBadgeCounts } from "../../lib/badges";
 import { registerPushToken, scheduleAppointmentReminders } from "../../lib/notifications";
+import { useMarkRequestSeen, useSeenRequests } from "../../lib/seen-requests";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, money, StatusChip } from "./components/ui";
 
@@ -22,6 +23,8 @@ export function MyBookingsScreen() {
   const apptsQ = useMyAppointments(supabase);
   const reqsQ = useMyRequests(supabase, "client");
   const { offers: offersUnread, openRequests: openReqBadge } = useBadgeCounts();
+  const seenSet = new Set(useSeenRequests());
+  const markSeen = useMarkRequestSeen();
 
   useEffect(() => { void registerPushToken(); }, []);
   useEffect(() => {
@@ -38,7 +41,10 @@ export function MyBookingsScreen() {
 
   const appts = apptsQ.data ?? [];
   const reqs = reqsQ.data ?? [];
-  const openRequests = reqs.filter((r) => r.status !== "converted");
+  // Unread requests (not yet opened) float to the top, separated from read ones.
+  const openRequests = reqs
+    .filter((r) => r.status !== "converted")
+    .sort((a, b) => Number(seenSet.has(a.id)) - Number(seenSet.has(b.id)));
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
@@ -60,7 +66,14 @@ export function MyBookingsScreen() {
         ) : (
           reqsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
           openRequests.length === 0 ? <Empty icon="paper-plane-outline" text="No open requests. Find an artist and tap “Request booking” to get started." /> :
-          openRequests.map((r) => <RequestCard key={r.id} req={r} onPress={() => router.push(`/booking/${r.id}`)} />)
+          openRequests.map((r) => (
+            <RequestCard
+              key={r.id}
+              req={r}
+              unread={!seenSet.has(r.id)}
+              onPress={() => { markSeen(r.id); router.push(`/booking/${r.id}`); }}
+            />
+          ))
         )}
       </ScrollView>
     </SafeAreaView>
@@ -91,7 +104,7 @@ export function AppointmentCard({ appt, onPress }: { appt: AppointmentView; onPr
   );
 }
 
-export function RequestCard({ req, onPress }: { req: AppointmentRequestView; onPress: () => void }) {
+export function RequestCard({ req, onPress, unread = false }: { req: AppointmentRequestView; onPress: () => void; unread?: boolean }) {
   const latest = req.offers[0];
   // Reflect the client's response to the latest offer, so an answered offer
   // reads "Offer declined"/"Offer accepted" instead of the stale "Offer sent".
@@ -100,10 +113,13 @@ export function RequestCard({ req, onPress }: { req: AppointmentRequestView; onP
     latest?.status === "accepted" ? { status: "accepted" as const, label: "Offer accepted" } :
     { status: req.status, label: REQUEST_STATUS_LABEL[req.status] };
   return (
-    <Pressable style={s.card} onPress={onPress}>
+    <Pressable style={[s.card, unread && s.cardUnread]} onPress={onPress}>
       <Avatar path={req.counterparty.avatarPath} name={req.counterparty.name} />
       <View style={{ flex: 1 }}>
-        <Text style={s.cardName} numberOfLines={1}>{req.title}</Text>
+        <View style={s.nameRow}>
+          {unread ? <View style={s.unreadDot} accessibilityLabel="New" /> : null}
+          <Text style={[s.cardName, { flex: 1 }]} numberOfLines={1}>{req.title}</Text>
+        </View>
         <Text style={s.cardSub} numberOfLines={1}>{req.studioName ? `🏠 ${req.studioName} · ${req.counterparty.name}` : req.counterparty.name}</Text>
         {latest && latest.status === "pending" ? <Text style={s.cardPrice}>New offer · {money(latest.priceAmount, latest.currencyCode)}</Text> : null}
       </View>
@@ -132,6 +148,9 @@ const s = StyleSheet.create({
   tabTextActive: { color: "#fff" },
   body: { padding: 16, gap: 10 },
   card: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "#F4F4F5", backgroundColor: "#fff" },
+  cardUnread: { backgroundColor: "#FEF2F2", borderColor: "#FECACA" },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#E5484D" },
   cardName: { fontWeight: "800", fontSize: 15, color: "#18181B" },
   cardStudio: { color: "#E5484D", fontSize: 12, fontWeight: "700", marginTop: 2 },
   cardSub: { color: "#71717A", fontSize: 13, marginTop: 2 },
