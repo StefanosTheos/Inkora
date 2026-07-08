@@ -82,13 +82,17 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
   const minNum = budgetMin ? Number(budgetMin) : null;
   const maxNum = budgetMax ? Number(budgetMax) : null;
   const budgetInvalid = minNum != null && maxNum != null && minNum > maxNum;
+  // A given budget can't sit below the artist's minimum charge — otherwise the
+  // artist could never make an in-budget offer.
+  const minCharge = profileQ.data?.minCharge ?? null;
+  const belowMinCharge = minCharge != null && ((minNum != null && minNum < minCharge) || (maxNum != null && maxNum < minCharge));
   // When "Other" placement is chosen, the seeker must type the body part.
   const placementNeedsDetail = placement === "Other" && !placementOther.trim();
   const effectivePlacement = placement === "Other" ? placementOther.trim() || null : placement;
   const canNext =
     cur === "Idea" ? title.trim().length > 0
       : cur === "Details" ? !placementNeedsDetail
-        : cur === "Budget" ? !budgetInvalid
+        : cur === "Budget" ? !budgetInvalid && !belowMinCharge
           : true;
   const chosenArtistName = chosenArtist ? roster.find((r) => r.id === chosenArtist)?.displayName : null;
 
@@ -136,6 +140,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
   async function submit() {
     if (!effectiveArtistId) { toast.show("Pick an artist or let the studio decide", "error"); return; }
     if (budgetInvalid) { toast.show("Your minimum budget can’t be higher than your maximum.", "error"); return; }
+    if (belowMinCharge) { toast.show(`This artist’s minimum charge is ${money(minCharge, currency)}. Set your budget at or above that.`, "error"); return; }
     setSubmitting(true);
     try {
       const input: BookingRequestInput = {
@@ -232,7 +237,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
                 returnKeyType="done"
               />
             )}
-            <Text style={s.q}>Approx. size</Text>
+            <Text style={s.q}>Approximate size</Text>
             <ChipRow options={SIZES} value={size} onChange={setSize} />
             <Text style={s.q}>Color</Text>
             <View style={s.row}>
@@ -274,11 +279,13 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
         {cur === "Budget" && (
           <>
             <Text style={s.q}>Budget (optional)</Text>
+            {minCharge != null ? <Text style={s.hint}>This artist’s minimum charge is {money(minCharge, currency)}.</Text> : null}
             <View style={s.row}>
-              <TextInput style={[s.input, s.flex1, budgetInvalid && s.inputError]} placeholder={`Min (${currency})`} keyboardType="number-pad" value={budgetMin} onChangeText={(v) => setBudgetMin(v.replace(/[^0-9]/g, ""))} />
-              <TextInput style={[s.input, s.flex1, budgetInvalid && s.inputError]} placeholder={`Max (${currency})`} keyboardType="number-pad" value={budgetMax} onChangeText={(v) => setBudgetMax(v.replace(/[^0-9]/g, ""))} />
+              <TextInput style={[s.input, s.flex1, (budgetInvalid || belowMinCharge) && s.inputError]} placeholder={`Min (${currency})`} keyboardType="number-pad" value={budgetMin} onChangeText={(v) => setBudgetMin(v.replace(/[^0-9]/g, ""))} />
+              <TextInput style={[s.input, s.flex1, (budgetInvalid || belowMinCharge) && s.inputError]} placeholder={`Max (${currency})`} keyboardType="number-pad" value={budgetMax} onChangeText={(v) => setBudgetMax(v.replace(/[^0-9]/g, ""))} />
             </View>
             {budgetInvalid ? <Text style={s.errorText}>Your minimum budget can’t be higher than your maximum.</Text> : null}
+            {!budgetInvalid && belowMinCharge ? <Text style={s.errorText}>Your budget can’t be below the artist’s minimum charge of {money(minCharge, currency)}.</Text> : null}
             <Text style={s.q}>Reference photos</Text>
             <View style={s.refButtons}>
               <Pressable style={s.addRef} onPress={addReference} disabled={uploading} accessibilityRole="button" accessibilityLabel="Add a photo from your device">
