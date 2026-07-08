@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { bookingKeys, createOffer, useArtistAvailability, useArtistDaySlots, useBookingRequest } from "@inkora/data-access";
-import type { AppointmentRequestId } from "@inkora/domain";
+import { type AppointmentRequestId, slotMatchesTimeOfDay, TIME_OF_DAY_LABEL } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -41,6 +41,11 @@ export function OfferComposerSheet({
   const reqQ = useBookingRequest(supabase, requestId);
   const budgetMin = reqQ.data?.budgetMin ?? null;
   const budgetMax = reqQ.data?.budgetMax ?? null;
+  const pref = reqQ.data?.preferredTimeOfDay ?? null;
+  const [showAll, setShowAll] = useState(false);
+  const allSlots = slotsQ.data ?? [];
+  const filtering = !!pref && !showAll;
+  const slots = filtering ? allSlots.filter((iso) => slotMatchesTimeOfDay(iso, pref)) : allSlots;
 
   // Reset + prefill each time the sheet opens.
   useEffect(() => {
@@ -103,11 +108,22 @@ export function OfferComposerSheet({
 
           <Text style={s.label}>Propose a time</Text>
           <MonthCalendar selected={date} onSelect={(d) => { setDate(d); setPicked(null); }} enabledWeekdays={enabledWeekdays.length ? enabledWeekdays : undefined} />
+          {pref && date ? (
+            <Pressable onPress={() => setShowAll((v) => !v)} hitSlop={6} accessibilityRole="button">
+              <Text style={s.slotFilterNote}>
+                {showAll ? `Showing all times · Show ${TIME_OF_DAY_LABEL[pref]} only` : `Client prefers ${TIME_OF_DAY_LABEL[pref]} · Show all times`}
+              </Text>
+            </Pressable>
+          ) : null}
           {date ? (
             slotsQ.isLoading ? <ActivityIndicator style={{ marginTop: 8 }} /> :
-            (slotsQ.data ?? []).length === 0 ? <Text style={s.muted}>No open slots that day.</Text> :
+            slots.length === 0 ? (
+              <Text style={s.muted}>
+                {filtering && allSlots.length > 0 ? `No ${TIME_OF_DAY_LABEL[pref!].toLowerCase()} slots that day — tap above to show all.` : "No open slots that day."}
+              </Text>
+            ) :
             <View style={s.chipWrap}>
-              {(slotsQ.data ?? []).map((iso) => {
+              {slots.map((iso) => {
                 const end = new Date(new Date(iso).getTime() + duration * 60000).toISOString();
                 const active = picked?.start === iso;
                 return (
@@ -157,6 +173,7 @@ const s = StyleSheet.create({
   multiline: { minHeight: 90, textAlignVertical: "top" },
   note: { color: "#71717A", fontSize: 12, marginTop: 6 },
   budgetHint: { color: "#B45309", fontSize: 12, marginTop: 4, marginBottom: 2, fontWeight: "600" },
+  slotFilterNote: { color: "#B45309", fontSize: 12, fontWeight: "700", marginTop: 8 },
   send: { backgroundColor: "#E5484D", borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 20 },
   sendText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   disabled: { opacity: 0.6 },

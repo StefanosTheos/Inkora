@@ -3,6 +3,28 @@ import type {
   AppointmentId, AppointmentRequestId, ArtistId, ConversationId, IdeaId, OfferId, ProfileId, StudioId,
 } from "../ids";
 
+/** Coarse time-of-day the seeker prefers; null means flexible. Guides the
+ *  artist's proposed slots without pinning an exact time. */
+export type TimeOfDay = "morning" | "afternoon" | "evening";
+
+export const TIME_OF_DAY_LABEL: Record<TimeOfDay, string> = {
+  morning: "Morning", afternoon: "Afternoon", evening: "Evening",
+};
+
+/** Local-hour range [startHour, endHourExclusive) for each part of the day. */
+export const TIME_OF_DAY_RANGE: Record<TimeOfDay, [number, number]> = {
+  morning: [0, 12], afternoon: [12, 17], evening: [17, 24],
+};
+
+/** Whether a slot's start (ISO timestamp) falls in the preferred part of day.
+ *  A null preference matches everything. Uses local time, matching the display. */
+export function slotMatchesTimeOfDay(iso: string, pref: TimeOfDay | null): boolean {
+  if (!pref) return true;
+  const [lo, hi] = TIME_OF_DAY_RANGE[pref];
+  const h = new Date(iso).getHours();
+  return h >= lo && h < hi;
+}
+
 export interface AppointmentRequest {
   id: AppointmentRequestId;
   clientId: ProfileId;
@@ -74,6 +96,7 @@ export interface BookingRequestInput {
   budgetMin?: number | null;
   budgetMax?: number | null;
   preferredDate?: string | null; // ISO date (yyyy-mm-dd), single day for MVP
+  preferredTimeOfDay?: TimeOfDay | null;
   referencePaths?: string[];
 }
 
@@ -117,6 +140,7 @@ export interface AppointmentRequestView {
   budgetMin: number | null;
   budgetMax: number | null;
   preferredDate: string | null;
+  preferredTimeOfDay: TimeOfDay | null;
   referencePaths: string[];
   status: RequestStatus;
   createdAt: string;

@@ -4,7 +4,7 @@ import {
   useArtistProfile, useSavedDesigns, useStudioProfile, useStudioRosterAvailability,
 } from "@inkora/data-access";
 import { useAuth } from "@inkora/data-access";
-import { type ArtistId, type BookingRequestInput, DAY_LABELS, type StudioRosterArtist } from "@inkora/domain";
+import { type ArtistId, type BookingRequestInput, DAY_LABELS, type StudioRosterArtist, TIME_OF_DAY_LABEL, type TimeOfDay } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -68,6 +68,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
   const [size, setSize] = useState<string | null>(null);
   const [isColor, setIsColor] = useState<boolean | null>(null);
   const [preferredDate, setPreferredDate] = useState<string | null>(null);
+  const [timeOfDay, setTimeOfDay] = useState<TimeOfDay | null>(null);
   const [budgetMin, setBudgetMin] = useState("");
   const [budgetMax, setBudgetMax] = useState("");
   const [refs, setRefs] = useState<{ uri: string; path: string }[]>([]);
@@ -148,6 +149,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
         budgetMin: budgetMin ? Number(budgetMin) : null,
         budgetMax: budgetMax ? Number(budgetMax) : null,
         preferredDate,
+        preferredTimeOfDay: timeOfDay,
         referencePaths: refs.map((r) => r.path),
       };
       const { conversationId } = await createBookingRequest(supabase, input);
@@ -250,6 +252,14 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
               enabledWeekdays={enabledWeekdays.length ? enabledWeekdays : undefined}
             />
             {preferredDate ? <Text style={s.selectedDate}>Preferred: {fmtDate(preferredDate)}</Text> : null}
+            <Text style={s.q}>Preferred time of day</Text>
+            <Text style={s.hint}>The artist proposes the exact time — this just points them in the right direction.</Text>
+            <View style={s.chipWrap}>
+              {(["morning", "afternoon", "evening"] as TimeOfDay[]).map((t) => (
+                <Chip key={t} label={TIME_OF_DAY_LABEL[t]} active={timeOfDay === t} onPress={() => setTimeOfDay(timeOfDay === t ? null : t)} />
+              ))}
+              <Chip label="Flexible" active={timeOfDay === null} onPress={() => setTimeOfDay(null)} />
+            </View>
             {preferredDate ? (
               <View style={s.noticeBox}>
                 <Ionicons name="information-circle-outline" size={18} color="#B45309" />
@@ -303,6 +313,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
             {size ? <SummaryRow label="Size" value={size} /> : null}
             {isColor != null ? <SummaryRow label="Color" value={isColor ? "Color" : "Black & grey"} /> : null}
             <SummaryRow label="Preferred date" value={preferredDate ? fmtDate(preferredDate) : "Flexible"} />
+            <SummaryRow label="Preferred time" value={timeOfDay ? TIME_OF_DAY_LABEL[timeOfDay] : "Flexible"} />
             <SummaryRow label="Budget" value={budgetMin || budgetMax ? `${money(budgetMin ? Number(budgetMin) : null, currency)} – ${money(budgetMax ? Number(budgetMax) : null, currency)}` : "Open"} />
             <SummaryRow label="References" value={refs.length ? `${refs.length} photo${refs.length > 1 ? "s" : ""}` : "None"} />
           </>

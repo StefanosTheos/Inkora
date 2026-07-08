@@ -7,7 +7,8 @@ import {
   useBookingRequest, withdrawOffer,
 } from "@inkora/data-access";
 import {
-  APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView, type OfferView, REQUEST_STATUS_LABEL,
+  APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView, type OfferView,
+  REQUEST_STATUS_LABEL, slotMatchesTimeOfDay, TIME_OF_DAY_LABEL, type TimeOfDay,
 } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
@@ -389,6 +390,7 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
         {req.approxSize ? <Tag text={req.approxSize} /> : null}
         {req.isColor != null ? <Tag text={req.isColor ? "Color" : "Black & grey"} /> : null}
         {req.preferredDate ? <Tag text={`Prefers ${fmtDate(req.preferredDate)}`} /> : null}
+        {req.preferredTimeOfDay ? <Tag text={TIME_OF_DAY_LABEL[req.preferredTimeOfDay]} /> : null}
         {req.budgetMin || req.budgetMax ? <Tag text={`Budget ${money(req.budgetMin, "EUR")}–${money(req.budgetMax, "EUR")}`} /> : null}
       </View>
 
@@ -504,7 +506,7 @@ function ArtistOfferComposer({ req, onSent }: { req: AppointmentRequestView; onS
       </View>
 
       <Text style={s.label}>Propose a time</Text>
-      <SlotPicker artistId={req.artistId} durationMinutes={duration} onPick={(start, end) => setPicked({ start, end })} selectedStart={picked?.start} />
+      <SlotPicker artistId={req.artistId} durationMinutes={duration} onPick={(start, end) => setPicked({ start, end })} selectedStart={picked?.start} preferredTimeOfDay={req.preferredTimeOfDay} />
 
       <Text style={s.label}>Price estimate (€)</Text>
       {req.budgetMin != null || req.budgetMax != null ? (
@@ -521,25 +523,40 @@ function ArtistOfferComposer({ req, onSent }: { req: AppointmentRequestView; onS
 }
 
 // ---------------------------------------------------------------- slot picker
-function SlotPicker({ artistId, durationMinutes, onPick, onCancel, selectedStart }: {
+function SlotPicker({ artistId, durationMinutes, onPick, onCancel, selectedStart, preferredTimeOfDay }: {
   artistId: string; durationMinutes: number;
   onPick: (start: string, end: string) => void; onCancel?: () => void; selectedStart?: string;
+  preferredTimeOfDay?: TimeOfDay | null;
 }) {
   const availabilityQ = useArtistAvailability(supabase, artistId);
   const enabledWeekdays = useMemo(() => Array.from(new Set((availabilityQ.data ?? []).map((a) => a.dayOfWeek))), [availabilityQ.data]);
   const [date, setDate] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const slotsQ = useArtistDaySlots(supabase, artistId, date ?? "", durationMinutes);
 
-  useEffect(() => { /* reset selection when duration changes handled by parent */ }, [durationMinutes]);
+  const allSlots = slotsQ.data ?? [];
+  const filtering = !!preferredTimeOfDay && !showAll;
+  const slots = filtering ? allSlots.filter((iso) => slotMatchesTimeOfDay(iso, preferredTimeOfDay)) : allSlots;
 
   return (
     <View style={s.slotPicker}>
       <MonthCalendar selected={date} onSelect={setDate} enabledWeekdays={enabledWeekdays.length ? enabledWeekdays : undefined} />
+      {preferredTimeOfDay && date ? (
+        <Pressable onPress={() => setShowAll((v) => !v)} hitSlop={6} accessibilityRole="button">
+          <Text style={s.slotFilterNote}>
+            {showAll ? `Showing all times · Show ${TIME_OF_DAY_LABEL[preferredTimeOfDay]} only` : `Client prefers ${TIME_OF_DAY_LABEL[preferredTimeOfDay]} · Show all times`}
+          </Text>
+        </Pressable>
+      ) : null}
       {date && (
         slotsQ.isLoading ? <ActivityIndicator style={{ marginTop: 8 }} /> :
-        (slotsQ.data ?? []).length === 0 ? <Text style={s.muted}>No open slots that day.</Text> :
+        slots.length === 0 ? (
+          <Text style={s.muted}>
+            {filtering && allSlots.length > 0 ? `No ${TIME_OF_DAY_LABEL[preferredTimeOfDay!].toLowerCase()} slots that day — tap above to show all.` : "No open slots that day."}
+          </Text>
+        ) :
         <View style={s.chipWrap}>
-          {(slotsQ.data ?? []).map((iso) => {
+          {slots.map((iso) => {
             const end = new Date(new Date(iso).getTime() + durationMinutes * 60000).toISOString();
             const active = selectedStart === iso;
             return (
@@ -621,6 +638,7 @@ const s = StyleSheet.create({
   label: { fontWeight: "700", fontSize: 13, color: "#52525B", marginTop: 8 },
   priceNote: { color: "#A1A1AA", fontSize: 12, marginTop: 4 },
   budgetHint: { color: "#B45309", fontSize: 12, marginTop: 4, fontWeight: "600" },
+  slotFilterNote: { color: "#B45309", fontSize: 12, fontWeight: "700", marginTop: 8 },
   input: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, marginTop: 4 },
   multiline: { minHeight: 72, textAlignVertical: "top" },
   row: { flexDirection: "row", gap: 10 },

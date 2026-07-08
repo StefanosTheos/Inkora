@@ -1,6 +1,7 @@
 import type {
   AppointmentId, AppointmentRequestId, AppointmentRequestView, AppointmentView, ArtistId,
   BookingRequestInput, ConversationId, CounterpartyRef, OfferInput, OfferView, ProfileId, StudioId,
+  TimeOfDay,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
@@ -33,7 +34,7 @@ interface ReqRow {
   id: string; client_id: string; artist_id: string; studio_id: string | null;
   title: string; description: string | null; placement: string | null; approx_size: string | null;
   is_color: boolean | null; budget_min: number | null; budget_max: number | null;
-  preferred_dates: string[] | null; reference_paths: string[] | null;
+  preferred_dates: string[] | null; preferred_time_of_day: string | null; reference_paths: string[] | null;
   status: string; created_at: string;
   client: { id: string; display_name: string; avatar_path: string | null } | null;
   artist: { id: string; profiles: { display_name: string; avatar_path: string | null } | null } | null;
@@ -51,7 +52,7 @@ interface ApptRow {
 }
 
 const REQ_SELECT =
-  "id, client_id, artist_id, studio_id, title, description, placement, approx_size, is_color, budget_min, budget_max, preferred_dates, reference_paths, status, created_at, " +
+  "id, client_id, artist_id, studio_id, title, description, placement, approx_size, is_color, budget_min, budget_max, preferred_dates, preferred_time_of_day, reference_paths, status, created_at, " +
   "client:profiles!appointment_requests_client_id_fkey(id, display_name, avatar_path), " +
   "artist:artists!appointment_requests_artist_id_fkey(id, profiles!inner(display_name, avatar_path)), " +
   "studio:studios(name), " +
@@ -111,6 +112,7 @@ function mapReq(row: ReqRow, meId: string): AppointmentRequestView {
     budgetMin: row.budget_min == null ? null : Number(row.budget_min),
     budgetMax: row.budget_max == null ? null : Number(row.budget_max),
     preferredDate: firstDate(row.preferred_dates),
+    preferredTimeOfDay: (row.preferred_time_of_day as TimeOfDay | null) ?? null,
     referencePaths: row.reference_paths ?? [],
     status: row.status as AppointmentRequestView["status"],
     createdAt: row.created_at,
@@ -170,6 +172,7 @@ export async function createBookingRequest(
       budget_min: input.budgetMin ?? null,
       budget_max: input.budgetMax ?? null,
       preferred_dates: preferred,
+      preferred_time_of_day: input.preferredTimeOfDay ?? null,
       reference_paths: input.referencePaths ?? [],
     })
     .select("id")
@@ -189,6 +192,7 @@ export async function createBookingRequest(
       size: input.approxSize ?? null,
       isColor: input.isColor ?? null,
       preferredDate: input.preferredDate ?? null,
+      preferredTimeOfDay: input.preferredTimeOfDay ?? null,
       budgetMin: input.budgetMin ?? null,
       budgetMax: input.budgetMax ?? null,
     },
@@ -456,7 +460,10 @@ export const bookingKeys = {
   appointmentCount: ["appointments", "count"] as const,
   appointment: (id: string) => ["appointment", id] as const,
   review: (appointmentId: string) => ["appointment-review", appointmentId] as const,
-  daySlots: (artistId: string, date: string) => ["day-slots", artistId, date] as const,
+  // slotMinutes is part of the key: open start-times depend on the session
+  // length (a slot must fit before the artist's day ends), so changing the
+  // duration must refetch rather than reuse the previous length's slots.
+  daySlots: (artistId: string, date: string, slotMinutes: number) => ["day-slots", artistId, date, slotMinutes] as const,
 };
 
 export function useMyRequests(client: InkoraClient, role: "client" | "artist") {
@@ -485,5 +492,5 @@ export function useAppointmentReview(client: InkoraClient, appointmentId: string
   });
 }
 export function useArtistDaySlots(client: InkoraClient, artistId: string, date: string, slotMinutes = 60) {
-  return useQuery({ queryKey: bookingKeys.daySlots(artistId, date), queryFn: () => getArtistDaySlots(client, artistId, date, slotMinutes), enabled: !!artistId && !!date });
+  return useQuery({ queryKey: bookingKeys.daySlots(artistId, date, slotMinutes), queryFn: () => getArtistDaySlots(client, artistId, date, slotMinutes), enabled: !!artistId && !!date });
 }

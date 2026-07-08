@@ -3,7 +3,7 @@ import {
   bookingKeys, declineRequest, getChatSignedUrl, markEntityNotificationsRead, publicStorageUrl,
   respondToOffer, uploadChatFile, useAuth, useBookingRequest, useChat, useConversations, useOfferStatus,
 } from "@inkora/data-access";
-import { type ArtistId, type ConversationId, type Message, messageKind, REQUEST_STATUS_LABEL } from "@inkora/domain";
+import { type ArtistId, type ConversationId, type Message, messageKind, REQUEST_STATUS_LABEL, TIME_OF_DAY_LABEL, type TimeOfDay } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Audio, type AVPlaybackStatus } from "expo-av";
 import { Image } from "expo-image";
@@ -343,7 +343,7 @@ function RequestCard({ message, kind, mine }: { message: Message; kind: "quote" 
 interface BookingReqMeta {
   requestId?: string; artistId?: string; title?: string; placement?: string | null;
   size?: string | null; isColor?: boolean | null; preferredDate?: string | null;
-  budgetMin?: number | null; budgetMax?: number | null;
+  preferredTimeOfDay?: string | null; budgetMin?: number | null; budgetMax?: number | null;
 }
 
 interface OfferMeta {
@@ -371,11 +371,15 @@ function BookingRequestCard({ message, mine }: { message: Message; mine: boolean
   const canAct = status === "pending" || status === "reviewing";
   const color = mine ? "#fff" : "#18181B";
   const sub = mine ? "rgba(255,255,255,0.85)" : "#52525B";
+  const prefers = [
+    md.preferredDate ? fmtDate(md.preferredDate) : null,
+    md.preferredTimeOfDay ? TIME_OF_DAY_LABEL[md.preferredTimeOfDay as TimeOfDay] : null,
+  ].filter(Boolean).join(", ");
   const detail = [
     md.placement,
     md.size,
     md.isColor == null ? null : md.isColor ? "Color" : "Black & grey",
-    md.preferredDate ? `Prefers ${fmtDate(md.preferredDate)}` : null,
+    prefers ? `Prefers ${prefers}` : null,
     md.budgetMin || md.budgetMax ? `Budget ${money(md.budgetMin ?? null, "EUR")}–${money(md.budgetMax ?? null, "EUR")}` : null,
   ].filter(Boolean).join(" · ");
 
