@@ -79,6 +79,9 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
   const [busy, setBusy] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
   const durationMin = Math.round((new Date(appt.scheduledEnd).getTime() - new Date(appt.scheduledStart).getTime()) / 60000);
+  // The tattoo brief the client filled in during the request, carried over so
+  // the artist sees placement/size/etc. on the confirmed booking too.
+  const reqQ = useBookingRequest(supabase, appt.requestId ?? "");
 
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -150,6 +153,8 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
         {appt.locationNote ? <InfoRow icon="location-outline" label={appt.locationNote} /> : null}
       </View>
 
+      {reqQ.data ? <TattooBrief req={reqQ.data} /> : null}
+
       {appt.cancellationReason ? <Text style={s.muted}>Reason: {appt.cancellationReason}</Text> : null}
 
       {appt.status === "completed" && !isArtist ? <ReviewSection appt={appt} /> : null}
@@ -199,6 +204,31 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
         </View>
       ) : null}
     </ScrollView>
+  );
+}
+
+// The tattoo brief from the original request (title, description, placement,
+// size, colour, budget, reference photos). Shown on the confirmed appointment
+// so the artist keeps the client's spec at hand.
+function TattooBrief({ req }: { req: AppointmentRequestView }) {
+  return (
+    <View style={s.infoCard}>
+      <View style={s.briefHead}>
+        <Ionicons name="brush-outline" size={15} color="#71717A" />
+        <Text style={s.briefLabel}>Tattoo details</Text>
+      </View>
+      <Text style={s.briefTitle}>{req.title}</Text>
+      {req.description ? <Text style={s.reqBody}>{req.description}</Text> : null}
+      {req.placement ? <InfoRow icon="body-outline" label={req.placement} /> : null}
+      {req.approxSize ? <InfoRow icon="resize-outline" label={req.approxSize} /> : null}
+      {req.isColor != null ? <InfoRow icon="color-palette-outline" label={req.isColor ? "Color" : "Black & grey"} /> : null}
+      {req.budgetMin || req.budgetMax ? <InfoRow icon="wallet-outline" label={`Budget ${money(req.budgetMin, "EUR")}–${money(req.budgetMax, "EUR")}`} /> : null}
+      {req.referencePaths.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.refs}>
+          {req.referencePaths.map((p) => <SignedThumb key={p} path={p} />)}
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -558,6 +588,9 @@ const s = StyleSheet.create({
   infoCard: { backgroundColor: "#F9FAFB", borderRadius: 16, padding: 14, gap: 10 },
   infoRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   infoText: { fontSize: 15, fontWeight: "600", color: "#18181B" },
+  briefHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 },
+  briefLabel: { fontSize: 12, fontWeight: "800", color: "#71717A", letterSpacing: 0.6, textTransform: "uppercase" },
+  briefTitle: { fontSize: 17, fontWeight: "800", color: "#18181B" },
   reqTitle: { fontSize: 20, fontWeight: "800" },
   reqBody: { fontSize: 15, color: "#3F3F46", lineHeight: 21 },
   tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

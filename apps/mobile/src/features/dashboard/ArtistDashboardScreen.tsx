@@ -21,7 +21,7 @@ export function ArtistDashboardScreen() {
   const meId = ctx.userId ?? "";
   const profile = useArtistProfile(supabase, meId);
   const stats = useArtistStats(supabase);
-  const upcomingQ = useUpcomingAppointments(supabase, 5);
+  const upcomingQ = useUpcomingAppointments(supabase, 3);
   const apptCount = useMyAppointmentCount(supabase);
   const reviews = useArtistReviews(supabase, meId);
   // Booking requests badge: new incoming requests + clients' responses to the
