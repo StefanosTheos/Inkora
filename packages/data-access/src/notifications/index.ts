@@ -122,6 +122,20 @@ function acquireNotificationChannel(client: InkoraClient, qc: QueryClientRef): (
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications" }, (payload) => {
         const n = mapNotif(payload.new as unknown as NotifRow);
         qc.setQueryData<Notification[]>(NOTIF_KEY, (old = []) => (old.some((x) => x.id === n.id) ? old : [n, ...old]));
+        // Cross-party live updates: a booking event notifies the *other* party,
+        // whose channel receives it here — refresh the booking views they may be
+        // looking at (lists, chat offer cards, and the affected detail page) so
+        // they update without needing to leave and re-focus the screen.
+        if (n.type === "booking_request" || n.type === "booking_update" || n.type === "offer") {
+          void qc.invalidateQueries({ queryKey: ["requests"] });
+          void qc.invalidateQueries({ queryKey: ["appointments"] });
+          void qc.invalidateQueries({ queryKey: ["conversations"] });
+          void qc.invalidateQueries({ queryKey: ["offer-status"] });
+          if (n.entityId) {
+            const detailKey = n.entityType === "appointment" ? "appointment" : "request";
+            void qc.invalidateQueries({ queryKey: [detailKey, n.entityId] });
+          }
+        }
       })
       .subscribe();
   }

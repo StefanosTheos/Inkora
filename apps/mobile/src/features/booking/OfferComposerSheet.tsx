@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { createOffer, useArtistAvailability, useArtistDaySlots, useBookingRequest } from "@inkora/data-access";
+import { bookingKeys, createOffer, useArtistAvailability, useArtistDaySlots, useBookingRequest } from "@inkora/data-access";
 import type { AppointmentRequestId } from "@inkora/domain";
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -26,6 +27,7 @@ export function OfferComposerSheet({
   onClose: () => void; onSent: () => void;
 }) {
   const toast = useToast();
+  const qc = useQueryClient();
   const [duration, setDuration] = useState(120);
   const [price, setPrice] = useState("");
   const [message, setMessage] = useState("");
@@ -64,6 +66,15 @@ export function OfferComposerSheet({
         priceAmount: Number(price),
         message: message.trim() || null,
       });
+      // Sending an offer moves the request to "offered" and clears the artist's
+      // "new request" notification — refresh every view that reflects that.
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: bookingKeys.request(requestId) }),
+        qc.invalidateQueries({ queryKey: bookingKeys.clientRequests }),
+        qc.invalidateQueries({ queryKey: bookingKeys.artistRequests }),
+        qc.invalidateQueries({ queryKey: ["notifications"] }),
+        qc.invalidateQueries({ queryKey: ["conversations"] }),
+      ]);
       onSent();
       onClose();
     } catch (e) {

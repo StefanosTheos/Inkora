@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   bookingKeys, declineRequest, getChatSignedUrl, markEntityNotificationsRead, publicStorageUrl,
-  respondToOffer, uploadChatFile, useAuth, useChat, useConversations, useOfferStatus,
+  respondToOffer, uploadChatFile, useAuth, useBookingRequest, useChat, useConversations, useOfferStatus,
 } from "@inkora/data-access";
-import { type ArtistId, type ConversationId, type Message, messageKind } from "@inkora/domain";
+import { type ArtistId, type ConversationId, type Message, messageKind, REQUEST_STATUS_LABEL } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Audio, type AVPlaybackStatus } from "expo-av";
 import { Image } from "expo-image";
@@ -364,6 +364,11 @@ function BookingRequestCard({ message, mine }: { message: Message; mine: boolean
   const md = (message.metadata ?? {}) as BookingReqMeta;
   const requestId = md.requestId ?? "";
   const isArtist = !!ctx.userId && ctx.userId === md.artistId;
+  // Live request status so the card reflects reality: the artist only gets
+  // Accept/Edit/Decline while it's unanswered; once answered everyone sees the
+  // current state (Offer sent / Declined / Booked) instead of stale actions.
+  const status = useBookingRequest(supabase, requestId).data?.status;
+  const canAct = status === "pending" || status === "reviewing";
   const color = mine ? "#fff" : "#18181B";
   const sub = mine ? "rgba(255,255,255,0.85)" : "#52525B";
   const detail = [
@@ -380,8 +385,12 @@ function BookingRequestCard({ message, mine }: { message: Message; mine: boolean
     setBusy(true);
     try {
       await declineRequest(supabase, requestId);
-      await qc.invalidateQueries({ queryKey: bookingKeys.artistRequests });
-      await qc.invalidateQueries({ queryKey: bookingKeys.request(requestId) });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: bookingKeys.artistRequests }),
+        qc.invalidateQueries({ queryKey: bookingKeys.clientRequests }),
+        qc.invalidateQueries({ queryKey: bookingKeys.request(requestId) }),
+        qc.invalidateQueries({ queryKey: ["notifications"] }),
+      ]);
       toast.show("Request declined");
     } catch (e) {
       toast.show((e as Error).message, "error");
@@ -395,12 +404,14 @@ function BookingRequestCard({ message, mine }: { message: Message; mine: boolean
       <Text style={[s.reqTitle, { color }]}>📩 Booking request</Text>
       {md.title ? <Text style={[s.bookingReqName, { color }]} numberOfLines={2}>{md.title}</Text> : null}
       {detail ? <Text style={[s.reqDetail, { color: sub }]}>{detail}</Text> : null}
-      {isArtist ? (
+      {isArtist && canAct ? (
         <View style={s.bookingReqActions}>
           <Pressable style={[s.brBtn, s.brPrimary]} onPress={() => setComposer({ open: true, prefill: md.preferredDate ?? null })} disabled={busy} accessibilityRole="button" accessibilityLabel="Accept and send an offer"><Text style={s.brPrimaryText}>Accept</Text></Pressable>
           <Pressable style={[s.brBtn, s.brSecondary]} onPress={() => setComposer({ open: true, prefill: null })} disabled={busy} accessibilityRole="button" accessibilityLabel="Edit and send an offer"><Text style={s.brSecondaryText}>Edit</Text></Pressable>
           <Pressable style={[s.brBtn, s.brSecondary]} onPress={onDecline} disabled={busy} accessibilityRole="button" accessibilityLabel="Decline request"><Text style={[s.brSecondaryText, { color: "#E5484D" }]}>Decline</Text></Pressable>
         </View>
+      ) : status && !canAct ? (
+        <Text style={[s.reqDetail, { color: sub, marginTop: 8, fontWeight: "700" }]}>{REQUEST_STATUS_LABEL[status]}</Text>
       ) : null}
       {isArtist ? (
         <OfferComposerSheet
