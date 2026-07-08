@@ -17,6 +17,7 @@ import { useConfirm } from "../../components/ConfirmDialog";
 import { CountBadge } from "../../components/CountBadge";
 import { GradientBg, TIER_GRADIENT } from "../../components/Gradient";
 import { useToast } from "../../components/Toast";
+import { useBadgeCounts } from "../../lib/badges";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, StatusChip } from "../booking/components/ui";
@@ -38,6 +39,7 @@ export function UserDashboardScreen() {
   const savedDesigns = useSavedDesigns(supabase);
   const journeys = useBookingJourneys(supabase);
   const { notifications } = useNotifications(supabase);
+  const { openRequests } = useBadgeCounts();
   const rewardsUnread = notifications.filter((n) => !n.readAt && n.type === "reward").length;
   const offersUnread = notifications.filter((n) => !n.readAt && n.type === "offer").length;
 
@@ -132,7 +134,7 @@ export function UserDashboardScreen() {
         </View>
 
         {/* Upcoming appointments */}
-        <SectionHeader title="Upcoming" badge={offersUnread} onSeeAll={() => router.push("/bookings")} />
+        <SectionHeader title="My bookings" badge={offersUnread + openRequests} onSeeAll={() => router.push("/bookings")} />
         {upcoming.length === 0 ? (
           <Empty icon="calendar-outline" text="No upcoming appointments." />
         ) : (

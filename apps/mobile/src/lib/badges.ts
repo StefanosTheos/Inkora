@@ -1,15 +1,19 @@
-import { useConversations, useNotifications } from "@inkora/data-access";
+import { useConversations, useMyRequests, useNotifications } from "@inkora/data-access";
 
+import { useSeenRequests } from "./seen-requests";
 import { supabase } from "./supabase";
 
 /**
  * Unread counts that drive the app's notification dots/badges. All derived
- * from the shared notifications cache (same source as the bell) plus the
- * conversations list, so every badge stays in sync.
+ * from the shared notifications cache (same source as the bell), the
+ * conversations list, and the seeker's own requests, so every badge stays in
+ * sync.
  */
 export function useBadgeCounts() {
   const { notifications } = useNotifications(supabase);
   const convs = useConversations(supabase);
+  const myRequests = useMyRequests(supabase, "client");
+  const seenRequests = useSeenRequests();
   const unread = notifications.filter((n) => !n.readAt);
   return {
     rewards: unread.filter((n) => n.type === "reward").length,
@@ -25,5 +29,12 @@ export function useBadgeCounts() {
     ).length,
     journey: unread.filter((n) => n.type === "journey").length,
     chats: (convs.data ?? []).filter((c) => c.unread).length,
+    // Seeker's own booking requests still awaiting the artist that they haven't
+    // opened yet. Making a request lights the badge; opening its booking page
+    // (marks it seen) or the artist offering/declining clears it. Offers to
+    // respond to are covered separately by `offers`.
+    openRequests: (myRequests.data ?? []).filter(
+      (r) => (r.status === "pending" || r.status === "reviewing") && !seenRequests.includes(r.id),
+    ).length,
   };
 }

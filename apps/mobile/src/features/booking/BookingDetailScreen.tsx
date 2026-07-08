@@ -20,9 +20,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useToast } from "../../components/Toast";
+import { useMarkRequestSeen } from "../../lib/seen-requests";
 import { supabase } from "../../lib/supabase";
 import { MonthCalendar } from "./components/MonthCalendar";
-import { Avatar, fmtDate, fmtDateTime, fmtTime, money, StatusChip } from "./components/ui";
+import { Avatar, budgetRangeLabel, fmtDate, fmtDateTime, fmtTime, money, offerBudgetError, StatusChip } from "./components/ui";
 
 const DURATIONS = [
   { label: "1h", minutes: 60 },
@@ -336,6 +337,13 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
       await qc.invalidateQueries({ queryKey: ["notifications"] });
     })();
   }, [isArtist, offerIds, qc]);
+
+  // Client opening their own request marks it seen, dropping the open-request
+  // badge (Requests tab + Upcoming "See all") by one.
+  const markSeen = useMarkRequestSeen();
+  useEffect(() => {
+    if (!isArtist) markSeen(req.id);
+  }, [isArtist, req.id, markSeen]);
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     try { await fn(); await invalidate(); }
@@ -464,6 +472,8 @@ function ArtistOfferComposer({ req, onSent }: { req: AppointmentRequestView; onS
 
   async function send() {
     if (!picked || !price) { toast.show("Pick a slot and enter a price to send your offer", "error"); return; }
+    const budgetErr = offerBudgetError(Number(price), req.budgetMin, req.budgetMax);
+    if (budgetErr) { toast.show(budgetErr, "error"); return; }
     setBusy(true);
     try {
       await createOffer(supabase, {
@@ -497,7 +507,10 @@ function ArtistOfferComposer({ req, onSent }: { req: AppointmentRequestView; onS
       <SlotPicker artistId={req.artistId} durationMinutes={duration} onPick={(start, end) => setPicked({ start, end })} selectedStart={picked?.start} />
 
       <Text style={s.label}>Price estimate (€)</Text>
-      <TextInput style={s.input} keyboardType="number-pad" value={price} onChangeText={setPrice} placeholder="0" />
+      {req.budgetMin != null || req.budgetMax != null ? (
+        <Text style={s.budgetHint}>Client&apos;s budget: {budgetRangeLabel(req.budgetMin, req.budgetMax)} — keep your offer within this range.</Text>
+      ) : null}
+      <TextInput style={s.input} keyboardType="number-pad" value={price} onChangeText={(v) => setPrice(v.replace(/[^0-9]/g, ""))} placeholder="0" />
       <Text style={s.priceNote}>An indicative quote — payment is arranged directly with the client, not through Inkora.</Text>
       <Text style={s.label}>Message</Text>
       <TextInput style={[s.input, s.multiline]} value={message} onChangeText={setMessage} placeholder="Anything the client should know" multiline />
@@ -607,6 +620,7 @@ const s = StyleSheet.create({
   composer: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 16, padding: 14, gap: 8 },
   label: { fontWeight: "700", fontSize: 13, color: "#52525B", marginTop: 8 },
   priceNote: { color: "#A1A1AA", fontSize: 12, marginTop: 4 },
+  budgetHint: { color: "#B45309", fontSize: 12, marginTop: 4, fontWeight: "600" },
   input: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, marginTop: 4 },
   multiline: { minHeight: 72, textAlignVertical: "top" },
   row: { flexDirection: "row", gap: 10 },

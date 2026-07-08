@@ -10,6 +10,23 @@ import { imageUrl } from "../../../lib/images";
 export const money = formatAmount;
 export { fmtDate, fmtDateTime, fmtTime } from "@inkora/domain";
 
+/** Human label for a client's suggested budget: "€100–€200" / "from €100" /
+ *  "up to €200" (empty when they gave no budget). */
+export function budgetRangeLabel(min: number | null, max: number | null): string {
+  if (min != null && max != null) return `${money(min)}–${money(max)}`;
+  if (min != null) return `from ${money(min)}`;
+  if (max != null) return `up to ${money(max)}`;
+  return "";
+}
+
+/** Validates an offer price against the client's suggested budget. Returns an
+ *  error message when the price falls outside the range, else null. */
+export function offerBudgetError(price: number, min: number | null, max: number | null): string | null {
+  if (min != null && price < min) return `Your offer is below the client's budget (min ${money(min)}). Adjust the price to stay within their range.`;
+  if (max != null && price > max) return `Your offer is above the client's budget (max ${money(max)}). Adjust the price to stay within their range.`;
+  return null;
+}
+
 const TONE_COLORS = {
   positive: { bg: "#DCFCE7", fg: "#166534" },
   warning: { bg: "#FEF3C7", fg: "#92400E" },

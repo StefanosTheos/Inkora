@@ -21,7 +21,7 @@ export function MyBookingsScreen() {
   const [tab, setTab] = useState<Tab>("upcoming");
   const apptsQ = useMyAppointments(supabase);
   const reqsQ = useMyRequests(supabase, "client");
-  const { offers: offersUnread } = useBadgeCounts();
+  const { offers: offersUnread, openRequests: openReqBadge } = useBadgeCounts();
 
   useEffect(() => { void registerPushToken(); }, []);
   useEffect(() => {
@@ -49,7 +49,7 @@ export function MyBookingsScreen() {
       </View>
       <View style={s.tabs}>
         <TabButton label={`Upcoming${appts.length ? ` (${appts.length})` : ""}`} active={tab === "upcoming"} onPress={() => setTab("upcoming")} />
-        <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => setTab("requests")} badge={offersUnread} />
+        <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => setTab("requests")} badge={offersUnread + openReqBadge} />
       </View>
 
       <ScrollView contentContainerStyle={s.body}>

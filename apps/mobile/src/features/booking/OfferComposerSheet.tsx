@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { createOffer, useArtistAvailability, useArtistDaySlots } from "@inkora/data-access";
+import { createOffer, useArtistAvailability, useArtistDaySlots, useBookingRequest } from "@inkora/data-access";
 import type { AppointmentRequestId } from "@inkora/domain";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -8,7 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useToast } from "../../components/Toast";
 import { supabase } from "../../lib/supabase";
 import { MonthCalendar } from "./components/MonthCalendar";
-import { fmtTime } from "./components/ui";
+import { budgetRangeLabel, fmtTime, offerBudgetError } from "./components/ui";
 
 const DURATIONS = [
   { label: "1h", minutes: 60 },
@@ -36,6 +36,9 @@ export function OfferComposerSheet({
   const availabilityQ = useArtistAvailability(supabase, artistId);
   const enabledWeekdays = useMemo(() => Array.from(new Set((availabilityQ.data ?? []).map((a) => a.dayOfWeek))), [availabilityQ.data]);
   const slotsQ = useArtistDaySlots(supabase, artistId, date ?? "", duration);
+  const reqQ = useBookingRequest(supabase, requestId);
+  const budgetMin = reqQ.data?.budgetMin ?? null;
+  const budgetMax = reqQ.data?.budgetMax ?? null;
 
   // Reset + prefill each time the sheet opens.
   useEffect(() => {
@@ -50,6 +53,8 @@ export function OfferComposerSheet({
 
   async function send() {
     if (!picked || !price) { toast.show("Pick a slot and enter a price to send your offer", "error"); return; }
+    const budgetErr = offerBudgetError(Number(price), budgetMin, budgetMax);
+    if (budgetErr) { toast.show(budgetErr, "error"); return; }
     setBusy(true);
     try {
       await createOffer(supabase, {
@@ -104,6 +109,9 @@ export function OfferComposerSheet({
           ) : null}
 
           <Text style={s.label}>Price estimate (€)</Text>
+          {budgetMin != null || budgetMax != null ? (
+            <Text style={s.budgetHint}>Client&apos;s budget: {budgetRangeLabel(budgetMin, budgetMax)} — keep your offer within this range.</Text>
+          ) : null}
           <TextInput style={s.input} keyboardType="number-pad" value={price} onChangeText={(v) => setPrice(v.replace(/[^0-9]/g, ""))} placeholder="0" />
           <Text style={s.note}>An indicative quote — payment is arranged directly with the client, not through Inkora.</Text>
           <Text style={s.label}>Message</Text>
@@ -137,6 +145,7 @@ const s = StyleSheet.create({
   input: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
   multiline: { minHeight: 90, textAlignVertical: "top" },
   note: { color: "#71717A", fontSize: 12, marginTop: 6 },
+  budgetHint: { color: "#B45309", fontSize: 12, marginTop: 4, marginBottom: 2, fontWeight: "600" },
   send: { backgroundColor: "#E5484D", borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 20 },
   sendText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   disabled: { opacity: 0.6 },
