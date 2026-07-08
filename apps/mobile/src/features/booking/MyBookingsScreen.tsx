@@ -15,7 +15,7 @@ import { useMarkRequestSeen, useSeenRequests } from "../../lib/seen-requests";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, money, StatusChip } from "./components/ui";
 
-type Tab = "upcoming" | "requests";
+type Tab = "upcoming" | "completed" | "requests";
 
 export function MyBookingsScreen() {
   const router = useRouter();
@@ -41,6 +41,10 @@ export function MyBookingsScreen() {
 
   const appts = apptsQ.data ?? [];
   const reqs = reqsQ.data ?? [];
+  // Completed bookings live in their own tab for clarity; everything else
+  // (scheduled/rescheduled/cancelled) stays under Upcoming.
+  const upcomingAppts = appts.filter((a) => a.status !== "completed");
+  const completedAppts = appts.filter((a) => a.status === "completed");
   // Unread requests (not yet opened) float to the top, separated from read ones.
   const openRequests = reqs
     .filter((r) => r.status !== "converted")
@@ -53,16 +57,21 @@ export function MyBookingsScreen() {
         <Text style={s.title}>My bookings</Text>
         <View style={{ width: 26 }} />
       </View>
-      <View style={s.tabs}>
-        <TabButton label={`Upcoming${appts.length ? ` (${appts.length})` : ""}`} active={tab === "upcoming"} onPress={() => setTab("upcoming")} />
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabsScroll} contentContainerStyle={s.tabs}>
+        <TabButton label={`Upcoming${upcomingAppts.length ? ` (${upcomingAppts.length})` : ""}`} active={tab === "upcoming"} onPress={() => setTab("upcoming")} />
+        <TabButton label={`Completed${completedAppts.length ? ` (${completedAppts.length})` : ""}`} active={tab === "completed"} onPress={() => setTab("completed")} />
         <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => setTab("requests")} badge={offersUnread + openReqBadge} />
-      </View>
+      </ScrollView>
 
       <ScrollView contentContainerStyle={s.body}>
         {tab === "upcoming" ? (
           apptsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
-          appts.length === 0 ? <Empty icon="calendar-outline" text="No appointments yet. When an artist’s offer is accepted, it shows up here." /> :
-          appts.map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
+          upcomingAppts.length === 0 ? <Empty icon="calendar-outline" text="No upcoming appointments. When an artist’s offer is accepted, it shows up here." /> :
+          upcomingAppts.map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
+        ) : tab === "completed" ? (
+          apptsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
+          completedAppts.length === 0 ? <Empty icon="checkmark-done-outline" text="No completed bookings yet. Finished sessions move here." /> :
+          completedAppts.map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
         ) : (
           reqsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
           openRequests.length === 0 ? <Empty icon="paper-plane-outline" text="No open requests. Find an artist and tap “Request booking” to get started." /> :
@@ -141,7 +150,8 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 },
   title: { fontSize: 22, fontWeight: "800" },
-  tabs: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 4 },
+  tabsScroll: { flexGrow: 0, marginBottom: 4 },
+  tabs: { flexDirection: "row", gap: 8, paddingHorizontal: 16, alignItems: "center" },
   tab: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: "#F4F4F5" },
   tabActive: { backgroundColor: "#18181B" },
   tabText: { fontWeight: "700", color: "#52525B", fontSize: 13 },
