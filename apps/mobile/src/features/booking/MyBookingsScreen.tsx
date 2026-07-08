@@ -3,8 +3,8 @@ import { useMyAppointments, useMyRequests } from "@inkora/data-access";
 import {
   APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView, REQUEST_STATUS_LABEL,
 } from "@inkora/domain";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -27,6 +27,14 @@ export function MyBookingsScreen() {
   useEffect(() => {
     if (apptsQ.data) void scheduleAppointmentReminders(apptsQ.data);
   }, [apptsQ.data]);
+  // Refetch on focus so accepting/declining an offer elsewhere (e.g. in chat)
+  // is reflected here: the converted request drops off Requests and the new
+  // appointment appears under Upcoming.
+  useFocusEffect(useCallback(() => {
+    void apptsQ.refetch();
+    void reqsQ.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []));
 
   const appts = apptsQ.data ?? [];
   const reqs = reqsQ.data ?? [];
@@ -85,6 +93,12 @@ export function AppointmentCard({ appt, onPress }: { appt: AppointmentView; onPr
 
 export function RequestCard({ req, onPress }: { req: AppointmentRequestView; onPress: () => void }) {
   const latest = req.offers[0];
+  // Reflect the client's response to the latest offer, so an answered offer
+  // reads "Offer declined"/"Offer accepted" instead of the stale "Offer sent".
+  const chip =
+    latest?.status === "declined" ? { status: "declined" as const, label: "Offer declined" } :
+    latest?.status === "accepted" ? { status: "accepted" as const, label: "Offer accepted" } :
+    { status: req.status, label: REQUEST_STATUS_LABEL[req.status] };
   return (
     <Pressable style={s.card} onPress={onPress}>
       <Avatar path={req.counterparty.avatarPath} name={req.counterparty.name} />
@@ -93,7 +107,7 @@ export function RequestCard({ req, onPress }: { req: AppointmentRequestView; onP
         <Text style={s.cardSub} numberOfLines={1}>{req.studioName ? `🏠 ${req.studioName} · ${req.counterparty.name}` : req.counterparty.name}</Text>
         {latest && latest.status === "pending" ? <Text style={s.cardPrice}>New offer · {money(latest.priceAmount, latest.currencyCode)}</Text> : null}
       </View>
-      <StatusChip status={req.status} label={REQUEST_STATUS_LABEL[req.status]} />
+      <StatusChip status={chip.status} label={chip.label} />
     </Pressable>
   );
 }

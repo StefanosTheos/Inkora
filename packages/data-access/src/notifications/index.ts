@@ -71,6 +71,24 @@ export async function markEntityNotificationsRead(client: InkoraClient, entityTy
     .is("read_at", null);
 }
 
+/** Mark the caller's unread notifications matching a type AND entity_type as
+ *  read (best effort). Used when a screen surfaces one slice of an overloaded
+ *  type — e.g. the artist's Booking requests page clears offer-response updates
+ *  (booking_update on an appointment_request) without touching appointment
+ *  updates (booking_update on an appointment). */
+export async function markTypeEntityNotificationsRead(client: InkoraClient, type: string, entityType: string): Promise<void> {
+  const { data: userRes } = await client.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) return;
+  await client
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("recipient_id", uid)
+    .eq("type", type)
+    .eq("entity_type", entityType)
+    .is("read_at", null);
+}
+
 /** Mark all the caller's unread notifications of a given type as read (best
  *  effort). Used when opening a screen that surfaces them (e.g. Rewards). */
 export async function markTypeNotificationsRead(client: InkoraClient, type: string): Promise<void> {

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  bookingKeys, declineRequest, getChatSignedUrl, publicStorageUrl, respondToOffer, uploadChatFile,
-  useAuth, useChat, useConversations, useOfferStatus,
+  bookingKeys, declineRequest, getChatSignedUrl, markEntityNotificationsRead, publicStorageUrl,
+  respondToOffer, uploadChatFile, useAuth, useChat, useConversations, useOfferStatus,
 } from "@inkora/data-access";
 import { type ArtistId, type ConversationId, type Message, messageKind } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
@@ -434,6 +434,7 @@ function BookingOfferCard({ message, mine }: { message: Message; mine: boolean }
   const qc = useQueryClient();
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
   const md = (message.metadata ?? {}) as OfferMeta;
   const offerId = md.offerId ?? "";
   const isArtist = !!ctx.userId && ctx.userId === md.artistId;
@@ -449,9 +450,20 @@ function BookingOfferCard({ message, mine }: { message: Message; mine: boolean }
     setBusy(true);
     try {
       const apptId = await respondToOffer(supabase, offerId, accept);
-      await qc.invalidateQueries({ queryKey: ["offer-status", offerId] });
-      await qc.invalidateQueries({ queryKey: bookingKeys.appointments });
-      await qc.invalidateQueries({ queryKey: bookingKeys.clientRequests });
+      // Responding to the offer clears its "new offer" notification, so the
+      // seeker's offer badges (Requests tab + Upcoming "See all") count down.
+      await markEntityNotificationsRead(supabase, "offer", offerId);
+      // Accepting converts the request into an appointment; decline closes it.
+      // Refresh every view that reflects that transition so the request leaves
+      // the Requests tab and the booking shows up (Scheduled) under Upcoming.
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["offer-status", offerId] }),
+        qc.invalidateQueries({ queryKey: bookingKeys.appointments }),
+        qc.invalidateQueries({ queryKey: bookingKeys.clientRequests }),
+        qc.invalidateQueries({ queryKey: bookingKeys.artistRequests }),
+        md.requestId ? qc.invalidateQueries({ queryKey: bookingKeys.request(md.requestId) }) : Promise.resolve(),
+        qc.invalidateQueries({ queryKey: ["notifications"] }),
+      ]);
       if (accept && apptId) router.push(`/booking/${apptId}`);
       else toast.show("Offer declined");
     } catch (e) {
@@ -472,8 +484,26 @@ function BookingOfferCard({ message, mine }: { message: Message; mine: boolean }
           <Pressable style={[s.brBtn, s.brSecondary]} onPress={() => respond(false)} disabled={busy} accessibilityRole="button" accessibilityLabel="Decline offer"><Text style={[s.brSecondaryText, { color: "#E5484D" }]}>Decline</Text></Pressable>
         </View>
       ) : (
-        <Text style={[s.reqDetail, { color: sub, marginTop: 8, fontWeight: "700" }]}>{offerStatusLabel(status, isArtist)}</Text>
+        <>
+          <Text style={[s.reqDetail, { color: sub, marginTop: 8, fontWeight: "700" }]}>{offerStatusLabel(status, isArtist)}</Text>
+          {/* Client declined this offer — let the artist propose a fresh one. */}
+          {isArtist && status === "declined" ? (
+            <View style={[s.bookingReqActions, { justifyContent: "center" }]}>
+              <Pressable style={[s.brBtn, s.brSecondary]} onPress={() => setComposerOpen(true)} accessibilityRole="button" accessibilityLabel="Make a new offer"><Text style={[s.brSecondaryText, { color: "#E5484D" }]}>Make a new offer</Text></Pressable>
+            </View>
+          ) : null}
+        </>
       )}
+      {isArtist ? (
+        <OfferComposerSheet
+          visible={composerOpen}
+          requestId={md.requestId ?? ""}
+          artistId={md.artistId ?? ""}
+          prefillDate={md.proposedStart ? md.proposedStart.slice(0, 10) : null}
+          onClose={() => setComposerOpen(false)}
+          onSent={() => toast.show("Offer sent")}
+        />
+      ) : null}
     </View>
   );
 }

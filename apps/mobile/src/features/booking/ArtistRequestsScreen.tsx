@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useMyRequests } from "@inkora/data-access";
+import { markTypeEntityNotificationsRead, useMyRequests } from "@inkora/data-access";
 import type { AppointmentRequestView } from "@inkora/domain";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
+import { useEffect } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -10,7 +12,20 @@ import { RequestCard } from "./MyBookingsScreen";
 
 export function ArtistRequestsScreen() {
   const router = useRouter();
+  const qc = useQueryClient();
   const reqsQ = useMyRequests(supabase, "artist");
+
+  // Opening the page clears the "client responded to your offer" badge (offer
+  // accepted/declined) and pulls the latest statuses so a just-answered offer
+  // shows correctly. New unanswered requests keep their badge until answered.
+  useEffect(() => {
+    void reqsQ.refetch();
+    void (async () => {
+      await markTypeEntityNotificationsRead(supabase, "booking_update", "appointment_request");
+      await qc.invalidateQueries({ queryKey: ["notifications"] });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qc]);
   const reqs = reqsQ.data ?? [];
   const needsAction = reqs.filter((r) => r.status === "pending" || r.status === "reviewing");
   const waiting = reqs.filter((r) => r.status === "offered");

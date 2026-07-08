@@ -280,6 +280,7 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
   const scrollRef = useRef<ScrollView>(null);
   const isArtist = req.artistId === meId;
   const [busy, setBusy] = useState(false);
+  const [reoffering, setReoffering] = useState(false);
 
   async function invalidate() {
     await qc.invalidateQueries({ queryKey: bookingKeys.request(req.id) });
@@ -314,6 +315,15 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
 
   const router = useRouter();
   const openForArtist = isArtist && (req.status === "pending" || req.status === "reviewing" || req.status === "offered");
+  // Client declined the artist's latest offer — the artist can propose a new one.
+  const latestOffer = req.offers[0];
+  const canReoffer = isArtist && !openForArtist && latestOffer?.status === "declined" && req.status !== "converted";
+  // Header chip reflects the client's response to the latest offer, so it reads
+  // "Offer declined"/"Offer accepted" instead of the stale "Offer sent".
+  const headerChip =
+    latestOffer?.status === "declined" ? { status: "declined" as const, label: "Offer declined" } :
+    latestOffer?.status === "accepted" ? { status: "accepted" as const, label: "Offer accepted" } :
+    { status: req.status, label: REQUEST_STATUS_LABEL[req.status] };
   const clientCanCancel = !isArtist && req.status !== "converted" && req.status !== "cancelled" && req.status !== "declined";
 
   return (
@@ -329,7 +339,7 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
             <Ionicons name="chatbubble-outline" size={20} color="#18181B" />
           </Pressable>
         ) : null}
-        <StatusChip status={req.status} label={REQUEST_STATUS_LABEL[req.status]} />
+        <StatusChip status={headerChip.status} label={headerChip.label} />
       </View>
 
       <Text style={s.reqTitle}>{req.title}</Text>
@@ -367,8 +377,15 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
         />
       ))}
 
+      {/* Artist: make a new offer after the client declined the previous one */}
+      {canReoffer && !reoffering && (
+        <PrimaryBtn label="Make a new offer" disabled={busy} onPress={() => setReoffering(true)} />
+      )}
+
       {/* Artist: send an offer */}
-      {openForArtist && <ArtistOfferComposer req={req} onSent={handleOfferSent} />}
+      {(openForArtist || (canReoffer && reoffering)) && (
+        <ArtistOfferComposer req={req} onSent={async () => { setReoffering(false); await handleOfferSent(); }} />
+      )}
 
       {/* Artist decline */}
       {isArtist && (req.status === "pending" || req.status === "reviewing") && (

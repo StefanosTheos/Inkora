@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   useArtistProfile, useArtistReviews, useArtistStats, useAuth,
-  useMyAppointmentCount, useMyRequests, useUpcomingAppointments,
+  useMyAppointmentCount, useUpcomingAppointments,
 } from "@inkora/data-access";
 import { APPOINTMENT_STATUS_LABEL } from "@inkora/domain";
 import { useRouter } from "expo-router";
@@ -10,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
 import { CountBadge } from "../../components/CountBadge";
+import { useBadgeCounts } from "../../lib/badges";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, StatusChip } from "../booking/components/ui";
 
@@ -23,9 +24,9 @@ export function ArtistDashboardScreen() {
   const upcomingQ = useUpcomingAppointments(supabase, 5);
   const apptCount = useMyAppointmentCount(supabase);
   const reviews = useArtistReviews(supabase, meId);
-  // New requests = ones the artist hasn't answered yet (pending / reviewing).
-  const requests = useMyRequests(supabase, "artist");
-  const newRequests = (requests.data ?? []).filter((r) => r.status === "pending" || r.status === "reviewing").length;
+  // Booking requests badge: new incoming requests + clients' responses to the
+  // artist's offers. Clears as requests are answered / the page is opened.
+  const { requests: newRequests } = useBadgeCounts();
 
   const a = profile.data;
   const upcoming = upcomingQ.data ?? [];
@@ -75,7 +76,7 @@ export function ArtistDashboardScreen() {
         </View>
 
         {/* Upcoming appointments */}
-        <SectionHeader title="Upcoming appointments" onSeeAll={() => router.push("/artist-dashboard")} seeAllLabel="Calendar" />
+        <SectionHeader title="Upcoming appointments" onSeeAll={() => router.push("/artist-dashboard/upcoming")} />
         {upcomingQ.isLoading ? (
           <ActivityIndicator style={{ marginTop: 12 }} />
         ) : upcoming.length === 0 ? (
