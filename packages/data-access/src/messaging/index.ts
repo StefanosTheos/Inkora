@@ -111,6 +111,15 @@ export async function sendMessage(client: InkoraClient, conversationId: string, 
     .select("id, conversation_id, sender_id, type, body, attachments, metadata, created_at")
     .single<MsgRow>();
   if (error) throw toAppError(error);
+  // The sender has, by definition, seen their own message. Advance their read
+  // marker to it (using the server timestamp that also drives last_message_at)
+  // so the conversation isn't flagged unread to the sender — the unread dot /
+  // bold text only makes sense for the recipient. Best-effort; never fail the send.
+  await client
+    .from("conversation_participants")
+    .update({ last_read_at: data.created_at })
+    .eq("conversation_id", conversationId)
+    .eq("profile_id", senderId);
   return mapMessage(data);
 }
 
