@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { dashboardKeys, setNotificationPrefs, updateMyProfile, useAccountSettings, useAuth } from "@inkora/data-access";
+import { dashboardKeys, setNotificationPrefs, useAccountSettings, useAuth } from "@inkora/data-access";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -22,7 +22,6 @@ export function AccountSettingsScreen() {
 
   const [email, setEmail] = useState("");
   const [provider, setProvider] = useState("email");
-  const [radius, setRadius] = useState(25);
   const [push, setPush] = useState(true);
   const [emailNotif, setEmailNotif] = useState(true);
   const [osBlocked, setOsBlocked] = useState(false);
@@ -38,23 +37,12 @@ export function AccountSettingsScreen() {
   }, []);
   useEffect(() => {
     if (settings.data && !hydrated) {
-      setRadius(settings.data.searchRadiusKm);
       setPush(settings.data.pushEnabled);
       setEmailNotif(settings.data.emailEnabled);
       setHydrated(true);
     }
   }, [settings.data, hydrated]);
 
-  async function changeRadius(next: number) {
-    const clamped = Math.min(200, Math.max(5, next));
-    setRadius(clamped);
-    try {
-      await updateMyProfile(supabase, { searchRadiusKm: clamped });
-      await qc.invalidateQueries({ queryKey: dashboardKeys.accountSettings });
-    } catch (e) {
-      toast.show((e as Error).message, "error");
-    }
-  }
   async function toggle(kind: "push" | "email", value: boolean) {
     if (kind === "push") setPush(value); else setEmailNotif(value);
     try {
@@ -100,26 +88,6 @@ export function AccountSettingsScreen() {
             <Row label="Signed in via" value={provider.charAt(0).toUpperCase() + provider.slice(1)} />
             <Row label="Role" value={isArtist ? "Artist" : "Seeker"} last />
           </View>
-
-          {/* Preferences — seeker-only (search radius drives discovery) */}
-          {!isArtist && (
-            <>
-              <Text style={s.section} accessibilityRole="header">Preferences</Text>
-              <View style={s.card}>
-                <View style={[s.rowFlex, s.rowBorder]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={s.rowLabel}>Search radius</Text>
-                    <Text style={s.rowHint}>How far to look for artists & studios</Text>
-                  </View>
-                  <View style={s.stepper}>
-                    <Pressable style={s.stepBtn} onPress={() => changeRadius(radius - 5)} accessibilityRole="button" accessibilityLabel="Decrease search radius"><Ionicons name="remove" size={18} color="#18181B" /></Pressable>
-                    <Text style={s.stepValue} accessibilityLabel={`Search radius ${radius} kilometres`}>{radius} km</Text>
-                    <Pressable style={s.stepBtn} onPress={() => changeRadius(radius + 5)} accessibilityRole="button" accessibilityLabel="Increase search radius"><Ionicons name="add" size={18} color="#18181B" /></Pressable>
-                  </View>
-                </View>
-              </View>
-            </>
-          )}
 
           {/* Notifications */}
           <Text style={s.section} accessibilityRole="header">Notifications</Text>
@@ -197,7 +165,4 @@ const s = StyleSheet.create({
   rowValue: { flex: 1, textAlign: "right", color: "#71717A", fontSize: 14 },
   rowHint: { color: "#A1A1AA", fontSize: 12, marginTop: 2 },
   linkLabel: { flex: 1, fontWeight: "600", fontSize: 15, color: "#18181B" },
-  stepper: { flexDirection: "row", alignItems: "center", gap: 10 },
-  stepBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#F4F4F5", alignItems: "center", justifyContent: "center" },
-  stepValue: { fontWeight: "800", fontSize: 14, minWidth: 46, textAlign: "center" },
 });
