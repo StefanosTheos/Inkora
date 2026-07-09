@@ -67,7 +67,10 @@ export function EditProfileScreen() {
   }, [isArtist, artist.data, artistHydrated]);
 
   async function pickAvatar() {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsEditing: true, aspect: [1, 1] });
+    // No allowsEditing: it opens Android's native crop screen whose confirm
+    // button reads "Crop" (misleading for "use this photo"). The avatar renders
+    // cover-cropped in a circular frame, so the raw pick looks correct anyway.
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
     if (res.canceled || !res.assets[0]) return;
     const asset = res.assets[0];
     setUploadingAvatar(true);
@@ -75,13 +78,9 @@ export function EditProfileScreen() {
       const buf = await (await fetch(asset.uri)).arrayBuffer();
       const ext = asset.mimeType?.includes("png") ? "png" : "jpg";
       const path = await uploadAvatar(supabase, buf, asset.mimeType ?? "image/jpeg", ext);
-      await updateMyProfile(supabase, { avatarPath: path });
+      // Stage the new photo (preview only). It's persisted to the profile when
+      // the user taps "Save changes", consistent with the other fields.
       setAvatarPath(path);
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: dashboardKeys.profile }),
-        qc.invalidateQueries({ queryKey: rewardKeys.completion }),
-        qc.invalidateQueries({ queryKey: rewardKeys.account }),
-      ]);
     } catch (e) {
       toast.show((e as Error).message, "error");
     } finally {
@@ -107,7 +106,13 @@ export function EditProfileScreen() {
       // one needlessly hits the unique check (fails when saving other fields
       // like the "accepting" toggle).
       const usernameChanged = username.trim() !== (profile.data?.username ?? "");
-      await updateMyProfile(supabase, { displayName, bio, username: usernameChanged ? username : undefined });
+      const avatarChanged = avatarPath !== (profile.data?.avatarPath ?? null);
+      await updateMyProfile(supabase, {
+        displayName,
+        bio,
+        username: usernameChanged ? username : undefined,
+        avatarPath: avatarChanged ? avatarPath : undefined,
+      });
       // City is geocoded to coordinates (owner-only) so Nearby / distance work.
       const loc = await updateProfileLocation(supabase, city.trim());
       if (!loc.ok) throw new Error(loc.error.message);
