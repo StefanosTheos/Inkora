@@ -9,12 +9,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ImageZoomModal } from "../../components/ImageZoomModal";
 import { useToast } from "../../components/Toast";
 import { analytics } from "../../lib/analytics";
 import { env } from "../../lib/env";
@@ -27,7 +28,7 @@ const PLACEMENTS = ["Forearm", "Upper arm", "Leg", "Back", "Chest", "Ribs", "Han
 const SIZES = ["XS (< 5cm)", "S (5–10cm)", "M (10–20cm)", "L (20cm+)"];
 const daysLabel = (days: number[]) => (days.length ? days.map((d) => DAY_LABELS[d]).join(" · ") : "By appointment");
 
-export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { artistId?: string; studioSlug?: string; presetTitle?: string }) {
+export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRefPath }: { artistId?: string; studioSlug?: string; presetTitle?: string; presetRefPath?: string }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
@@ -74,6 +75,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
   const [refs, setRefs] = useState<{ uri: string; path: string }[]>([]);
   const [uploading, setUploading] = useState(false);
   const [savedPickerOpen, setSavedPickerOpen] = useState(false);
+  const [zoomUri, setZoomUri] = useState<string | null>(null);
   const savedDesigns = useSavedDesigns(supabase);
 
   const cur = STEPS[step];
@@ -87,11 +89,12 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
   const minCharge = profileQ.data?.minCharge ?? null;
   const belowMinCharge = minCharge != null && ((minNum != null && minNum < minCharge) || (maxNum != null && maxNum < minCharge));
   // When "Other" placement is chosen, the seeker must type the body part.
-  const placementNeedsDetail = placement === "Other" && !placementOther.trim();
   const effectivePlacement = placement === "Other" ? placementOther.trim() || null : placement;
+  // Details step is mandatory: placement (with a body part if "Other"), size and colour.
+  const detailsComplete = effectivePlacement != null && size != null && isColor != null;
   const canNext =
     cur === "Idea" ? title.trim().length > 0
-      : cur === "Details" ? !placementNeedsDetail
+      : cur === "Details" ? detailsComplete
         : cur === "Budget" ? !budgetInvalid && !belowMinCharge
           : true;
   const chosenArtistName = chosenArtist ? roster.find((r) => r.id === chosenArtist)?.displayName : null;
@@ -136,6 +139,16 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
       setUploading(false);
     }
   }
+
+  // Preload a saved design (opened from its snapshot) as a reference photo, so
+  // the seeker lands in the flow with it already attached on the Budget step.
+  const presetApplied = useRef(false);
+  useEffect(() => {
+    if (!presetRefPath || presetApplied.current || !ctx.userId) return;
+    presetApplied.current = true;
+    void addFromSaved(presetRefPath);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presetRefPath, ctx.userId]);
 
   async function submit() {
     if (!effectiveArtistId) { toast.show("Pick an artist or let the studio decide", "error"); return; }
@@ -244,6 +257,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
               <Chip label="Black & grey" active={isColor === false} onPress={() => setIsColor(false)} />
               <Chip label="Color" active={isColor === true} onPress={() => setIsColor(true)} />
             </View>
+            {!detailsComplete ? <Text style={s.hint}>Placement, size and colour are required to continue.</Text> : null}
           </>
         )}
 
@@ -303,7 +317,11 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
             </View>
             {refs.length > 0 && (
               <View style={s.refGrid}>
-                {refs.map((r) => <Image key={r.path} source={{ uri: r.uri }} style={s.refImg} contentFit="cover" />)}
+                {refs.map((r) => (
+                  <Pressable key={r.path} onPress={() => setZoomUri(r.uri)} accessibilityRole="imagebutton" accessibilityLabel="View reference photo">
+                    <Image source={{ uri: r.uri }} style={s.refImg} contentFit="cover" />
+                  </Pressable>
+                ))}
               </View>
             )}
           </>
@@ -372,6 +390,9 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle }: { arti
           )}
         </View>
       </Modal>
+
+      {/* Zoom a reference photo */}
+      <ImageZoomModal visible={!!zoomUri} uri={zoomUri ?? ""} onClose={() => setZoomUri(null)} label="Reference photo" />
     </KeyboardAvoidingView>
   );
 }
