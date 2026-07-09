@@ -106,12 +106,12 @@ export function PortfolioDesignScreen({ id }: { id: string }) {
           {artist ? (
             <Pressable
               style={[s.bookBtn, !artist.isAccepting && s.bookBtnOff]}
-              onPress={() => router.push({ pathname: "/booking-request", params: { artistId: artist.id } })}
+              onPress={() => router.push({ pathname: "/booking-request", params: { artistId: artist.id, refPath: d.imagePath } })}
               disabled={!artist.isAccepting}
               accessibilityRole="button"
-              accessibilityLabel={artist.isAccepting ? `Book ${artist.displayName}` : "Artist not accepting bookings"}
+              accessibilityLabel={artist.isAccepting ? "Request a booking with this design as a reference" : "Artist not accepting bookings"}
             >
-              <Text style={s.bookText}>{artist.isAccepting ? `Book ${artist.displayName}` : "Not accepting bookings"}</Text>
+              <Text style={s.bookText}>{artist.isAccepting ? "Request booking with this design" : "Not accepting bookings"}</Text>
             </Pressable>
           ) : null}
 
