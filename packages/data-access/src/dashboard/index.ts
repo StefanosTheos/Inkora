@@ -139,6 +139,10 @@ export interface SavedDesignCard {
   targetType: "idea" | "portfolio_image";
   title: string | null;
   imagePath: string;
+  /** The artist the design belongs to (null for unattributed ideas) — used to
+   *  show attribution and to start a booking with this design as a reference. */
+  artistId: string | null;
+  artistName: string | null;
 }
 export async function getSavedDesigns(client: InkoraClient): Promise<SavedDesignCard[]> {
   const { data: favs, error: favErr } = await client
@@ -155,15 +159,24 @@ export async function getSavedDesigns(client: InkoraClient): Promise<SavedDesign
 
   const cards = new Map<string, SavedDesignCard>();
   if (ideaIds.length > 0) {
-    const { data, error } = await client.from("tattoo_ideas").select("id, title, image_path").in("id", ideaIds);
+    const { data, error } = await client.from("tattoo_ideas").select("id, title, image_path, source_artist_id").in("id", ideaIds);
     if (error) throw toAppError(error);
-    for (const d of data ?? []) cards.set(d.id, { id: d.id, targetType: "idea", title: d.title, imagePath: d.image_path });
+    for (const d of data ?? []) cards.set(d.id, { id: d.id, targetType: "idea", title: d.title, imagePath: d.image_path, artistId: d.source_artist_id ?? null, artistName: null });
   }
   if (pieceIds.length > 0) {
-    const { data, error } = await client.from("portfolio_images").select("id, caption, image_path").in("id", pieceIds);
+    const { data, error } = await client.from("portfolio_images").select("id, caption, image_path, artist_id").in("id", pieceIds);
     if (error) throw toAppError(error);
-    for (const d of data ?? []) cards.set(d.id, { id: d.id, targetType: "portfolio_image", title: d.caption, imagePath: d.image_path });
+    for (const d of data ?? []) cards.set(d.id, { id: d.id, targetType: "portfolio_image", title: d.caption, imagePath: d.image_path, artistId: d.artist_id, artistName: null });
   }
+
+  // Resolve artist display names (artists.id === profiles.id).
+  const artistIds = [...new Set([...cards.values()].map((c) => c.artistId).filter((id): id is string => !!id))];
+  if (artistIds.length > 0) {
+    const { data } = await client.from("profiles").select("id, display_name").in("id", artistIds);
+    const names = new Map((data ?? []).map((p) => [p.id, p.display_name]));
+    for (const c of cards.values()) if (c.artistId) c.artistName = names.get(c.artistId) ?? null;
+  }
+
   // Preserve the favorites (created_at desc) order.
   const order = new Map(rows.map((f, i) => [f.target_id, i]));
   return [...cards.values()].sort((x, y) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0));
