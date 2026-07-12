@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CountBadge } from "../../components/CountBadge";
 import { useBadgeCounts } from "../../lib/badges";
 import { registerPushToken, scheduleAppointmentReminders } from "../../lib/notifications";
+import { useMarkAppointmentsSeen } from "../../lib/seen-appointments";
 import { useMarkRequestSeen, useSeenRequests } from "../../lib/seen-requests";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, money, requestChip, StatusChip } from "./components/ui";
@@ -22,9 +23,10 @@ export function MyBookingsScreen() {
   const [tab, setTab] = useState<Tab>("upcoming");
   const apptsQ = useMyAppointments(supabase);
   const reqsQ = useMyRequests(supabase, "client");
-  const { offers: offersUnread, openRequests: openReqBadge } = useBadgeCounts();
+  const { offers: offersUnread, openRequests: openReqBadge, newBookings } = useBadgeCounts();
   const seenSet = new Set(useSeenRequests());
   const markSeen = useMarkRequestSeen();
+  const markApptsSeen = useMarkAppointmentsSeen();
 
   useEffect(() => { void registerPushToken(); }, []);
   useEffect(() => {
@@ -45,6 +47,13 @@ export function MyBookingsScreen() {
   // (scheduled/rescheduled/cancelled) stays under Upcoming.
   const upcomingAppts = appts.filter((a) => a.status !== "completed");
   const completedAppts = appts.filter((a) => a.status === "completed");
+  // Viewing the Upcoming tab marks those bookings seen, clearing the
+  // "new booking" badge (profile dot, dashboard "See all", this tab).
+  const upcomingIdsKey = upcomingAppts.map((a) => a.id).join(",");
+  useEffect(() => {
+    if (tab === "upcoming" && upcomingAppts.length) markApptsSeen(upcomingAppts.map((a) => a.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, upcomingIdsKey]);
   // Unread requests (not yet opened) float to the top, separated from read ones.
   const openRequests = reqs
     .filter((r) => r.status !== "converted")
@@ -58,7 +67,7 @@ export function MyBookingsScreen() {
         <View style={{ width: 26 }} />
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabsScroll} contentContainerStyle={s.tabs}>
-        <TabButton label={`Upcoming${upcomingAppts.length ? ` (${upcomingAppts.length})` : ""}`} active={tab === "upcoming"} onPress={() => setTab("upcoming")} />
+        <TabButton label={`Upcoming${upcomingAppts.length ? ` (${upcomingAppts.length})` : ""}`} active={tab === "upcoming"} onPress={() => setTab("upcoming")} badge={newBookings} />
         <TabButton label={`Completed${completedAppts.length ? ` (${completedAppts.length})` : ""}`} active={tab === "completed"} onPress={() => setTab("completed")} />
         <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => setTab("requests")} badge={offersUnread + openReqBadge} />
       </ScrollView>

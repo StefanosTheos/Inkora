@@ -39,7 +39,7 @@ export function UserDashboardScreen() {
   const savedDesigns = useSavedDesigns(supabase);
   const journeys = useBookingJourneys(supabase);
   const { notifications } = useNotifications(supabase);
-  const { openRequests } = useBadgeCounts();
+  const { openRequests, newBookings } = useBadgeCounts();
   const rewardsUnread = notifications.filter((n) => !n.readAt && n.type === "reward").length;
   const offersUnread = notifications.filter((n) => !n.readAt && n.type === "offer").length;
 
@@ -134,7 +134,7 @@ export function UserDashboardScreen() {
         </View>
 
         {/* Upcoming appointments */}
-        <SectionHeader title="My bookings" badge={offersUnread + openRequests} onSeeAll={() => router.push("/bookings")} />
+        <SectionHeader title="My bookings" badge={offersUnread + openRequests + newBookings} onSeeAll={() => router.push("/bookings")} />
         {upcoming.length === 0 ? (
           <Empty icon="calendar-outline" text="No upcoming appointments." />
         ) : (
