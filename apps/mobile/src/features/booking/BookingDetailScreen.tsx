@@ -310,6 +310,7 @@ function ReviewSection({ appt }: { appt: AppointmentView }) {
 function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: string }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const confirm = useConfirm();
   const scrollRef = useRef<ScrollView>(null);
   const isArtist = req.artistId === meId;
   const [busy, setBusy] = useState(false);
@@ -354,10 +355,33 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
   }
 
   const router = useRouter();
-  const openForArtist = isArtist && (req.status === "pending" || req.status === "reviewing" || req.status === "offered");
-  // Client declined the artist's latest offer — the artist can propose a new one.
   const latestOffer = req.offers[0];
-  const canReoffer = isArtist && !openForArtist && latestOffer?.status === "declined" && req.status !== "converted";
+  const pendingOffer = req.offers.find((o) => o.status === "pending");
+  // Compose directly only before any offer has gone out (pending/reviewing).
+  const freshOffer = isArtist && (req.status === "pending" || req.status === "reviewing");
+  // An offer is out and awaiting the client — to change it, the artist withdraws
+  // it first (behind a "Send a new offer" button + confirmation).
+  const hasPendingOffer = isArtist && !!pendingOffer && req.status !== "converted";
+  // After the client declined or the artist withdrew, they can propose a fresh one.
+  const canReoffer = isArtist && !freshOffer && !pendingOffer
+    && (latestOffer?.status === "declined" || latestOffer?.status === "withdrawn") && req.status !== "converted";
+
+  // Replace a pending offer: confirm, withdraw it, then reveal the composer.
+  function sendNewOffer() {
+    void confirm({
+      title: "Send a new offer?",
+      message: "Withdraw the current offer to send a new one. The client won't be able to accept the current offer.",
+      confirmLabel: "Withdraw",
+      cancelLabel: "Cancel",
+      destructive: true,
+    }).then((ok) => {
+      if (!ok) return;
+      void run(async () => {
+        if (pendingOffer) await withdrawOffer(supabase, pendingOffer.id);
+        setReoffering(true);
+      });
+    });
+  }
   // Header chip reflects the client's response to the latest offer, so it reads
   // "Offer declined"/"Offer accepted" instead of the stale "Offer sent".
   const headerChip =
@@ -414,17 +438,22 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
             if (apptId) router.replace(`/booking/${apptId}`);
           })}
           onDecline={() => run(async () => { await respondToOffer(supabase, o.id, false); })}
-          onWithdraw={() => run(() => withdrawOffer(supabase, o.id))}
         />
       ))}
 
-      {/* Artist: make a new offer after the client declined the previous one */}
+      {/* Artist: an offer is out — replace it by withdrawing first (keeps the
+          composer hidden until they commit to sending a new one). */}
+      {hasPendingOffer && !reoffering && (
+        <PrimaryBtn label="Send a new offer" disabled={busy} onPress={sendNewOffer} />
+      )}
+
+      {/* Artist: make a new offer after a decline/withdrawal */}
       {canReoffer && !reoffering && (
         <PrimaryBtn label="Make a new offer" disabled={busy} onPress={() => setReoffering(true)} />
       )}
 
-      {/* Artist: send an offer */}
-      {(openForArtist || (canReoffer && reoffering)) && (
+      {/* Artist: the offer composer (calendar + details) */}
+      {(freshOffer || reoffering) && (
         <ArtistOfferComposer req={req} onSent={async () => { setReoffering(false); await handleOfferSent(); }} />
       )}
 
@@ -441,9 +470,9 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
   );
 }
 
-function OfferCard({ offer, isArtist, busy, onAccept, onDecline, onWithdraw }: {
+function OfferCard({ offer, isArtist, busy, onAccept, onDecline }: {
   offer: OfferView; isArtist: boolean; busy: boolean;
-  onAccept: () => void; onDecline: () => void; onWithdraw: () => void;
+  onAccept: () => void; onDecline: () => void;
 }) {
   const pending = offer.status === "pending";
   return (
@@ -460,7 +489,6 @@ function OfferCard({ offer, isArtist, busy, onAccept, onDecline, onWithdraw }: {
           <SecondaryBtn label="Decline" onPress={onDecline} disabled={busy} />
         </View>
       )}
-      {pending && isArtist && <SecondaryBtn label="Withdraw offer" onPress={onWithdraw} disabled={busy} />}
     </View>
   );
 }
