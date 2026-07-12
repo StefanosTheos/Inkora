@@ -38,12 +38,12 @@ export function journeyProgress(entries: { entryType: JourneyEntryType }[]): { s
 }
 
 // ---- Per-booking journey (each appointment tracked end to end) -------------
-export type MilestoneKind = "week" | "month" | "year";
+export type MilestoneKind = "post_session" | "week" | "month";
 
 export const MILESTONE_LABEL: Record<MilestoneKind, string> = {
-  week: "1 week",
-  month: "1 month",
-  year: "1 year",
+  post_session: "Post-session",
+  week: "1 Week",
+  month: "1 Month",
 };
 
 export interface JourneyMilestone {

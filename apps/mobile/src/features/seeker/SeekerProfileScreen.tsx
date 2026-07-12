@@ -16,9 +16,9 @@ import { Avatar, fmtDate } from "../booking/components/ui";
 
 // The healing milestones a review's journey photos map onto, in order.
 const JOURNEY_MILESTONES = [
-  { key: "week", label: "1 week after" },
-  { key: "month", label: "1 month after" },
-  { key: "year", label: "1 year after" },
+  { key: "post_session", label: "Post-session" },
+  { key: "week", label: "1 Week" },
+  { key: "month", label: "1 Month" },
 ];
 
 export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; featuredReviewId?: string }) {
@@ -118,7 +118,7 @@ export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; feat
           </>
         ) : null}
 
-        {/* Tattoo journey — the featured review's healing photos (1wk/1mo/1yr) */}
+        {/* Tattoo journey — the featured review's healing photos (post-session / 1 week / 1 month) */}
         <Text style={s.sectionTitle} accessibilityRole="header">Tattoo journey</Text>
         <Text style={s.sectionHint}>
           {featured ? `Healing progress from ${firstName}'s ${featured.subjectName} tattoo.` : `Healing progress shared by ${firstName}.`}

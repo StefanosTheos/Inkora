@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
 
-const KIND_ORDER: Record<string, number> = { week: 1, month: 2, year: 3 };
+const KIND_ORDER: Record<string, number> = { post_session: 1, week: 2, month: 3 };
 
 interface JourneyRow {
   id: string;

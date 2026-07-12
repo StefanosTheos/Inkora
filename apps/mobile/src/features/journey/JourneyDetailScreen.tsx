@@ -122,7 +122,7 @@ export function JourneyDetailScreen({ appointmentId }: { appointmentId: string }
 }
 
 function MilestoneRow({ m, busy, onAdd, onZoom }: { m: JourneyMilestone; busy: boolean; onAdd: () => void; onZoom: (uri: string) => void }) {
-  const label = `${MILESTONE_LABEL[m.kind]} after`;
+  const label = MILESTONE_LABEL[m.kind];
   if (m.completed && m.photoPath) {
     return (
       <View style={s.msRow}>
