@@ -197,6 +197,7 @@ function Bubble({ message, mine, isLastMine, seen }: { message: Message; mine: b
         {kind === "booking_request" && <BookingRequestCard message={message} mine={mine} />}
         {kind === "offer" && <BookingOfferCard message={message} mine={mine} />}
         {kind === "appointment" && <BookingApptCard message={message} mine={mine} />}
+        {kind === "completed" && <BookingCompletedCard message={message} mine={mine} />}
       </View>
       {mine && isLastMine && <Text style={s.receipt}>{seen ? "Seen" : "Sent"}</Text>}
     </View>
@@ -543,6 +544,20 @@ function BookingApptCard({ message, mine }: { message: Message; mine: boolean })
     <Pressable style={s.reqCard} onPress={() => { if (md.appointmentId) router.push(`/booking/${md.appointmentId}`); }} accessibilityRole="button" accessibilityLabel="View appointment">
       <Text style={[s.reqTitle, { color }]}>✅ Booking confirmed</Text>
       {line ? <Text style={[s.reqDetail, { color: sub }]}>{line}</Text> : null}
+    </Pressable>
+  );
+}
+
+/** Sent when the artist marks the appointment completed — visible to both. */
+function BookingCompletedCard({ message, mine }: { message: Message; mine: boolean }) {
+  const router = useRouter();
+  const md = (message.metadata ?? {}) as ApptMeta;
+  const color = mine ? "#fff" : "#18181B";
+  const sub = mine ? "rgba(255,255,255,0.85)" : "#52525B";
+  return (
+    <Pressable style={s.reqCard} onPress={() => { if (md.appointmentId) router.push(`/booking/${md.appointmentId}`); }} accessibilityRole="button" accessibilityLabel="View appointment">
+      <Text style={[s.reqTitle, { color }]}>🎉 Appointment completed</Text>
+      {md.proposedStart ? <Text style={[s.reqDetail, { color: sub }]}>{fmtDateTime(md.proposedStart)}</Text> : null}
     </Pressable>
   );
 }

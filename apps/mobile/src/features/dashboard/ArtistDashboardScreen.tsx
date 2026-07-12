@@ -26,7 +26,7 @@ export function ArtistDashboardScreen() {
   const reviews = useArtistReviews(supabase, meId);
   // Booking requests badge: new incoming requests + clients' responses to the
   // artist's offers. Clears as requests are answered / the page is opened.
-  const { requests: newRequests } = useBadgeCounts();
+  const { requests: newRequests, newBookings, newCompleted } = useBadgeCounts();
 
   const a = profile.data;
   const upcoming = upcomingQ.data ?? [];
@@ -76,7 +76,7 @@ export function ArtistDashboardScreen() {
         </View>
 
         {/* Upcoming appointments */}
-        <SectionHeader title="Upcoming appointments" onSeeAll={() => router.push("/artist-dashboard/upcoming")} />
+        <SectionHeader title="Appointments" onSeeAll={() => router.push("/artist-dashboard/upcoming")} badge={newBookings + newCompleted} />
         {upcomingQ.isLoading ? (
           <ActivityIndicator style={{ marginTop: 12 }} />
         ) : upcoming.length === 0 ? (
@@ -147,11 +147,16 @@ function Stat({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
-function SectionHeader({ title, onSeeAll, seeAllLabel }: { title: string; onSeeAll?: () => void; seeAllLabel?: string }) {
+function SectionHeader({ title, onSeeAll, seeAllLabel, badge = 0 }: { title: string; onSeeAll?: () => void; seeAllLabel?: string; badge?: number }) {
   return (
     <View style={s.sectionHead}>
       <Text style={s.sectionTitle} accessibilityRole="header">{title}</Text>
-      {onSeeAll ? <Pressable onPress={onSeeAll} hitSlop={8} accessibilityRole="button" accessibilityLabel={seeAllLabel ?? `See all ${title}`}><Text style={s.seeAll}>{seeAllLabel ?? "See all"}</Text></Pressable> : null}
+      {onSeeAll ? (
+        <Pressable onPress={onSeeAll} hitSlop={8} style={s.seeAllRow} accessibilityRole="button" accessibilityLabel={badge > 0 ? `${seeAllLabel ?? `See all ${title}`}, ${badge} new` : (seeAllLabel ?? `See all ${title}`)}>
+          <Text style={s.seeAll}>{seeAllLabel ?? "See all"}</Text>
+          <CountBadge count={badge} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -192,6 +197,7 @@ const s = StyleSheet.create({
   sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 20, marginBottom: 8 },
   sectionTitle: { fontSize: 18, fontWeight: "800" },
   seeAll: { color: "#E5484D", fontWeight: "700" },
+  seeAllRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   apptRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
   apptName: { fontWeight: "700", fontSize: 15 },
   apptSub: { color: "#71717A", fontSize: 13, marginTop: 2 },

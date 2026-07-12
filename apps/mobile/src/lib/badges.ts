@@ -1,6 +1,6 @@
 import { useConversations, useMyAppointments, useMyRequests, useNotifications } from "@inkora/data-access";
 
-import { useSeenAppointments } from "./seen-appointments";
+import { useSeenAppointments, useSeenCompleted } from "./seen-appointments";
 import { useSeenRequests } from "./seen-requests";
 import { supabase } from "./supabase";
 
@@ -17,6 +17,7 @@ export function useBadgeCounts() {
   const myAppointments = useMyAppointments(supabase);
   const seenRequests = useSeenRequests();
   const seenAppointments = useSeenAppointments();
+  const seenCompleted = useSeenCompleted();
   const unread = notifications.filter((n) => !n.readAt);
   return {
     rewards: unread.filter((n) => n.type === "reward").length,
@@ -39,10 +40,15 @@ export function useBadgeCounts() {
     openRequests: (myRequests.data ?? []).filter(
       (r) => (r.status === "pending" || r.status === "reviewing") && !seenRequests.includes(r.id),
     ).length,
-    // Booked appointments the seeker hasn't reviewed in their bookings yet
-    // (accepting an offer lights this; opening the Upcoming tab clears it).
+    // Booked appointments not reviewed in the Upcoming list yet (a new schedule
+    // lights this; opening the Upcoming tab clears it).
     newBookings: (myAppointments.data ?? []).filter(
       (a) => (a.status === "scheduled" || a.status === "rescheduled") && !seenAppointments.includes(a.id),
+    ).length,
+    // Completed appointments not reviewed in the Completed list yet (a
+    // completion lights this; opening the Completed tab clears it).
+    newCompleted: (myAppointments.data ?? []).filter(
+      (a) => a.status === "completed" && !seenCompleted.includes(a.id),
     ).length,
   };
 }

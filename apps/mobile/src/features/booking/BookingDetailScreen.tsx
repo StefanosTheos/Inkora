@@ -415,8 +415,10 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
         {req.placement ? <Tag text={req.placement} /> : null}
         {req.approxSize ? <Tag text={req.approxSize} /> : null}
         {req.isColor != null ? <Tag text={req.isColor ? "Color" : "Black & grey"} /> : null}
-        {req.preferredDate ? <Tag text={`Prefers ${fmtDate(req.preferredDate)}`} /> : null}
-        {req.preferredTimeOfDay ? <Tag text={TIME_OF_DAY_LABEL[req.preferredTimeOfDay]} /> : null}
+        {/* Artists see the preferred date in the yellow callout by the calendar,
+            so it's omitted here to avoid duplication; clients still see it. */}
+        {req.preferredDate && !isArtist ? <Tag text={`Prefers ${fmtDate(req.preferredDate)}`} /> : null}
+        {req.preferredTimeOfDay && !isArtist ? <Tag text={TIME_OF_DAY_LABEL[req.preferredTimeOfDay]} /> : null}
         {req.budgetMin || req.budgetMax ? <Tag text={`Budget ${money(req.budgetMin, "EUR")}–${money(req.budgetMax, "EUR")}`} /> : null}
       </View>
 

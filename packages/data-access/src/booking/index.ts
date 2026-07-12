@@ -430,6 +430,25 @@ export async function completeAppointment(client: InkoraClient, id: string): Pro
     .update({ status: "completed", completed_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw toAppError(error);
+
+  // Drop a "completed" snapshot into the chat so both parties see it (best effort).
+  try {
+    const me = await meId(client);
+    const { data: appt } = await client
+      .from("appointments").select("request_id, scheduled_start").eq("id", id)
+      .maybeSingle<{ request_id: string | null; scheduled_start: string }>();
+    const reqId = appt?.request_id;
+    const { data: req } = reqId
+      ? await client.from("appointment_requests").select("conversation_id").eq("id", reqId).maybeSingle<{ conversation_id: string | null }>()
+      : { data: null };
+    if (req?.conversation_id) {
+      await sendMessage(client, req.conversation_id, me, {
+        type: "booking_card",
+        body: "🎉 Appointment completed",
+        metadata: { kind: "completed", appointmentId: id, proposedStart: appt?.scheduled_start ?? null },
+      });
+    }
+  } catch { /* the completed card is best-effort; never fail the completion */ }
 }
 
 // ------------------------------------------------------------------ open slots

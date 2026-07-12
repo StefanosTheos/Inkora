@@ -9,6 +9,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CountBadge } from "../../components/CountBadge";
+import { Pager } from "../../components/Pager";
 import { useBadgeCounts } from "../../lib/badges";
 import { registerPushToken, scheduleAppointmentReminders } from "../../lib/notifications";
 import { useMarkAppointmentsSeen } from "../../lib/seen-appointments";
@@ -18,9 +19,13 @@ import { Avatar, fmtDateTime, money, requestChip, StatusChip } from "./component
 
 type Tab = "upcoming" | "completed" | "requests";
 
+const PAGE_SIZE = 6;
+
 export function MyBookingsScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("upcoming");
+  const [page, setPage] = useState(0);
+  const goTab = (t: Tab) => { setTab(t); setPage(0); };
   const apptsQ = useMyAppointments(supabase);
   const reqsQ = useMyRequests(supabase, "client");
   const { offers: offersUnread, openRequests: openReqBadge, newBookings } = useBadgeCounts();
@@ -59,6 +64,12 @@ export function MyBookingsScreen() {
     .filter((r) => r.status !== "converted")
     .sort((a, b) => Number(seenSet.has(a.id)) - Number(seenSet.has(b.id)));
 
+  // Paginate the active tab, 6 items per page.
+  const activeCount = tab === "upcoming" ? upcomingAppts.length : tab === "completed" ? completedAppts.length : openRequests.length;
+  const totalPages = Math.max(1, Math.ceil(activeCount / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const paged = <T,>(arr: T[]): T[] => arr.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <View style={s.header}>
@@ -67,24 +78,24 @@ export function MyBookingsScreen() {
         <View style={{ width: 26 }} />
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabsScroll} contentContainerStyle={s.tabs}>
-        <TabButton label={`Upcoming${upcomingAppts.length ? ` (${upcomingAppts.length})` : ""}`} active={tab === "upcoming"} onPress={() => setTab("upcoming")} badge={newBookings} />
-        <TabButton label={`Completed${completedAppts.length ? ` (${completedAppts.length})` : ""}`} active={tab === "completed"} onPress={() => setTab("completed")} />
-        <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => setTab("requests")} badge={offersUnread + openReqBadge} />
+        <TabButton label={`Upcoming${upcomingAppts.length ? ` (${upcomingAppts.length})` : ""}`} active={tab === "upcoming"} onPress={() => goTab("upcoming")} badge={newBookings} />
+        <TabButton label={`Completed${completedAppts.length ? ` (${completedAppts.length})` : ""}`} active={tab === "completed"} onPress={() => goTab("completed")} />
+        <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => goTab("requests")} badge={offersUnread + openReqBadge} />
       </ScrollView>
 
       <ScrollView contentContainerStyle={s.body}>
         {tab === "upcoming" ? (
           apptsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
           upcomingAppts.length === 0 ? <Empty icon="calendar-outline" text="No upcoming appointments. When an artist’s offer is accepted, it shows up here." /> :
-          upcomingAppts.map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
+          paged(upcomingAppts).map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
         ) : tab === "completed" ? (
           apptsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
           completedAppts.length === 0 ? <Empty icon="checkmark-done-outline" text="No completed bookings yet. Finished sessions move here." /> :
-          completedAppts.map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
+          paged(completedAppts).map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
         ) : (
           reqsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
           openRequests.length === 0 ? <Empty icon="paper-plane-outline" text="No open requests. Find an artist and tap “Request booking” to get started." /> :
-          openRequests.map((r) => (
+          paged(openRequests).map((r) => (
             <RequestCard
               key={r.id}
               req={r}
@@ -93,6 +104,7 @@ export function MyBookingsScreen() {
             />
           ))
         )}
+        <Pager page={safePage} totalPages={totalPages} onChange={setPage} />
       </ScrollView>
     </SafeAreaView>
   );
