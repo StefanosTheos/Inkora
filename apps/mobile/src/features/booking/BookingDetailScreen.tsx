@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
+import { ImageZoomModal } from "../../components/ImageZoomModal";
 import { useToast } from "../../components/Toast";
 import { useMarkRequestSeen } from "../../lib/seen-requests";
 import { supabase } from "../../lib/supabase";
@@ -506,6 +507,14 @@ function ArtistOfferComposer({ req, onSent }: { req: AppointmentRequestView; onS
       </View>
 
       <Text style={s.label}>Propose a time</Text>
+      {req.preferredDate || req.preferredTimeOfDay ? (
+        <View style={s.preferBox}>
+          <Ionicons name="calendar" size={16} color="#B45309" />
+          <Text style={s.preferText}>
+            Client prefers {[req.preferredDate ? fmtDate(req.preferredDate) : null, req.preferredTimeOfDay ? TIME_OF_DAY_LABEL[req.preferredTimeOfDay] : null].filter(Boolean).join(" · ")}
+          </Text>
+        </View>
+      ) : null}
       <SlotPicker artistId={req.artistId} durationMinutes={duration} onPick={(start, end) => setPicked({ start, end })} selectedStart={picked?.start} preferredTimeOfDay={req.preferredTimeOfDay} />
 
       <Text style={s.label}>Price estimate (€)</Text>
@@ -586,12 +595,21 @@ function Tag({ text }: { text: string }) {
 }
 function SignedThumb({ path }: { path: string }) {
   const [url, setUrl] = useState<string>();
+  const [zoom, setZoom] = useState(false);
   useEffect(() => {
     let ok = true;
     void getChatSignedUrl(supabase, path).then((u) => ok && setUrl(u ?? undefined));
     return () => { ok = false; };
   }, [path]);
-  return url ? <Image source={{ uri: url }} style={s.thumb} contentFit="cover" /> : <View style={[s.thumb, { backgroundColor: "#E4E4E7" }]} />;
+  if (!url) return <View style={[s.thumb, { backgroundColor: "#E4E4E7" }]} />;
+  return (
+    <>
+      <Pressable onPress={() => setZoom(true)} accessibilityRole="imagebutton" accessibilityLabel="View reference photo">
+        <Image source={{ uri: url }} style={s.thumb} contentFit="cover" />
+      </Pressable>
+      <ImageZoomModal visible={zoom} uri={url} onClose={() => setZoom(false)} label="Reference photo" />
+    </>
+  );
 }
 function PrimaryBtn({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
   return <Pressable style={[s.primary, disabled && s.disabled]} disabled={disabled} onPress={onPress}><Text style={s.primaryText}>{label}</Text></Pressable>;
@@ -639,6 +657,8 @@ const s = StyleSheet.create({
   priceNote: { color: "#A1A1AA", fontSize: 12, marginTop: 4 },
   budgetHint: { color: "#B45309", fontSize: 12, marginTop: 4, fontWeight: "600" },
   slotFilterNote: { color: "#B45309", fontSize: 12, fontWeight: "700", marginTop: 8 },
+  preferBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF3C7", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginTop: 6, marginBottom: 2 },
+  preferText: { flex: 1, color: "#92400E", fontWeight: "700", fontSize: 14 },
   input: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15, marginTop: 4 },
   multiline: { minHeight: 72, textAlignVertical: "top" },
   row: { flexDirection: "row", gap: 10 },
