@@ -62,7 +62,19 @@ export default function TabsLayout() {
           },
         }}
       />
-      <Tabs.Screen name="profile" options={{ title: "Profile", tabBarIcon: (p) => <ProfileTabIcon {...p} /> }} />
+      <Tabs.Screen
+        name="profile"
+        options={{ title: "Profile", tabBarIcon: (p) => <ProfileTabIcon {...p} /> }}
+        listeners={{
+          // Always land on the dashboard, even if Edit profile / Account
+          // settings is still on top of the Profile stack from a deep-link
+          // (e.g. Rewards → "complete your profile" → Edit profile).
+          tabPress: (e) => {
+            e.preventDefault();
+            router.navigate("/profile");
+          },
+        }}
+      />
     </Tabs>
   );
 }
