@@ -1,5 +1,5 @@
-import type { AppointmentStatus, OfferStatus, RequestStatus } from "@inkora/domain";
-import { formatAmount, statusTone } from "@inkora/domain";
+import type { AppointmentRequestView, AppointmentStatus, OfferStatus, RequestStatus } from "@inkora/domain";
+import { formatAmount, REQUEST_STATUS_LABEL, statusTone } from "@inkora/domain";
 import { Image } from "expo-image";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -33,6 +33,20 @@ const TONE_COLORS = {
   danger: { bg: "#FEE2E2", fg: "#991B1B" },
   neutral: { bg: "#F4F4F5", fg: "#52525B" },
 } as const;
+
+/** Status chip descriptor for a request, reconciling the request status with
+ *  its latest offer. Terminal request states (cancelled/booked/expired) win over
+ *  the offer, so e.g. a cancelled request no longer reads "Offer declined";
+ *  otherwise the client's response to the latest offer is surfaced. */
+export function requestChip(req: AppointmentRequestView): { status: RequestStatus | OfferStatus; label: string } {
+  if (req.status === "cancelled" || req.status === "converted" || req.status === "expired") {
+    return { status: req.status, label: REQUEST_STATUS_LABEL[req.status] };
+  }
+  const latest = req.offers[0];
+  if (latest?.status === "declined") return { status: "declined", label: "Offer declined" };
+  if (latest?.status === "accepted") return { status: "accepted", label: "Offer accepted" };
+  return { status: req.status, label: REQUEST_STATUS_LABEL[req.status] };
+}
 
 export function StatusChip({ status, label }: { status: RequestStatus | AppointmentStatus | OfferStatus; label: string }) {
   const tone = TONE_COLORS[statusTone(status)];

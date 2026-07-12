@@ -8,7 +8,7 @@ import {
 } from "@inkora/data-access";
 import {
   APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView, type OfferView,
-  REQUEST_STATUS_LABEL, slotMatchesTimeOfDay, TIME_OF_DAY_LABEL, type TimeOfDay,
+  slotMatchesTimeOfDay, TIME_OF_DAY_LABEL, type TimeOfDay,
 } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
@@ -25,7 +25,7 @@ import { useToast } from "../../components/Toast";
 import { useMarkRequestSeen } from "../../lib/seen-requests";
 import { supabase } from "../../lib/supabase";
 import { MonthCalendar } from "./components/MonthCalendar";
-import { Avatar, budgetRangeLabel, fmtDate, fmtDateTime, fmtTime, money, offerBudgetError, StatusChip } from "./components/ui";
+import { Avatar, budgetRangeLabel, fmtDate, fmtDateTime, fmtTime, money, offerBudgetError, requestChip, StatusChip } from "./components/ui";
 
 const DURATIONS = [
   { label: "1h", minutes: 60 },
@@ -382,13 +382,14 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
       });
     });
   }
-  // Header chip reflects the client's response to the latest offer, so it reads
-  // "Offer declined"/"Offer accepted" instead of the stale "Offer sent".
-  const headerChip =
-    latestOffer?.status === "declined" ? { status: "declined" as const, label: "Offer declined" } :
-    latestOffer?.status === "accepted" ? { status: "accepted" as const, label: "Offer accepted" } :
-    { status: req.status, label: REQUEST_STATUS_LABEL[req.status] };
-  const clientCanCancel = !isArtist && req.status !== "converted" && req.status !== "cancelled" && req.status !== "declined";
+  // Header chip reconciles request + latest-offer status (cancelled/booked win
+  // over the offer, so a cancelled request doesn't still read "Offer declined").
+  const headerChip = requestChip(req);
+  // The client can only cancel an in-flight request — not one that's already
+  // resolved (converted/cancelled/declined) or whose offer they've declined.
+  const clientCanCancel = !isArtist
+    && req.status !== "converted" && req.status !== "cancelled" && req.status !== "declined"
+    && latestOffer?.status !== "declined";
 
   return (
     <ScrollView ref={scrollRef} contentContainerStyle={s.body}>

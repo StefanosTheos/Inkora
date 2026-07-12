@@ -3,7 +3,7 @@ import {
   bookingKeys, declineRequest, getChatSignedUrl, markEntityNotificationsRead, publicStorageUrl,
   respondToOffer, uploadChatFile, useAuth, useBookingRequest, useChat, useConversations, useOfferStatus,
 } from "@inkora/data-access";
-import { type ArtistId, type ConversationId, type Message, messageKind, REQUEST_STATUS_LABEL, TIME_OF_DAY_LABEL, type TimeOfDay } from "@inkora/domain";
+import { type ArtistId, type ConversationId, type Message, messageKind, TIME_OF_DAY_LABEL, type TimeOfDay } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Audio, type AVPlaybackStatus } from "expo-av";
 import { Image } from "expo-image";
@@ -21,7 +21,7 @@ import { useToast } from "../../components/Toast";
 import { analytics } from "../../lib/analytics";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
-import { fmtDate, fmtDateTime, money } from "../booking/components/ui";
+import { fmtDate, fmtDateTime, money, requestChip } from "../booking/components/ui";
 import { OfferComposerSheet } from "../booking/OfferComposerSheet";
 
 const mmss = (ms: number) => {
@@ -367,7 +367,8 @@ function BookingRequestCard({ message, mine }: { message: Message; mine: boolean
   // Live request status so the card reflects reality: the artist only gets
   // Accept/Edit/Decline while it's unanswered; once answered everyone sees the
   // current state (Offer sent / Declined / Booked) instead of stale actions.
-  const status = useBookingRequest(supabase, requestId).data?.status;
+  const reqData = useBookingRequest(supabase, requestId).data;
+  const status = reqData?.status;
   const canAct = status === "pending" || status === "reviewing";
   const color = mine ? "#fff" : "#18181B";
   const sub = mine ? "rgba(255,255,255,0.85)" : "#52525B";
@@ -415,7 +416,7 @@ function BookingRequestCard({ message, mine }: { message: Message; mine: boolean
           <Pressable style={[s.brBtn, s.brSecondary]} onPress={onDecline} disabled={busy} accessibilityRole="button" accessibilityLabel="Decline request"><Text style={[s.brSecondaryText, { color: "#E5484D" }]}>Decline</Text></Pressable>
         </View>
       ) : status && !canAct ? (
-        <Text style={[s.reqDetail, { color: sub, marginTop: 8, fontWeight: "700" }]}>{REQUEST_STATUS_LABEL[status]}</Text>
+        <Text style={[s.reqDetail, { color: sub, marginTop: 8, fontWeight: "700" }]}>{reqData ? requestChip(reqData).label : ""}</Text>
       ) : null}
       {isArtist ? (
         <OfferComposerSheet
