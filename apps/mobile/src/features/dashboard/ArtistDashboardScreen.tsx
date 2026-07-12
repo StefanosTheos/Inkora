@@ -120,11 +120,18 @@ export function ArtistDashboardScreen() {
           <Empty icon="star-outline" text="No reviews yet. They'll appear here after completed appointments." />
         ) : (
           (reviews.data ?? []).slice(0, 3).map((r) => (
-            <View key={r.id} style={s.reviewCard}>
+            <Pressable
+              key={r.id}
+              style={s.reviewCard}
+              onPress={() => { if (r.authorId) router.push({ pathname: "/seeker/[id]", params: { id: r.authorId, reviewId: r.id } }); }}
+              disabled={!r.authorId}
+              accessibilityRole="button"
+              accessibilityLabel={`Review by ${r.authorName}, ${r.overallRating} stars. Tap to open`}
+            >
               <Text style={s.reviewHead}>{r.authorName} · ★ {r.overallRating}</Text>
               {r.title ? <Text style={s.reviewTitle}>{r.title}</Text> : null}
               {r.body ? <Text style={s.reviewBody} numberOfLines={3}>{r.body}</Text> : null}
-            </View>
+            </Pressable>
           ))
         )}
       </ScrollView>
