@@ -26,6 +26,7 @@ export function PortfolioManagerScreen() {
   const portfolio = useArtistPortfolio(supabase, meId);
   const flashes = useArtistFlashes(supabase, meId);
   const [uploading, setUploading] = useState<Kind | null>(null);
+  const [tab, setTab] = useState<Kind>("portfolio");
 
   const queryKey = (kind: Kind) => [kind === "flash" ? "artist-flashes" : "artist-portfolio", meId] as const;
 
@@ -72,45 +73,57 @@ export function PortfolioManagerScreen() {
         <View style={{ width: 26 }} />
       </View>
 
-      <ScrollView contentContainerStyle={s.body}>
-        <ImageSection
-          title="Portfolio"
-          hint="Photos of your work so clients can see your style."
-          addLabel="Add portfolio photo"
-          emptyText="No portfolio pieces yet."
-          images={portfolio.data ?? []}
-          loading={portfolio.isLoading}
-          uploading={uploading === "portfolio"}
-          onAdd={() => pickAndUpload("portfolio")}
-          onRemove={(id) => confirmRemove(id, "portfolio")}
-        />
+      <View style={s.tabs}>
+        <TabButton label={`Portfolio${portfolio.data?.length ? ` (${portfolio.data.length})` : ""}`} active={tab === "portfolio"} onPress={() => setTab("portfolio")} />
+        <TabButton label={`Flashes${flashes.data?.length ? ` (${flashes.data.length})` : ""}`} active={tab === "flash"} onPress={() => setTab("flash")} />
+      </View>
 
-        <ImageSection
-          title="Flashes"
-          hint="Ready-to-tattoo designs clients can book directly — no consultation needed."
-          addLabel="Add flash design"
-          emptyText="No flash designs yet."
-          images={flashes.data ?? []}
-          loading={flashes.isLoading}
-          uploading={uploading === "flash"}
-          onAdd={() => pickAndUpload("flash")}
-          onRemove={(id) => confirmRemove(id, "flash")}
-        />
+      <ScrollView contentContainerStyle={s.body}>
+        {tab === "portfolio" ? (
+          <ImageSection
+            hint="Photos of your work so clients can see your style."
+            addLabel="Add portfolio photo"
+            emptyText="No portfolio pieces yet."
+            images={portfolio.data ?? []}
+            loading={portfolio.isLoading}
+            uploading={uploading === "portfolio"}
+            onAdd={() => pickAndUpload("portfolio")}
+            onRemove={(id) => confirmRemove(id, "portfolio")}
+          />
+        ) : (
+          <ImageSection
+            hint="Ready-to-tattoo designs clients can book directly — no consultation needed."
+            addLabel="Add flash design"
+            emptyText="No flash designs yet."
+            images={flashes.data ?? []}
+            loading={flashes.isLoading}
+            uploading={uploading === "flash"}
+            onAdd={() => pickAndUpload("flash")}
+            onRemove={(id) => confirmRemove(id, "flash")}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable style={[s.tab, active && s.tabActive]} onPress={onPress}>
+      <Text style={[s.tabText, active && s.tabTextActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function ImageSection({
-  title, hint, addLabel, emptyText, images, loading, uploading, onAdd, onRemove,
+  hint, addLabel, emptyText, images, loading, uploading, onAdd, onRemove,
 }: {
-  title: string; hint: string; addLabel: string; emptyText: string;
+  hint: string; addLabel: string; emptyText: string;
   images: PortfolioImage[]; loading: boolean; uploading: boolean;
   onAdd: () => void; onRemove: (id: string) => void;
 }) {
   return (
     <View style={s.section}>
-      <Text style={s.sectionTitle} accessibilityRole="header">{title}</Text>
       <Text style={s.sectionHint}>{hint}</Text>
       <Pressable style={[s.addBtn, uploading && s.disabled]} onPress={onAdd} disabled={uploading} accessibilityRole="button" accessibilityLabel={addLabel}>
         {uploading ? <ActivityIndicator color="#fff" /> : (
@@ -132,7 +145,7 @@ function ImageSection({
         <View style={s.grid}>
           {images.map((im) => (
             <View key={im.id} style={s.gridItem}>
-              <Image source={{ uri: imageUrl(im.imagePath, 220) }} style={s.gridImg} contentFit="cover" accessibilityRole="image" accessibilityLabel={`${title} piece`} />
+              <Image source={{ uri: imageUrl(im.imagePath, 220) }} style={s.gridImg} contentFit="cover" accessibilityRole="image" accessibilityLabel="Portfolio piece" />
               <Pressable style={s.remove} onPress={() => onRemove(im.id)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Remove photo">
                 <Ionicons name="close" size={14} color="#fff" />
               </Pressable>
@@ -148,9 +161,13 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
   headerTitle: { fontSize: 18, fontWeight: "800" },
+  tabs: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 8, marginBottom: 4 },
+  tab: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: "#F4F4F5" },
+  tabActive: { backgroundColor: "#18181B" },
+  tabText: { fontWeight: "700", color: "#52525B", fontSize: 13 },
+  tabTextActive: { color: "#fff" },
   body: { padding: 16 },
   section: { marginBottom: 28 },
-  sectionTitle: { fontSize: 18, fontWeight: "800" },
   sectionHint: { color: "#71717A", fontSize: 13, marginTop: 2, marginBottom: 12, lineHeight: 18 },
   addBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#E5484D", borderRadius: 14, paddingVertical: 14, marginBottom: 16 },
   addText: { color: "#fff", fontWeight: "800", fontSize: 15 },
