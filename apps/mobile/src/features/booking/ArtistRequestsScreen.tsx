@@ -26,7 +26,10 @@ export function ArtistRequestsScreen() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qc]);
-  const reqs = reqsQ.data ?? [];
+  // Accepted requests (status "converted") become appointments shown under
+  // Upcoming, so they're excluded here to avoid duplication — this page only
+  // lists requests that haven't turned into a booking.
+  const reqs = (reqsQ.data ?? []).filter((r) => r.status !== "converted");
   const needsAction = reqs.filter((r) => r.status === "pending" || r.status === "reviewing");
   const waiting = reqs.filter((r) => r.status === "offered");
   const closed = reqs.filter((r) => !["pending", "reviewing", "offered"].includes(r.status));
