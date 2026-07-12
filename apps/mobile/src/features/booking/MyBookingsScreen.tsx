@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMyAppointments, useMyRequests } from "@inkora/data-access";
 import {
-  APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView, REQUEST_STATUS_LABEL,
+  APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView,
 } from "@inkora/domain";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -13,7 +13,7 @@ import { useBadgeCounts } from "../../lib/badges";
 import { registerPushToken, scheduleAppointmentReminders } from "../../lib/notifications";
 import { useMarkRequestSeen, useSeenRequests } from "../../lib/seen-requests";
 import { supabase } from "../../lib/supabase";
-import { Avatar, fmtDateTime, money, StatusChip } from "./components/ui";
+import { Avatar, fmtDateTime, money, requestChip, StatusChip } from "./components/ui";
 
 type Tab = "upcoming" | "completed" | "requests";
 
@@ -115,12 +115,8 @@ export function AppointmentCard({ appt, onPress }: { appt: AppointmentView; onPr
 
 export function RequestCard({ req, onPress, unread = false }: { req: AppointmentRequestView; onPress: () => void; unread?: boolean }) {
   const latest = req.offers[0];
-  // Reflect the client's response to the latest offer, so an answered offer
-  // reads "Offer declined"/"Offer accepted" instead of the stale "Offer sent".
-  const chip =
-    latest?.status === "declined" ? { status: "declined" as const, label: "Offer declined" } :
-    latest?.status === "accepted" ? { status: "accepted" as const, label: "Offer accepted" } :
-    { status: req.status, label: REQUEST_STATUS_LABEL[req.status] };
+  // Reconcile request + latest-offer status (cancelled/booked win over the offer).
+  const chip = requestChip(req);
   return (
     <Pressable style={[s.card, unread && s.cardUnread]} onPress={onPress}>
       <Avatar path={req.counterparty.avatarPath} name={req.counterparty.name} />
@@ -150,7 +146,9 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 8 },
   title: { fontSize: 22, fontWeight: "800" },
-  tabsScroll: { flexGrow: 0, marginBottom: 4 },
+  // minHeight stops the horizontal scroll row's frame from collapsing/clipping
+  // the buttons on first render (the default Upcoming tab).
+  tabsScroll: { flexGrow: 0, minHeight: 44, marginBottom: 4 },
   tabs: { flexDirection: "row", gap: 8, paddingHorizontal: 16, alignItems: "center" },
   tab: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: "#F4F4F5" },
   tabActive: { backgroundColor: "#18181B" },
