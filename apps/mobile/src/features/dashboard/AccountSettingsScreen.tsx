@@ -107,18 +107,6 @@ export function AccountSettingsScreen() {
           <View style={s.card}>
             <LinkRow icon="log-out-outline" label="Sign out" onPress={confirmSignOut} last />
           </View>
-
-          {/* Deletion is intentionally de-emphasised: a muted link at the very
-              bottom that leads to a dedicated confirmation page. */}
-          <Pressable
-            style={s.deleteLink}
-            onPress={() => router.push("/profile/delete-account")}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Delete account"
-          >
-            <Text style={s.deleteLinkText}>Delete account</Text>
-          </Pressable>
           <View style={{ height: 24 }} />
         </ScrollView>
       )}
@@ -168,6 +156,4 @@ const s = StyleSheet.create({
   rowValue: { flex: 1, textAlign: "right", color: "#71717A", fontSize: 14 },
   rowHint: { color: "#A1A1AA", fontSize: 12, marginTop: 2 },
   linkLabel: { flex: 1, fontWeight: "600", fontSize: 15, color: "#18181B" },
-  deleteLink: { alignItems: "center", paddingVertical: 18, marginTop: 8 },
-  deleteLinkText: { color: "#A1A1AA", fontSize: 13, fontWeight: "500" },
 });

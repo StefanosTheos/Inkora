@@ -62,7 +62,7 @@ const DOCS: Record<LegalDoc, Doc> = {
       { heading: "3. How we use your information", body: "To run the core features — discovery, booking, messaging, reviews and rewards — and to send you relevant notifications." },
       { heading: "4. Notifications", body: "With your permission we send push and email notifications about bookings, offers and messages. You can turn these off any time in Account settings." },
       { heading: "5. Sharing", body: "Your public profile (name, photo, city) is visible to other users. We do not sell your personal data." },
-      { heading: "6. Data retention", body: "We keep your data while your account is active. You can request deletion from Account settings → Delete account." },
+      { heading: "6. Data retention", body: "We keep your data while your account is active. You can request deletion from Account settings → Help center → Delete account." },
       { heading: "7. Security", body: "Access is protected by row-level security and encrypted connections. No system is perfectly secure, so please use a strong, unique password." },
       { heading: "8. Children", body: "Inkora is not intended for anyone under 18." },
       { heading: "9. Your rights", body: "You can access, correct or delete your information from within the app or by contacting us." },
@@ -104,6 +104,20 @@ export function LegalScreen({ doc }: { doc: LegalDoc }) {
           <Ionicons name="mail-outline" size={18} color="#fff" />
           <Text style={s.contactText}>Contact support</Text>
         </Pressable>
+
+        {/* Account deletion is tucked away at the bottom of Help, off the main
+            settings path, as a muted link into a dedicated confirmation page. */}
+        {doc === "help" ? (
+          <Pressable
+            style={s.deleteLink}
+            onPress={() => router.push("/delete-account")}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Delete account"
+          >
+            <Text style={s.deleteLinkText}>Delete account</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -121,4 +135,6 @@ const s = StyleSheet.create({
   sectionBody: { color: "#3F3F46", lineHeight: 21, fontSize: 14 },
   contactBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#18181B", borderRadius: 14, paddingVertical: 15, marginTop: 8 },
   contactText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  deleteLink: { alignItems: "center", paddingVertical: 18, marginTop: 12 },
+  deleteLinkText: { color: "#A1A1AA", fontSize: 13, fontWeight: "500" },
 });
