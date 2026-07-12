@@ -60,14 +60,6 @@ export function AccountSettingsScreen() {
       destructive: true,
     }).then((ok) => { if (ok) void signOut(); });
   }
-  function confirmDelete() {
-    void confirm({
-      title: "Delete account?",
-      message: "This permanently removes your profile, bookings and saved items. This can’t be undone. For the demo, contact support to complete deletion.",
-      confirmLabel: "Delete",
-      destructive: true,
-    }).then((ok) => { if (ok) void Linking.openURL("mailto:support@inkora.app?subject=Delete%20my%20account"); });
-  }
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
@@ -110,12 +102,23 @@ export function AccountSettingsScreen() {
             <LinkRow icon="shield-checkmark-outline" label="Privacy Policy" onPress={() => router.push("/legal/privacy")} last />
           </View>
 
-          {/* Danger zone */}
-          <Text style={[s.section, { color: "#DC2626" }]} accessibilityRole="header">Danger zone</Text>
+          {/* Session */}
+          <Text style={s.section} accessibilityRole="header">Session</Text>
           <View style={s.card}>
-            <LinkRow icon="log-out-outline" label="Sign out" onPress={confirmSignOut} />
-            <LinkRow icon="trash-outline" label="Delete account" danger onPress={confirmDelete} last />
+            <LinkRow icon="log-out-outline" label="Sign out" onPress={confirmSignOut} last />
           </View>
+
+          {/* Deletion is intentionally de-emphasised: a muted link at the very
+              bottom that leads to a dedicated confirmation page. */}
+          <Pressable
+            style={s.deleteLink}
+            onPress={() => router.push("/profile/delete-account")}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Delete account"
+          >
+            <Text style={s.deleteLinkText}>Delete account</Text>
+          </Pressable>
           <View style={{ height: 24 }} />
         </ScrollView>
       )}
@@ -165,4 +168,6 @@ const s = StyleSheet.create({
   rowValue: { flex: 1, textAlign: "right", color: "#71717A", fontSize: 14 },
   rowHint: { color: "#A1A1AA", fontSize: 12, marginTop: 2 },
   linkLabel: { flex: 1, fontWeight: "600", fontSize: 15, color: "#18181B" },
+  deleteLink: { alignItems: "center", paddingVertical: 18, marginTop: 8 },
+  deleteLinkText: { color: "#A1A1AA", fontSize: 13, fontWeight: "500" },
 });
