@@ -90,7 +90,13 @@ export function AccountSettingsScreen() {
                 <Text style={[s.linkLabel, { color: "#DC2626" }]}>Notifications are off — tap to enable in Settings</Text>
               </Pressable>
             )}
-            <ToggleRow label="Push notifications" hint="Bookings, offers and messages" value={push} onValueChange={(v) => toggle("push", v)} />
+            <ToggleRow
+              label="Push notifications"
+              hint={osBlocked ? "Turn notifications on in your phone Settings first" : "Bookings, offers and messages"}
+              value={push && !osBlocked}
+              onValueChange={(v) => toggle("push", v)}
+              disabled={osBlocked}
+            />
             <ToggleRow label="Email notifications" hint="Summaries and important updates" value={emailNotif} onValueChange={(v) => toggle("email", v)} last />
           </View>
 
@@ -122,14 +128,14 @@ function Row({ label, value, last }: { label: string; value: string; last?: bool
     </View>
   );
 }
-function ToggleRow({ label, hint, value, onValueChange, last }: { label: string; hint: string; value: boolean; onValueChange: (v: boolean) => void; last?: boolean }) {
+function ToggleRow({ label, hint, value, onValueChange, last, disabled }: { label: string; hint: string; value: boolean; onValueChange: (v: boolean) => void; last?: boolean; disabled?: boolean }) {
   return (
-    <View style={[s.rowFlex, !last && s.rowBorder]}>
+    <View style={[s.rowFlex, !last && s.rowBorder, disabled && { opacity: 0.5 }]}>
       <View style={{ flex: 1 }}>
         <Text style={s.rowLabel}>{label}</Text>
         <Text style={s.rowHint}>{hint}</Text>
       </View>
-      <Switch value={value} onValueChange={onValueChange} trackColor={{ true: "#E5484D" }} accessibilityLabel={label} />
+      <Switch value={value} onValueChange={onValueChange} disabled={disabled} trackColor={{ true: "#E5484D" }} accessibilityLabel={label} />
     </View>
   );
 }
