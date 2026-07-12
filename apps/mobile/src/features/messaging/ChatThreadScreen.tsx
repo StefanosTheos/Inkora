@@ -489,7 +489,12 @@ function BookingOfferCard({ message, mine }: { message: Message; mine: boolean }
   }
 
   return (
-    <View style={s.reqCard}>
+    <Pressable
+      style={s.reqCard}
+      onPress={() => { if (md.requestId) router.push(`/booking/${md.requestId}`); }}
+      accessibilityRole="button"
+      accessibilityLabel="View booking request"
+    >
       <Text style={[s.reqTitle, { color }]}>🏷️ Offer</Text>
       {line ? <Text style={[s.bookingReqName, { color }]}>{line}</Text> : null}
       {md.message ? <Text style={[s.reqDetail, { color: sub }]}>{md.message}</Text> : null}
@@ -519,7 +524,7 @@ function BookingOfferCard({ message, mine }: { message: Message; mine: boolean }
           onSent={() => toast.show("Offer sent")}
         />
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 
