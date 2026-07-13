@@ -36,6 +36,7 @@ export async function getPublicSeekerProfile(client: InkoraClient, profileId: st
 
 interface WrittenReviewRow {
   id: string;
+  appointment_id: string | null;
   overall_rating: number;
   title: string | null;
   body: string | null;
@@ -49,7 +50,7 @@ interface WrittenReviewRow {
 export async function getSeekerReviews(client: InkoraClient, authorId: string): Promise<SeekerReview[]> {
   const { data, error } = await client
     .from("reviews")
-    .select("id, overall_rating, title, body, created_at, photo_paths, artists(profiles(display_name)), studios(name)")
+    .select("id, appointment_id, overall_rating, title, body, created_at, photo_paths, artists(profiles(display_name)), studios(name)")
     .eq("author_id", authorId)
     .eq("is_published", true)
     .order("created_at", { ascending: false })
@@ -58,6 +59,7 @@ export async function getSeekerReviews(client: InkoraClient, authorId: string): 
   if (error) throw toAppError(error);
   return (data ?? []).map((r) => ({
     id: r.id as ReviewId,
+    appointmentId: (r.appointment_id as SeekerReview["appointmentId"]) ?? null,
     subjectName: r.studios?.name ?? r.artists?.profiles?.display_name ?? "Artist",
     overallRating: r.overall_rating,
     title: r.title,

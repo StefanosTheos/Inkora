@@ -21,7 +21,7 @@ const JOURNEY_MILESTONES = [
   { key: "month", label: "1 Month" },
 ];
 
-export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; featuredReviewId?: string }) {
+export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { id: string; featuredReviewId?: string; appointmentId?: string }) {
   const router = useRouter();
   const toast = useToast();
   const { ctx } = useAuth();
@@ -39,9 +39,10 @@ export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; feat
   useEffect(() => {
     setPage(0);
     scrollRef.current?.scrollTo({ y: 0, animated: true });
-  }, [featuredReviewId]);
+  }, [featuredReviewId, appointmentId]);
   // Artists can start a chat with the seeker from here.
   const canMessage = ctx.roles.includes("artist") && !!ctx.userId && ctx.userId !== id;
+  const isOwn = ctx.userId === id;
   async function messageSeeker() {
     try {
       const cid = await startDirectConversation(supabase, id);
@@ -69,9 +70,22 @@ export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; feat
     );
   }
 
-  // Feature the tapped review's journey at the top; show the rest below.
+  // Entry points, two layouts:
+  //  - Per-session (classic): reached by tapping a specific review, or from an
+  //    artist's completed-appointment detail (?appointmentId). Shows that one
+  //    session — a "Tattoo journey" strip of its photos (with the review card
+  //    when a review exists). Rendered even when pending (no review/photos yet).
+  //  - Latest session: opened cold via a button ("View my public profile", or
+  //    an artist opening the profile not through a review). Auto-features the
+  //    most-recent review with healing photos.
+  // allReviews is newest-first.
   const allReviews = reviews.data ?? [];
-  const featured = featuredReviewId ? allReviews.find((r) => r.id === featuredReviewId) : undefined;
+  const perSession = !!featuredReviewId || !!appointmentId;
+  const featured = featuredReviewId
+    ? allReviews.find((r) => r.id === featuredReviewId)
+    : appointmentId
+      ? allReviews.find((r) => r.appointmentId === appointmentId)
+      : allReviews.find((r) => r.photoPaths.length > 0);
   const journeyPhotos = featured?.photoPaths ?? [];
   const otherReviews = featured ? allReviews.filter((r) => r.id !== featured.id) : allReviews;
   const firstName = p.displayName.split(" ")[0] ?? p.displayName;
@@ -110,53 +124,36 @@ export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; feat
 
         {/* How artists have rated this client (artists + the client themselves) */}
         {canSeeClientReviews ? (
-          <ClientReviewsSection reviews={clientReviews.data ?? []} loading={clientReviews.isLoading} isOwn={ctx.userId === id} />
+          <ClientReviewsSection reviews={clientReviews.data ?? []} loading={clientReviews.isLoading} isOwn={isOwn} />
         ) : null}
 
-        {/* The opened review's text (its healing photos render in the journey
-            section below, so no photo strip here to avoid duplication). */}
-        {featured ? (
+        {/* Per-session (tapped a review, or an artist's completed appointment):
+            the review (when present), then that session's "Tattoo journey"
+            photos. Shown even when pending — placeholders stand in for photos
+            not yet shared. */}
+        {perSession ? (
           <>
-            <Text style={s.sectionTitle} accessibilityRole="header">Review</Text>
-            <View style={[s.reviewCard, s.featuredCard]}>
-              <Text style={s.reviewHead}>{featured.subjectName} · ★ {featured.overallRating}</Text>
-              {featured.title ? <Text style={s.reviewTitle}>{featured.title}</Text> : null}
-              {featured.body ? <Text style={s.reviewBody}>{featured.body}</Text> : null}
-              <Text style={s.reviewDate}>{fmtDate(featured.createdAt)}</Text>
-            </View>
+            <Text style={s.sectionTitle} accessibilityRole="header">Tattoo journey</Text>
+            <Text style={s.sectionHint}>
+              {featured
+                ? `Healing progress from ${firstName}'s ${featured.subjectName} tattoo.`
+                : `${isOwn ? "Your" : `${firstName}'s`} healing photos and review for this session will appear here once shared.`}
+            </Text>
+            <JourneyPhotoRow photos={journeyPhotos} onZoom={setZoomUri} />
+            {featured ? <FeaturedReviewCard review={featured} /> : null}
+          </>
+        ) : featured ? (
+          /* Opened via a button: "Latest session" summary — photos first, then
+             the review. Only shown when there's a review with photos to feature. */
+          <>
+            <Text style={s.sectionTitle} accessibilityRole="header">{isOwn ? "Your latest session" : `${firstName}'s latest session`}</Text>
+            <Text style={s.sectionHint}>
+              {isOwn ? `Healing progress from your ${featured.subjectName} tattoo.` : `Healing progress from ${firstName}'s ${featured.subjectName} tattoo.`}
+            </Text>
+            <JourneyPhotoRow photos={journeyPhotos} onZoom={setZoomUri} />
+            <FeaturedReviewCard review={featured} />
           </>
         ) : null}
-
-        {/* Tattoo journey — the featured review's healing photos (post-session / 1 week / 1 month) */}
-        <Text style={s.sectionTitle} accessibilityRole="header">Tattoo journey</Text>
-        <Text style={s.sectionHint}>
-          {featured ? `Healing progress from ${firstName}'s ${featured.subjectName} tattoo.` : `Healing progress shared by ${firstName}.`}
-        </Text>
-        <View style={s.journeyRow}>
-          {JOURNEY_MILESTONES.map((m, i) => {
-            const photo = journeyPhotos[i];
-            return (
-              <View key={m.key} style={s.journeyCard}>
-                {photo ? (
-                  <Pressable
-                    style={s.journeyPhotoWrap}
-                    onPress={() => setZoomUri(imageUrl(photo, 1200) ?? null)}
-                    accessibilityRole="imagebutton"
-                    accessibilityLabel={`${m.label} photo, tap to zoom`}
-                  >
-                    <Image source={{ uri: imageUrl(photo, 240) }} style={s.journeyPhoto} contentFit="cover" />
-                  </Pressable>
-                ) : (
-                  <View style={s.journeyPlaceholder}>
-                    <Ionicons name="image-outline" size={22} color="#D4D4D8" />
-                  </View>
-                )}
-                <Text style={s.journeyLabel}>{m.label}</Text>
-                {!photo ? <Text style={s.journeyEmpty}>Not shared yet</Text> : null}
-              </View>
-            );
-          })}
-        </View>
 
         {/* Other reviews written by this seeker */}
         <Text style={s.sectionTitle} accessibilityRole="header">{featured ? "Other reviews" : "Reviews"}</Text>
@@ -201,6 +198,48 @@ export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; feat
       </ScrollView>
       <ImageZoomModal visible={!!zoomUri} uri={zoomUri ?? ""} onClose={() => setZoomUri(null)} label="Tattoo progress" />
     </SafeAreaView>
+  );
+}
+
+// A session's healing photos (post-session / 1 week / 1 month), tappable to zoom.
+function JourneyPhotoRow({ photos, onZoom }: { photos: string[]; onZoom: (uri: string | null) => void }) {
+  return (
+    <View style={s.journeyRow}>
+      {JOURNEY_MILESTONES.map((m, i) => {
+        const photo = photos[i];
+        return (
+          <View key={m.key} style={s.journeyCard}>
+            {photo ? (
+              <Pressable
+                style={s.journeyPhotoWrap}
+                onPress={() => onZoom(imageUrl(photo, 1200) ?? null)}
+                accessibilityRole="imagebutton"
+                accessibilityLabel={`${m.label} photo, tap to zoom`}
+              >
+                <Image source={{ uri: imageUrl(photo, 240) }} style={s.journeyPhoto} contentFit="cover" />
+              </Pressable>
+            ) : (
+              <View style={s.journeyPlaceholder}>
+                <Ionicons name="image-outline" size={22} color="#D4D4D8" />
+              </View>
+            )}
+            <Text style={s.journeyLabel}>{m.label}</Text>
+            {!photo ? <Text style={s.journeyEmpty}>Not shared yet</Text> : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function FeaturedReviewCard({ review }: { review: SeekerReview }) {
+  return (
+    <View style={[s.reviewCard, s.featuredCard]}>
+      <Text style={s.reviewHead}>{review.subjectName} · ★ {review.overallRating}</Text>
+      {review.title ? <Text style={s.reviewTitle}>{review.title}</Text> : null}
+      {review.body ? <Text style={s.reviewBody}>{review.body}</Text> : null}
+      <Text style={s.reviewDate}>{fmtDate(review.createdAt)}</Text>
+    </View>
   );
 }
 

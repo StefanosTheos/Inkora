@@ -1,4 +1,4 @@
-import type { ArtistId, ProfileId, ReviewId, StudioId } from "../ids";
+import type { AppointmentId, ArtistId, ProfileId, ReviewId, StudioId } from "../ids";
 
 export interface ArtistStudioRef {
   id: StudioId;
@@ -56,6 +56,7 @@ export interface PublicSeekerProfile {
 /** A review written BY a seeker (shown on their public profile). */
 export interface SeekerReview {
   id: ReviewId;
+  appointmentId: AppointmentId | null; // the session this review is for (to match by appointment)
   subjectName: string; // the artist or studio reviewed
   overallRating: number;
   title: string | null;

@@ -105,6 +105,18 @@ export function UserDashboardScreen() {
           </Pressable>
         </View>
 
+        {/* Preview the public profile exactly as others see it when they tap
+            one of your reviews. */}
+        <Pressable
+          style={s.viewProfileBtn}
+          onPress={() => { if (ctx.userId) router.push(`/seeker/${ctx.userId}`); }}
+          accessibilityRole="button"
+          accessibilityLabel="View my public profile"
+        >
+          <Ionicons name="eye-outline" size={18} color="#18181B" />
+          <Text style={s.viewProfileText}>View my public profile</Text>
+        </Pressable>
+
         {/* Rewards */}
         <Pressable
           style={s.rewardCard}
@@ -278,6 +290,8 @@ const s = StyleSheet.create({
   since: { color: "#A1A1AA", fontSize: 12, marginTop: 2 },
   editBtn: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
   editText: { fontWeight: "700" },
+  viewProfileBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 14, paddingVertical: 12, marginTop: 4 },
+  viewProfileText: { fontWeight: "700", fontSize: 15, color: "#18181B" },
   rewardCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#18181B", borderRadius: 20, padding: 16, marginTop: 4, overflow: "hidden" },
   rewardBloom: { position: "absolute", top: -60, right: -30, width: 170, height: 170, borderRadius: 85, opacity: 0.25 },
   rewardLabel: { color: "#A1A1AA", fontWeight: "600", fontSize: 13 },

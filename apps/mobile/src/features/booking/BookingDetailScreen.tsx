@@ -130,10 +130,20 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
       <View style={s.partyRow}>
         <Pressable
           style={s.partyPerson}
-          onPress={() => router.push(`/artist/${appt.artistId}`)}
-          disabled={isArtist}
-          accessibilityRole={isArtist ? undefined : "button"}
-          accessibilityLabel={isArtist ? appt.counterparty.name : `View ${appt.counterparty.name}'s profile`}
+          onPress={() => {
+            if (!isArtist) { router.push(`/artist/${appt.artistId}`); return; }
+            // Artist opens the client's public profile: a completed session
+            // deep-links to that session's tattoo journey (shown even if the
+            // review/photos are still pending); an upcoming one shows the
+            // client's latest-session summary.
+            if (appt.status === "completed") {
+              router.push({ pathname: "/seeker/[id]", params: { id: appt.clientId, appointmentId: appt.id } });
+            } else {
+              router.push(`/seeker/${appt.clientId}`);
+            }
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`View ${appt.counterparty.name}'s profile`}
         >
           <Avatar path={appt.counterparty.avatarPath} name={appt.counterparty.name} size={52} />
           <View style={{ flex: 1 }}>
