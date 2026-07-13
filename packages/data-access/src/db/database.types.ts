@@ -1436,6 +1436,74 @@ export type Database = {
           },
         ]
       }
+      client_reviews: {
+        Row: {
+          appointment_id: string
+          author_id: string
+          client_id: string
+          comment: string | null
+          communication: number
+          created_at: string
+          id: string
+          overall: number
+          preparedness: number
+          punctuality: number
+          respect: number
+          sat_well: number
+          text_visible_at: string
+        }
+        Insert: {
+          appointment_id: string
+          author_id: string
+          client_id: string
+          comment?: string | null
+          communication: number
+          created_at?: string
+          id?: string
+          preparedness: number
+          punctuality: number
+          respect: number
+          sat_well: number
+          text_visible_at?: string
+        }
+        Update: {
+          appointment_id?: string
+          author_id?: string
+          client_id?: string
+          comment?: string | null
+          communication?: number
+          created_at?: string
+          id?: string
+          preparedness?: number
+          punctuality?: number
+          respect?: number
+          sat_well?: number
+          text_visible_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_reviews_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_reviews_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_reviews_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reviews: {
         Row: {
           appointment_id: string
@@ -2310,6 +2378,23 @@ export type Database = {
           member_since: string
           bookings_count: number
           reviews_count: number
+        }[]
+      }
+      client_reviews_for: {
+        Args: { p_client_id: string }
+        Returns: {
+          id: string
+          author_name: string
+          author_avatar: string | null
+          punctuality: number
+          communication: number
+          preparedness: number
+          sat_well: number
+          respect: number
+          overall: number
+          comment: string | null
+          text_locked: boolean
+          created_at: string
         }[]
       }
       withdraw_studio_application: {

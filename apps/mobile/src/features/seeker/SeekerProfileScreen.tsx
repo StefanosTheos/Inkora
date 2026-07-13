@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { startDirectConversation, useAuth, usePublicSeekerProfile, useSeekerReviews } from "@inkora/data-access";
-import type { SeekerReview } from "@inkora/domain";
+import { startDirectConversation, useAuth, useClientReviews, usePublicSeekerProfile, useSeekerReviews } from "@inkora/data-access";
+import { CLIENT_REVIEW_CATEGORIES, type ClientReviewItem, type SeekerReview } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -27,6 +27,10 @@ export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; feat
   const { ctx } = useAuth();
   const profile = usePublicSeekerProfile(supabase, id);
   const reviews = useSeekerReviews(supabase, id);
+  // Artists (and the client themselves) can see how artists have rated this
+  // client. The RPC enforces the same rule, so this just avoids a dead fetch.
+  const canSeeClientReviews = ctx.roles.includes("artist") || ctx.userId === id;
+  const clientReviews = useClientReviews(supabase, id, canSeeClientReviews);
   const [zoomUri, setZoomUri] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -71,8 +75,8 @@ export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; feat
   const journeyPhotos = featured?.photoPaths ?? [];
   const otherReviews = featured ? allReviews.filter((r) => r.id !== featured.id) : allReviews;
   const firstName = p.displayName.split(" ")[0] ?? p.displayName;
-  // Paginate the reviews in batches of 5.
-  const PAGE_SIZE = 5;
+  // Paginate the reviews in batches of 3.
+  const PAGE_SIZE = 3;
   const totalPages = Math.max(1, Math.ceil(otherReviews.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const pageReviews = otherReviews.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
@@ -102,6 +106,11 @@ export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; feat
             <Ionicons name="chatbubble-outline" size={18} color="#fff" />
             <Text style={s.messageBtnText}>Message</Text>
           </Pressable>
+        ) : null}
+
+        {/* How artists have rated this client (artists + the client themselves) */}
+        {canSeeClientReviews ? (
+          <ClientReviewsSection reviews={clientReviews.data ?? []} loading={clientReviews.isLoading} isOwn={ctx.userId === id} />
         ) : null}
 
         {/* The opened review's text (its healing photos render in the journey
@@ -195,6 +204,84 @@ export function SeekerProfileScreen({ id, featuredReviewId }: { id: string; feat
   );
 }
 
+// The artist-facing client reputation: overall score, per-category averages,
+// and each artist's note (hidden until the double-blind window unlocks it).
+function ClientReviewsSection({ reviews, loading, isOwn }: { reviews: ClientReviewItem[]; loading: boolean; isOwn: boolean }) {
+  const avg = (key: keyof ClientReviewItem) =>
+    reviews.length ? reviews.reduce((sum, r) => sum + (r[key] as number), 0) / reviews.length : 0;
+  // True grand mean of every category score (no intermediate per-review
+  // rounding), so the headline matches the five category bars exactly.
+  const overall = reviews.length
+    ? CLIENT_REVIEW_CATEGORIES.reduce((sum, c) => sum + avg(c.key), 0) / CLIENT_REVIEW_CATEGORIES.length
+    : 0;
+
+  // Paginate the review cards, 3 per page (same pager as the other reviews).
+  const PAGE_SIZE = 3;
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(reviews.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageReviews = reviews.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+  return (
+    <>
+      <Text style={s.sectionTitle} accessibilityRole="header">{isOwn ? "How artists rate you" : "How artists rate this client"}</Text>
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 12 }} />
+      ) : reviews.length === 0 ? (
+        <Text style={[s.muted, { marginTop: 8 }]}>{isOwn ? "No artist has reviewed you yet." : "No client reviews yet."}</Text>
+      ) : (
+        <>
+          <View style={s.crOverall}>
+            <Text style={s.crBig}>★ {overall.toFixed(1)}</Text>
+            <Text style={s.crCount}>{reviews.length} review{reviews.length > 1 ? "s" : ""}</Text>
+          </View>
+          {reviews.length < 3 ? (
+            <Text style={s.crNew}>New client — based on only {reviews.length} review{reviews.length > 1 ? "s" : ""}.</Text>
+          ) : null}
+          <View style={s.crBars}>
+            {CLIENT_REVIEW_CATEGORIES.map((cat) => {
+              const v = avg(cat.key);
+              return (
+                <View key={cat.key} style={s.crBarRow}>
+                  <Text style={s.crBarLabel}>{cat.label}</Text>
+                  <View style={s.crBarTrack}><View style={[s.crBarFill, { width: `${(v / 5) * 100}%` }]} /></View>
+                  <Text style={s.crBarVal}>{v.toFixed(1)}</Text>
+                </View>
+              );
+            })}
+          </View>
+          {pageReviews.map((r) => (
+            <View key={r.id} style={s.reviewCard}>
+              <Text style={s.reviewHead}>{r.authorName} · ★ {r.overall}</Text>
+              {r.comment ? (
+                <Text style={s.reviewBody}>{r.comment}</Text>
+              ) : r.textLocked ? (
+                <Text style={s.crLocked}>🔒 {isOwn ? "Note hidden until you review this artist." : "Note hidden until the client reviews this artist."}</Text>
+              ) : null}
+              <Text style={s.reviewDate}>{fmtDate(r.createdAt)}</Text>
+            </View>
+          ))}
+          {totalPages > 1 ? (
+            <View style={s.pager}>
+              <Pressable disabled={safePage === 0} onPress={() => setPage(safePage - 1)} hitSlop={6} style={[s.pagerBtn, safePage === 0 && s.pagerBtnOff]} accessibilityRole="button" accessibilityLabel="Previous page">
+                <Ionicons name="chevron-back" size={18} color={safePage === 0 ? "#D4D4D8" : "#18181B"} />
+              </Pressable>
+              {Array.from({ length: totalPages }, (_, i) => (
+                <Pressable key={i} onPress={() => setPage(i)} style={[s.pageNum, i === safePage && s.pageNumActive]} accessibilityRole="button" accessibilityLabel={`Page ${i + 1}`}>
+                  <Text style={[s.pageNumText, i === safePage && s.pageNumTextActive]}>{i + 1}</Text>
+                </Pressable>
+              ))}
+              <Pressable disabled={safePage >= totalPages - 1} onPress={() => setPage(safePage + 1)} hitSlop={6} style={[s.pagerBtn, safePage >= totalPages - 1 && s.pagerBtnOff]} accessibilityRole="button" accessibilityLabel="Next page">
+                <Ionicons name="chevron-forward" size={18} color={safePage >= totalPages - 1 ? "#D4D4D8" : "#18181B"} />
+              </Pressable>
+            </View>
+          ) : null}
+        </>
+      )}
+    </>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View style={s.statBox}>
@@ -239,6 +326,17 @@ const s = StyleSheet.create({
   journeyPhoto: { width: "100%", height: "100%" },
   journeyLabel: { fontWeight: "700", fontSize: 12, marginTop: 6, color: "#18181B", textAlign: "center" },
   journeyEmpty: { color: "#A1A1AA", fontSize: 11, marginTop: 1 },
+  crOverall: { flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 10 },
+  crBig: { fontSize: 26, fontWeight: "900", color: "#18181B" },
+  crCount: { color: "#71717A", fontSize: 13, fontWeight: "600" },
+  crNew: { color: "#B45309", fontSize: 12, fontWeight: "700", marginTop: 4 },
+  crBars: { gap: 6, marginTop: 12 },
+  crBarRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  crBarLabel: { width: 104, fontSize: 12, fontWeight: "700", color: "#3F3F46" },
+  crBarTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: "#F4F4F5", overflow: "hidden" },
+  crBarFill: { height: "100%", borderRadius: 4, backgroundColor: "#E5484D" },
+  crBarVal: { width: 26, textAlign: "right", fontSize: 12, fontWeight: "700", color: "#18181B" },
+  crLocked: { color: "#A1A1AA", fontSize: 13, fontStyle: "italic", marginTop: 4 },
   reviewCard: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 12, padding: 12, marginTop: 10 },
   featuredCard: { borderColor: "#FBCFE8", backgroundColor: "#FEF2F7" },
   reviewHead: { fontWeight: "700" },

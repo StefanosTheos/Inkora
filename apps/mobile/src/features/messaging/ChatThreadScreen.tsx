@@ -42,12 +42,17 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
   const conv = convs.data?.find((c) => c.id === conversationId);
   const title = conv?.otherName ?? "Chat";
   const avatarUrl = img(conv?.otherAvatarPath);
-  // Tapping the header opens the studio (studio chats) or artist (direct chats)
-  // profile. Support conversations have no profile to open.
+  // Tapping the header opens a profile. Support conversations have none.
+  // Studio chats open the studio. For a direct chat the destination depends on
+  // who's viewing: an artist opens the other party's seeker (client) details
+  // page; a seeker opens the artist's profile.
+  const isArtist = ctx.roles.includes("artist");
   const canOpenProfile = !!(conv?.studioSlug || (conv?.type === "direct" && conv?.otherId));
   const openProfile = () => {
     if (conv?.studioSlug) router.push(`/studio/${conv.studioSlug}`);
-    else if (conv?.type === "direct" && conv?.otherId) router.push(`/artist/${conv.otherId}`);
+    else if (conv?.type === "direct" && conv?.otherId) {
+      router.push(isArtist ? `/seeker/${conv.otherId}` : `/artist/${conv.otherId}`);
+    }
   };
 
   const [text, setText] = useState("");
@@ -558,6 +563,9 @@ function BookingCompletedCard({ message, mine }: { message: Message; mine: boole
     <Pressable style={s.reqCard} onPress={() => { if (md.appointmentId) router.push(`/booking/${md.appointmentId}`); }} accessibilityRole="button" accessibilityLabel="View appointment">
       <Text style={[s.reqTitle, { color }]}>🎉 Appointment completed</Text>
       {md.proposedStart ? <Text style={[s.reqDetail, { color: sub }]}>{fmtDateTime(md.proposedStart)}</Text> : null}
+      {/* The completion card is sent by the artist, so `mine` here means the
+          artist's device — nudge them to leave a client review. */}
+      {mine ? <Text style={[s.reqDetail, { color: sub, marginTop: 4, fontWeight: "700" }]}>Tap to review your client →</Text> : null}
     </Pressable>
   );
 }

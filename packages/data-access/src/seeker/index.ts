@@ -1,4 +1,4 @@
-import type { ProfileId, PublicSeekerProfile, ReviewId, SeekerReview } from "@inkora/domain";
+import type { ClientReviewItem, ProfileId, PublicSeekerProfile, ReviewId, SeekerReview } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
@@ -67,9 +67,51 @@ export async function getSeekerReviews(client: InkoraClient, authorId: string): 
   }));
 }
 
+interface ClientReviewRow {
+  id: string;
+  author_name: string;
+  author_avatar: string | null;
+  punctuality: number;
+  communication: number;
+  preparedness: number;
+  sat_well: number;
+  respect: number;
+  overall: number;
+  comment: string | null;
+  text_locked: boolean;
+  created_at: string;
+}
+
+/** Reviews artists have written ABOUT this client (newest first). The RPC only
+ *  returns rows to an artist or to the subject client, and withholds the
+ *  written comment until the double-blind window unlocks it. */
+export async function getClientReviews(client: InkoraClient, clientId: string): Promise<ClientReviewItem[]> {
+  const { data, error } = await client
+    .rpc("client_reviews_for", { p_client_id: clientId })
+    .returns<ClientReviewRow[]>();
+  if (error) throw toAppError(error);
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    authorName: r.author_name,
+    authorAvatarPath: r.author_avatar,
+    punctuality: r.punctuality,
+    communication: r.communication,
+    preparedness: r.preparedness,
+    satWell: r.sat_well,
+    respect: r.respect,
+    overall: r.overall,
+    comment: r.comment,
+    textLocked: r.text_locked,
+    createdAt: r.created_at,
+  }));
+}
+
 export function usePublicSeekerProfile(client: InkoraClient, profileId: string) {
   return useQuery({ queryKey: ["seeker", profileId], queryFn: () => getPublicSeekerProfile(client, profileId), enabled: !!profileId });
 }
 export function useSeekerReviews(client: InkoraClient, authorId: string) {
   return useQuery({ queryKey: ["seeker-reviews", authorId], queryFn: () => getSeekerReviews(client, authorId), enabled: !!authorId });
+}
+export function useClientReviews(client: InkoraClient, clientId: string, enabled = true) {
+  return useQuery({ queryKey: ["client-reviews", clientId], queryFn: () => getClientReviews(client, clientId), enabled: enabled && !!clientId });
 }

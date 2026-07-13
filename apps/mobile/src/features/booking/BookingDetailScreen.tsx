@@ -2,12 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   bookingKeys, cancelAppointment, cancelRequest, completeAppointment, createOffer, declineRequest,
   getChatSignedUrl, markEntityNotificationsRead, rescheduleAppointment, respondToOffer,
-  startDirectConversation, submitReview,
-  useAppointment, useAppointmentReview, useArtistAvailability, useArtistDaySlots, useAuth,
-  useBookingRequest, withdrawOffer,
+  startDirectConversation, submitClientReview, submitReview,
+  useAppointment, useAppointmentClientReview, useAppointmentReview, useArtistAvailability,
+  useArtistDaySlots, useAuth, useBookingRequest, withdrawOffer,
 } from "@inkora/data-access";
 import {
-  APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView, type OfferView,
+  APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView,
+  CLIENT_REVIEW_CATEGORIES, type ClientReviewCategory, type OfferView,
   slotMatchesTimeOfDay, TIME_OF_DAY_LABEL, type TimeOfDay,
 } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
@@ -161,6 +162,7 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
       {appt.cancellationReason ? <Text style={s.muted}>Reason: {appt.cancellationReason}</Text> : null}
 
       {appt.status === "completed" && !isArtist ? <ReviewSection appt={appt} /> : null}
+      {appt.status === "completed" && isArtist ? <ClientReviewSection appt={appt} /> : null}
 
       {rescheduling && active ? (
         <SlotPicker
@@ -300,6 +302,92 @@ function ReviewSection({ appt }: { appt: AppointmentView }) {
       </View>
       <TextInput style={s.reviewInput} placeholder="Title (optional)" value={title} onChangeText={setTitle} accessibilityLabel="Review title" />
       <TextInput style={[s.reviewInput, s.reviewMultiline]} placeholder="Share the details (optional)" value={body} onChangeText={setBody} multiline accessibilityLabel="Review details" />
+      <PrimaryBtn label={busy ? "Submitting…" : "Submit review"} onPress={() => void submit()} disabled={busy} />
+      <SecondaryBtn label="Cancel" onPress={() => setOpen(false)} disabled={busy} />
+    </View>
+  );
+}
+
+// Artist reviews the CLIENT — only on a completed appointment, artist side.
+// Five 1-5 category ratings (Airbnb-style) + an optional written comment.
+function ClientReviewSection({ appt }: { appt: AppointmentView }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const reviewQ = useAppointmentClientReview(supabase, appt.id);
+  const [open, setOpen] = useState(false);
+  const [scores, setScores] = useState<Record<ClientReviewCategory, number>>({
+    punctuality: 5, communication: 5, preparedness: 5, satWell: 5, respect: 5,
+  });
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setBusy(true);
+    try {
+      await submitClientReview(supabase, {
+        appointmentId: appt.id,
+        clientId: appt.clientId,
+        punctuality: scores.punctuality,
+        communication: scores.communication,
+        preparedness: scores.preparedness,
+        satWell: scores.satWell,
+        respect: scores.respect,
+        comment: comment.trim() || undefined,
+      });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: bookingKeys.clientReview(appt.id) }),
+        qc.invalidateQueries({ queryKey: ["client-reviews", appt.clientId] }),
+        qc.invalidateQueries({ queryKey: ["seeker", appt.clientId] }),
+      ]);
+      toast.show("Thanks — your review helps other artists.");
+      setOpen(false);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (reviewQ.isLoading) return null;
+
+  const existing = reviewQ.data;
+  if (existing) {
+    return (
+      <View style={s.reviewDone} accessible accessibilityLabel={`You reviewed this client, ${existing.overall} out of 5 overall`}>
+        <Ionicons name="checkmark-circle" size={18} color="#16A34A" />
+        <Text style={s.reviewDoneText}>You reviewed this client — {"★".repeat(existing.overall)}{"☆".repeat(5 - existing.overall)}</Text>
+      </View>
+    );
+  }
+
+  if (!open) {
+    return (
+      <View style={s.actions}>
+        <PrimaryBtn label="Review this client" onPress={() => setOpen(true)} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={s.reviewForm}>
+      <Text style={s.reviewFormTitle}>How was your session with {appt.counterparty.name}?</Text>
+      <Text style={s.reviewFormHint}>Your ratings help other artists decide whether to take on this client. Your written note stays hidden until they review you too (or after two weeks).</Text>
+      {CLIENT_REVIEW_CATEGORIES.map((cat) => (
+        <View key={cat.key} style={s.catRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.catLabel}>{cat.label}</Text>
+            <Text style={s.catHint}>{cat.hint}</Text>
+          </View>
+          <View style={s.catStars}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Pressable key={n} onPress={() => setScores((p) => ({ ...p, [cat.key]: n }))} hitSlop={4} accessibilityRole="button" accessibilityLabel={`${cat.label}: ${n} star${n > 1 ? "s" : ""}`}>
+                <Ionicons name={n <= scores[cat.key] ? "star" : "star-outline"} size={22} color="#E5484D" />
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ))}
+      <TextInput style={[s.reviewInput, s.reviewMultiline]} placeholder="Add a note for other artists (optional)" value={comment} onChangeText={setComment} multiline accessibilityLabel="Review comment" />
       <PrimaryBtn label={busy ? "Submitting…" : "Submit review"} onPress={() => void submit()} disabled={busy} />
       <SecondaryBtn label="Cancel" onPress={() => setOpen(false)} disabled={busy} />
     </View>
@@ -712,6 +800,11 @@ const s = StyleSheet.create({
   reviewDoneText: { color: "#166534", fontWeight: "700" },
   reviewForm: { borderWidth: 1, borderColor: "#F4F4F5", borderRadius: 16, padding: 14, gap: 10, marginTop: 4 },
   reviewFormTitle: { fontSize: 15, fontWeight: "800" },
+  reviewFormHint: { color: "#71717A", fontSize: 12, lineHeight: 17, marginTop: -4 },
+  catRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 },
+  catLabel: { fontWeight: "700", fontSize: 14, color: "#18181B" },
+  catHint: { color: "#A1A1AA", fontSize: 11, marginTop: 1 },
+  catStars: { flexDirection: "row", gap: 2 },
   starsRow: { flexDirection: "row", gap: 8, justifyContent: "center", paddingVertical: 4 },
   reviewInput: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
   reviewMultiline: { minHeight: 80, textAlignVertical: "top" },

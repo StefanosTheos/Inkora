@@ -1,7 +1,7 @@
 import type {
   AppointmentId, AppointmentRequestId, AppointmentRequestView, AppointmentView, ArtistId,
-  BookingRequestInput, ConversationId, CounterpartyRef, OfferInput, OfferView, ProfileId, StudioId,
-  TimeOfDay,
+  BookingRequestInput, ClientReviewInput, ConversationId, CounterpartyRef, OfferInput, OfferView,
+  ProfileId, StudioId, TimeOfDay,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
@@ -408,6 +408,44 @@ export async function submitReview(client: InkoraClient, input: ReviewInput): Pr
   if (error) throw toAppError(error);
 }
 
+// ------------------------------------------------------------------ client reviews (artist -> client)
+export interface AppointmentClientReview {
+  id: string;
+  overall: number;
+}
+
+/** The current artist's review of the client for an appointment, if left. */
+export async function getAppointmentClientReview(client: InkoraClient, appointmentId: string): Promise<AppointmentClientReview | null> {
+  const { data, error } = await client
+    .from("client_reviews")
+    .select("id, overall")
+    .eq("appointment_id", appointmentId)
+    .maybeSingle<{ id: string; overall: number }>();
+  if (error) throw toAppError(error);
+  return data ? { id: data.id, overall: data.overall } : null;
+}
+
+/** Artist reviews a client after a completed session. One row per appointment
+ *  (client_reviews.appointment_id is NOT NULL + UNIQUE); the UI only surfaces
+ *  this on completed appointments for the artist. `overall` is derived in the DB. */
+export async function submitClientReview(client: InkoraClient, input: ClientReviewInput): Promise<void> {
+  const { data: userRes } = await client.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) throw toAppError(new Error("You need to sign in to leave a review."));
+  const { error } = await client.from("client_reviews").insert({
+    appointment_id: input.appointmentId,
+    author_id: uid,
+    client_id: input.clientId,
+    punctuality: input.punctuality,
+    communication: input.communication,
+    preparedness: input.preparedness,
+    sat_well: input.satWell,
+    respect: input.respect,
+    comment: input.comment ?? null,
+  });
+  if (error) throw toAppError(error);
+}
+
 export async function cancelAppointment(client: InkoraClient, id: string, reason?: string): Promise<void> {
   const { error } = await client
     .from("appointments")
@@ -479,6 +517,7 @@ export const bookingKeys = {
   appointmentCount: ["appointments", "count"] as const,
   appointment: (id: string) => ["appointment", id] as const,
   review: (appointmentId: string) => ["appointment-review", appointmentId] as const,
+  clientReview: (appointmentId: string) => ["appointment-client-review", appointmentId] as const,
   // slotMinutes is part of the key: open start-times depend on the session
   // length (a slot must fit before the artist's day ends), so changing the
   // duration must refetch rather than reuse the previous length's slots.
@@ -507,6 +546,13 @@ export function useAppointmentReview(client: InkoraClient, appointmentId: string
   return useQuery({
     queryKey: bookingKeys.review(appointmentId),
     queryFn: () => getAppointmentReview(client, appointmentId),
+    enabled: enabled && !!appointmentId,
+  });
+}
+export function useAppointmentClientReview(client: InkoraClient, appointmentId: string, enabled = true) {
+  return useQuery({
+    queryKey: bookingKeys.clientReview(appointmentId),
+    queryFn: () => getAppointmentClientReview(client, appointmentId),
     enabled: enabled && !!appointmentId,
   });
 }

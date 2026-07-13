@@ -4,8 +4,8 @@ import { type JourneyMilestone, MILESTONE_LABEL, type MilestoneKind } from "@ink
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -25,6 +25,14 @@ export function JourneyDetailScreen({ appointmentId }: { appointmentId: string }
   const journeys = useBookingJourneys(supabase);
   const [busy, setBusy] = useState<MilestoneKind | null>(null);
   const [zoomUri, setZoomUri] = useState<string | null>(null);
+
+  // Refetch on focus so a review left elsewhere (e.g. from the chat card, on
+  // the booking detail screen) is reflected here: the review-status badge flips
+  // to "Review submitted" and the "Leave a review" prompt disappears.
+  useFocusEffect(useCallback(() => {
+    void journeys.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []));
 
   const j = (journeys.data ?? []).find((x) => x.appointmentId === appointmentId);
 

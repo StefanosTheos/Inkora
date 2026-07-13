@@ -194,3 +194,44 @@ export function statusTone(
       return "neutral";
   }
 }
+
+// ---------------------------------------------------------------- client reviews
+// The artist reviews the CLIENT after a completed session — five 1-5 category
+// scores plus an optional written comment (see the client_reviews migration).
+export const CLIENT_REVIEW_CATEGORIES = [
+  { key: "punctuality", label: "Punctuality", hint: "On time, no last-minute reschedules" },
+  { key: "communication", label: "Communication", hint: "Responsive and clear about the design" },
+  { key: "preparedness", label: "Preparedness", hint: "Arrived ready, followed pre-care" },
+  { key: "satWell", label: "Sat well", hint: "Composure and stillness during the session" },
+  { key: "respect", label: "Respect", hint: "Respectful of the artist, space and time" },
+] as const;
+
+export type ClientReviewCategory = (typeof CLIENT_REVIEW_CATEGORIES)[number]["key"];
+
+/** Category scores an artist submits about a client (each 1-5). */
+export interface ClientReviewScores {
+  punctuality: number;
+  communication: number;
+  preparedness: number;
+  satWell: number;
+  respect: number;
+}
+
+export interface ClientReviewInput extends ClientReviewScores {
+  appointmentId: string;
+  clientId: string;
+  comment?: string;
+}
+
+/** A client review as shown to artists (and the client) on a seeker profile. */
+export interface ClientReviewItem extends ClientReviewScores {
+  id: string;
+  authorName: string;
+  authorAvatarPath: string | null;
+  overall: number;
+  /** Null while the written comment is still hidden (double-blind window). */
+  comment: string | null;
+  /** True when the comment is withheld pending mutual review / the time window. */
+  textLocked: boolean;
+  createdAt: string;
+}
