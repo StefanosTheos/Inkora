@@ -21,6 +21,8 @@ const JOURNEY_MILESTONES = [
   { key: "month", label: "1 Month" },
 ];
 
+type ProfileTab = "journey" | "reviews" | "ratings";
+
 export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { id: string; featuredReviewId?: string; appointmentId?: string }) {
   const router = useRouter();
   const toast = useToast();
@@ -33,11 +35,14 @@ export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { i
   const clientReviews = useClientReviews(supabase, id, canSeeClientReviews);
   const [zoomUri, setZoomUri] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [tab, setTab] = useState<ProfileTab>("journey");
   const scrollRef = useRef<ScrollView>(null);
-  // Featuring a different review resets pagination and jumps to the top so the
-  // newly-featured review (and its journey) is what the viewer lands on.
+  // Featuring a session (tapping a review, or arriving from an appointment)
+  // jumps to the Journey tab + top, resets pagination, so the newly-featured
+  // session is what the viewer lands on.
   useEffect(() => {
     setPage(0);
+    setTab("journey");
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [featuredReviewId, appointmentId]);
   // Artists can start a chat with the seeker from here.
@@ -87,13 +92,12 @@ export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { i
       ? allReviews.find((r) => r.appointmentId === appointmentId)
       : allReviews.find((r) => r.photoPaths.length > 0);
   const journeyPhotos = featured?.photoPaths ?? [];
-  const otherReviews = featured ? allReviews.filter((r) => r.id !== featured.id) : allReviews;
   const firstName = p.displayName.split(" ")[0] ?? p.displayName;
-  // Paginate the reviews in batches of 3.
+  // Paginate the seeker's written reviews in batches of 3 (Reviews tab).
   const PAGE_SIZE = 3;
-  const totalPages = Math.max(1, Math.ceil(otherReviews.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(allReviews.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
-  const pageReviews = otherReviews.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+  const pageReviews = allReviews.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
@@ -122,78 +126,85 @@ export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { i
           </Pressable>
         ) : null}
 
-        {/* How artists have rated this client (artists + the client themselves) */}
-        {canSeeClientReviews ? (
-          <ClientReviewsSection reviews={clientReviews.data ?? []} loading={clientReviews.isLoading} isOwn={isOwn} />
-        ) : null}
+        {/* Tabs — split the (previously long) content into Journey / Reviews /
+            Ratings so the page stays light and easy to navigate. */}
+        <View style={s.tabs}>
+          <TabBtn label="Journey" active={tab === "journey"} onPress={() => setTab("journey")} />
+          <TabBtn label={`Reviews${allReviews.length ? ` (${allReviews.length})` : ""}`} active={tab === "reviews"} onPress={() => setTab("reviews")} />
+          {canSeeClientReviews ? <TabBtn label="Ratings" active={tab === "ratings"} onPress={() => setTab("ratings")} /> : null}
+        </View>
 
-        {/* Per-session (tapped a review, or an artist's completed appointment):
-            the review (when present), then that session's "Tattoo journey"
-            photos. Shown even when pending — placeholders stand in for photos
-            not yet shared. */}
-        {perSession ? (
-          <>
-            <Text style={s.sectionTitle} accessibilityRole="header">Tattoo journey</Text>
-            <Text style={s.sectionHint}>
-              {featured
-                ? `Healing progress from ${firstName}'s ${featured.subjectName} tattoo.`
-                : `${isOwn ? "Your" : `${firstName}'s`} healing photos and review for this session will appear here once shared.`}
-            </Text>
-            <JourneyPhotoRow photos={journeyPhotos} onZoom={setZoomUri} />
-            {featured ? <FeaturedReviewCard review={featured} /> : null}
-          </>
-        ) : featured ? (
-          /* Opened via a button: "Latest session" summary — photos first, then
-             the review. Only shown when there's a review with photos to feature. */
-          <>
-            <Text style={s.sectionTitle} accessibilityRole="header">{isOwn ? "Your latest session" : `${firstName}'s latest session`}</Text>
-            <Text style={s.sectionHint}>
-              {isOwn ? `Healing progress from your ${featured.subjectName} tattoo.` : `Healing progress from ${firstName}'s ${featured.subjectName} tattoo.`}
-            </Text>
-            <JourneyPhotoRow photos={journeyPhotos} onZoom={setZoomUri} />
-            <FeaturedReviewCard review={featured} />
-          </>
-        ) : null}
-
-        {/* Other reviews written by this seeker */}
-        <Text style={s.sectionTitle} accessibilityRole="header">{featured ? "Other reviews" : "Reviews"}</Text>
-        {reviews.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 12 }} />
-        ) : otherReviews.length === 0 ? (
-          <Text style={s.muted}>No other reviews yet.</Text>
-        ) : (
-          <>
-            {pageReviews.map((r: SeekerReview) => (
-              <Pressable
-                key={r.id}
-                style={s.reviewCard}
-                onPress={() => router.setParams({ reviewId: r.id })}
-                accessibilityRole="button"
-                accessibilityLabel={`Review of ${r.subjectName}, ${r.overallRating} stars. Tap to open`}
-              >
-                <Text style={s.reviewHead}>{r.subjectName} · ★ {r.overallRating}</Text>
-                {r.title ? <Text style={s.reviewTitle}>{r.title}</Text> : null}
-                {r.body ? <Text style={s.reviewBody}>{r.body}</Text> : null}
-                <ReviewPhotoStrip paths={r.photoPaths} />
-                <Text style={s.reviewDate}>{fmtDate(r.createdAt)}</Text>
-              </Pressable>
-            ))}
-            {totalPages > 1 ? (
-              <View style={s.pager}>
-                <Pressable disabled={safePage === 0} onPress={() => setPage(safePage - 1)} hitSlop={6} style={[s.pagerBtn, safePage === 0 && s.pagerBtnOff]} accessibilityRole="button" accessibilityLabel="Previous page">
-                  <Ionicons name="chevron-back" size={18} color={safePage === 0 ? "#D4D4D8" : "#18181B"} />
+        {tab === "journey" ? (
+          featured ? (
+            // A featured session: photos first, then the review (both layouts
+            // share this order). Title differs: a specific session ("Tattoo
+            // journey") vs the cold-open summary ("… latest session").
+            <>
+              <Text style={s.sectionTitle} accessibilityRole="header">{perSession ? "Tattoo journey" : isOwn ? "Your latest session" : `${firstName}'s latest session`}</Text>
+              <Text style={s.sectionHint}>
+                {isOwn && !perSession ? `Healing progress from your ${featured.subjectName} tattoo.` : `Healing progress from ${firstName}'s ${featured.subjectName} tattoo.`}
+              </Text>
+              <JourneyPhotoRow photos={journeyPhotos} onZoom={setZoomUri} />
+              <FeaturedReviewCard review={featured} />
+            </>
+          ) : perSession ? (
+            // Completed session still pending a review/photos.
+            <>
+              <Text style={s.sectionTitle} accessibilityRole="header">Tattoo journey</Text>
+              <Text style={s.sectionHint}>{isOwn ? "Your" : `${firstName}'s`} healing photos and review for this session will appear here once shared.</Text>
+              <JourneyPhotoRow photos={journeyPhotos} onZoom={setZoomUri} />
+            </>
+          ) : (
+            <View style={s.tabEmpty}>
+              <Ionicons name="footsteps-outline" size={30} color="#D4D4D8" />
+              <Text style={s.muted}>{isOwn ? "You haven’t shared a tattoo journey yet." : `${firstName} hasn’t shared a tattoo journey yet.`}</Text>
+            </View>
+          )
+        ) : tab === "reviews" ? (
+          reviews.isLoading ? (
+            <ActivityIndicator style={{ marginTop: 16 }} />
+          ) : allReviews.length === 0 ? (
+            <View style={s.tabEmpty}>
+              <Ionicons name="star-outline" size={30} color="#D4D4D8" />
+              <Text style={s.muted}>{isOwn ? "You haven’t written any reviews yet." : `${firstName} hasn’t written any reviews yet.`}</Text>
+            </View>
+          ) : (
+            <>
+              {pageReviews.map((r: SeekerReview) => (
+                <Pressable
+                  key={r.id}
+                  style={[s.reviewCard, featured?.id === r.id && s.featuredCard]}
+                  onPress={() => router.setParams({ reviewId: r.id })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Review of ${r.subjectName}, ${r.overallRating} stars. Tap to open its tattoo journey`}
+                >
+                  <Text style={s.reviewHead}>{r.subjectName} · ★ {r.overallRating}</Text>
+                  {r.title ? <Text style={s.reviewTitle}>{r.title}</Text> : null}
+                  {r.body ? <Text style={s.reviewBody} numberOfLines={3}>{r.body}</Text> : null}
+                  <ReviewPhotoStrip paths={r.photoPaths} />
+                  <Text style={s.reviewDate}>{fmtDate(r.createdAt)}</Text>
                 </Pressable>
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <Pressable key={i} onPress={() => setPage(i)} style={[s.pageNum, i === safePage && s.pageNumActive]} accessibilityRole="button" accessibilityLabel={`Page ${i + 1}`}>
-                    <Text style={[s.pageNumText, i === safePage && s.pageNumTextActive]}>{i + 1}</Text>
+              ))}
+              {totalPages > 1 ? (
+                <View style={s.pager}>
+                  <Pressable disabled={safePage === 0} onPress={() => setPage(safePage - 1)} hitSlop={6} style={[s.pagerBtn, safePage === 0 && s.pagerBtnOff]} accessibilityRole="button" accessibilityLabel="Previous page">
+                    <Ionicons name="chevron-back" size={18} color={safePage === 0 ? "#D4D4D8" : "#18181B"} />
                   </Pressable>
-                ))}
-                <Pressable disabled={safePage >= totalPages - 1} onPress={() => setPage(safePage + 1)} hitSlop={6} style={[s.pagerBtn, safePage >= totalPages - 1 && s.pagerBtnOff]} accessibilityRole="button" accessibilityLabel="Next page">
-                  <Ionicons name="chevron-forward" size={18} color={safePage >= totalPages - 1 ? "#D4D4D8" : "#18181B"} />
-                </Pressable>
-              </View>
-            ) : null}
-          </>
+                  {Array.from({ length: totalPages }, (_, i) => (
+                    <Pressable key={i} onPress={() => setPage(i)} style={[s.pageNum, i === safePage && s.pageNumActive]} accessibilityRole="button" accessibilityLabel={`Page ${i + 1}`}>
+                      <Text style={[s.pageNumText, i === safePage && s.pageNumTextActive]}>{i + 1}</Text>
+                    </Pressable>
+                  ))}
+                  <Pressable disabled={safePage >= totalPages - 1} onPress={() => setPage(safePage + 1)} hitSlop={6} style={[s.pagerBtn, safePage >= totalPages - 1 && s.pagerBtnOff]} accessibilityRole="button" accessibilityLabel="Next page">
+                    <Ionicons name="chevron-forward" size={18} color={safePage >= totalPages - 1 ? "#D4D4D8" : "#18181B"} />
+                  </Pressable>
+                </View>
+              ) : null}
+            </>
+          )
+        ) : (
+          /* Ratings — how artists rate this client (only shown to artists / self). */
+          <ClientReviewsSection reviews={clientReviews.data ?? []} loading={clientReviews.isLoading} isOwn={isOwn} />
         )}
       </ScrollView>
       <ImageZoomModal visible={!!zoomUri} uri={zoomUri ?? ""} onClose={() => setZoomUri(null)} label="Tattoo progress" />
@@ -321,6 +332,14 @@ function ClientReviewsSection({ reviews, loading, isOwn }: { reviews: ClientRevi
   );
 }
 
+function TabBtn({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable style={[s.tab, active && s.tabActive]} onPress={onPress} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={label}>
+      <Text style={[s.tabText, active && s.tabTextActive]} numberOfLines={1}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View style={s.statBox}>
@@ -354,6 +373,12 @@ const s = StyleSheet.create({
   statBox: { flex: 1, backgroundColor: "#F4F4F5", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   messageBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#18181B", borderRadius: 14, paddingVertical: 13, marginTop: 4 },
   messageBtnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  tabs: { flexDirection: "row", gap: 8, marginTop: 20, marginBottom: 6 },
+  tab: { flex: 1, paddingVertical: 9, borderRadius: 999, backgroundColor: "#F4F4F5", alignItems: "center" },
+  tabActive: { backgroundColor: "#18181B" },
+  tabText: { fontWeight: "700", color: "#52525B", fontSize: 13 },
+  tabTextActive: { color: "#fff" },
+  tabEmpty: { alignItems: "center", gap: 10, paddingVertical: 36 },
   statValue: { fontSize: 20, fontWeight: "900", color: "#18181B" },
   statLabel: { color: "#71717A", fontSize: 12, fontWeight: "600", marginTop: 2 },
   sectionTitle: { fontSize: 18, fontWeight: "800", marginTop: 20 },
