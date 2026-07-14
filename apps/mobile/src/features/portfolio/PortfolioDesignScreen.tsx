@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { PortfolioCard } from "@inkora/data-access";
-import { useMoreFromArtist, usePortfolioDesign, usePortfolioSaved } from "@inkora/data-access";
+import { useAuth, useMoreFromArtist, usePortfolioDesign, usePortfolioSaved } from "@inkora/data-access";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -16,6 +16,10 @@ import { Avatar } from "../booking/components/ui";
 export function PortfolioDesignScreen({ id }: { id: string }) {
   const router = useRouter();
   const toast = useToast();
+  const { ctx } = useAuth();
+  // Save / Try-on / Request-booking are client actions — hidden for the studio
+  // owner, who browses designs but books nothing.
+  const isStudioOwner = ctx.roles.includes("studio_admin");
   const detail = usePortfolioDesign(supabase, id);
   const save = usePortfolioSaved(supabase, id);
   const [zoom, setZoom] = useState(false);
@@ -78,41 +82,45 @@ export function PortfolioDesignScreen({ id }: { id: string }) {
             </Pressable>
           ) : null}
 
-          {/* Actions */}
-          <View style={s.actions}>
-            <Pressable
-              style={[s.actionBtn, save.saved && s.actionBtnActive]}
-              onPress={onToggleSave}
-              disabled={save.isToggling}
-              accessibilityRole="button"
-              accessibilityState={{ selected: save.saved }}
-              accessibilityLabel={save.saved ? "Saved. Tap to remove from your designs" : "Save design"}
-            >
-              <Ionicons name={save.saved ? "heart" : "heart-outline"} size={20} color={save.saved ? "#E5484D" : "#18181B"} />
-              <Text style={[s.actionText, save.saved && { color: "#E5484D" }]}>{save.saved ? "Saved" : "Save"}</Text>
-            </Pressable>
+          {/* Client actions — hidden for studio owners (business account). */}
+          {!isStudioOwner ? (
+            <>
+              <View style={s.actions}>
+                <Pressable
+                  style={[s.actionBtn, save.saved && s.actionBtnActive]}
+                  onPress={onToggleSave}
+                  disabled={save.isToggling}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: save.saved }}
+                  accessibilityLabel={save.saved ? "Saved. Tap to remove from your designs" : "Save design"}
+                >
+                  <Ionicons name={save.saved ? "heart" : "heart-outline"} size={20} color={save.saved ? "#E5484D" : "#18181B"} />
+                  <Text style={[s.actionText, save.saved && { color: "#E5484D" }]}>{save.saved ? "Saved" : "Save"}</Text>
+                </Pressable>
 
-            <Pressable
-              style={s.actionBtn}
-              onPress={() => router.push({ pathname: "/create/new", params: { imagePath: d.imagePath } })}
-              accessibilityRole="button"
-              accessibilityLabel="Try this design on you with AI preview"
-            >
-              <Ionicons name="sparkles-outline" size={20} color="#18181B" />
-              <Text style={s.actionText}>Try on you</Text>
-            </Pressable>
-          </View>
+                <Pressable
+                  style={s.actionBtn}
+                  onPress={() => router.push({ pathname: "/create/new", params: { imagePath: d.imagePath } })}
+                  accessibilityRole="button"
+                  accessibilityLabel="Try this design on you with AI preview"
+                >
+                  <Ionicons name="sparkles-outline" size={20} color="#18181B" />
+                  <Text style={s.actionText}>Try on you</Text>
+                </Pressable>
+              </View>
 
-          {artist ? (
-            <Pressable
-              style={[s.bookBtn, !artist.isAccepting && s.bookBtnOff]}
-              onPress={() => router.push({ pathname: "/booking-request", params: { artistId: artist.id, refPath: d.imagePath } })}
-              disabled={!artist.isAccepting}
-              accessibilityRole="button"
-              accessibilityLabel={artist.isAccepting ? "Request a booking with this design as a reference" : "Artist not accepting bookings"}
-            >
-              <Text style={s.bookText}>{artist.isAccepting ? "Request booking with this design" : "Not accepting bookings"}</Text>
-            </Pressable>
+              {artist ? (
+                <Pressable
+                  style={[s.bookBtn, !artist.isAccepting && s.bookBtnOff]}
+                  onPress={() => router.push({ pathname: "/booking-request", params: { artistId: artist.id, refPath: d.imagePath } })}
+                  disabled={!artist.isAccepting}
+                  accessibilityRole="button"
+                  accessibilityLabel={artist.isAccepting ? "Request a booking with this design as a reference" : "Artist not accepting bookings"}
+                >
+                  <Text style={s.bookText}>{artist.isAccepting ? "Request booking with this design" : "Not accepting bookings"}</Text>
+                </Pressable>
+              ) : null}
+            </>
           ) : null}
 
           {/* More from this artist */}
