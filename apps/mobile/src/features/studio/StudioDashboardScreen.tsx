@@ -102,7 +102,7 @@ export function StudioDashboardScreen() {
         </View>
         <View style={s.gridRow}>
           <BigTile label="Cancelled" value={ov?.cancelledBookings ?? 0} icon="close-circle-outline" />
-          <BigTile label="Applications" value={ov?.pendingApplications ?? 0} icon="mail-unread-outline" alert={!!ov?.pendingApplications} />
+          <BigTile label="Applications" value={ov?.pendingApplications ?? 0} icon="mail-unread-outline" alert={!!ov?.pendingApplications} onPress={() => router.push("/studio-applications")} />
         </View>
 
         {/* Roster */}
@@ -143,14 +143,20 @@ function HeroStat({ value, label }: { value: number; label: string }) {
   );
 }
 
-function BigTile({ label, value, icon, alert }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; alert?: boolean }) {
-  return (
-    <View style={s.bigTile} accessible accessibilityLabel={`${value} ${label}`}>
-      <Ionicons name={icon} size={16} color="#D4D4D8" style={s.bigIcon} />
+function BigTile({ label, value, icon, alert, onPress }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; alert?: boolean; onPress?: () => void }) {
+  const inner = (
+    <>
+      <Ionicons name={onPress ? "chevron-forward" : icon} size={16} color="#D4D4D8" style={s.bigIcon} />
       <Text style={[s.bigValue, alert && { color: "#E5484D" }]}>{value}</Text>
       <Text style={s.bigLabel}>{label}</Text>
-    </View>
+    </>
   );
+  if (onPress) {
+    return (
+      <Pressable style={s.bigTile} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${value} ${label}, open`}>{inner}</Pressable>
+    );
+  }
+  return <View style={s.bigTile} accessible accessibilityLabel={`${value} ${label}`}>{inner}</View>;
 }
 
 function ArtistStatCard({ artist, stat, onOpen, onMessage }: { artist: StudioRosterArtist; stat?: StudioArtistStat; onOpen: () => void; onMessage: () => void }) {

@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   bookingKeys, declineRequest, getChatSignedUrl, markEntityNotificationsRead, publicStorageUrl,
-  respondToOffer, uploadChatFile, useAuth, useBookingRequest, useChat, useConversations, useOfferStatus,
+  respondStudioApplication, respondToOffer, uploadChatFile, useAuth, useBookingRequest, useChat,
+  useConversations, useOfferStatus,
 } from "@inkora/data-access";
 import { type ArtistId, type ConversationId, type Message, messageKind, TIME_OF_DAY_LABEL, type TimeOfDay } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
@@ -205,6 +206,7 @@ function Bubble({ message, mine, isLastMine, seen }: { message: Message; mine: b
         {kind === "completed" && <BookingCompletedCard message={message} mine={mine} />}
         {kind === "reschedule" && <BookingRescheduleCard message={message} mine={mine} />}
         {kind === "reschedule_accepted" && <RescheduleAcceptedCard message={message} mine={mine} />}
+        {kind === "application" && <StudioApplicationCard message={message} mine={mine} />}
       </View>
       {mine && isLastMine && <Text style={s.receipt}>{seen ? "Seen" : "Sent"}</Text>}
     </View>
@@ -359,6 +361,7 @@ interface OfferMeta {
   proposedStart?: string | null; priceAmount?: number | null; currencyCode?: string | null; message?: string | null;
 }
 interface ApptMeta { appointmentId?: string; proposedStart?: string | null; proposedEnd?: string | null; priceAmount?: number | null }
+interface ApplicationMeta { studioId?: string }
 
 /** Snapshot of a booking request in the chat. The artist gets quick actions. */
 function BookingRequestCard({ message, mine }: { message: Message; mine: boolean }) {
@@ -598,6 +601,57 @@ function RescheduleAcceptedCard({ message, mine }: { message: Message; mine: boo
       <Text style={[s.reqTitle, { color }]}>✅ Reschedule accepted</Text>
       {md.proposedStart ? <Text style={[s.reqDetail, { color: sub }]}>{fmtDateTime(md.proposedStart)}</Text> : null}
     </Pressable>
+  );
+}
+
+/** An artist's application to join a studio. The owner can accept/decline
+ *  inline; the applying artist sees a pending status. */
+function StudioApplicationCard({ message, mine }: { message: Message; mine: boolean }) {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const { ctx } = useAuth();
+  const md = (message.metadata ?? {}) as ApplicationMeta;
+  const isOwner = ctx.roles.includes("studio_admin") && !mine;
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<"accepted" | "declined" | null>(null);
+  const color = mine ? "#fff" : "#18181B";
+  const sub = mine ? "rgba(255,255,255,0.85)" : "#52525B";
+
+  async function respond(accept: boolean) {
+    if (!md.studioId || !message.senderId) return;
+    setBusy(true);
+    try {
+      await respondStudioApplication(supabase, md.studioId, message.senderId, accept);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["studio-applications", md.studioId] }),
+        qc.invalidateQueries({ queryKey: ["studio-overview", md.studioId] }),
+        qc.invalidateQueries({ queryKey: ["studio-artist-stats", md.studioId] }),
+        qc.invalidateQueries({ queryKey: ["my-studio", ctx.userId] }),
+      ]);
+      setDone(accept ? "accepted" : "declined");
+      toast.show(accept ? "Artist added to your studio" : "Application declined");
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={s.reqCard}>
+      <Text style={[s.reqTitle, { color }]}>🎨 Studio application</Text>
+      <Text style={[s.reqDetail, { color: sub }]}>Wants to join your studio.</Text>
+      {done ? (
+        <Text style={[s.reqDetail, { color: sub, marginTop: 6, fontWeight: "700" }]}>{done === "accepted" ? "✓ Accepted" : "Declined"}</Text>
+      ) : isOwner ? (
+        <View style={s.bookingReqActions}>
+          <Pressable style={[s.brBtn, s.brPrimary]} disabled={busy} onPress={() => void respond(true)} accessibilityRole="button" accessibilityLabel="Accept application"><Text style={s.brPrimaryText}>Accept</Text></Pressable>
+          <Pressable style={[s.brBtn, s.brSecondary]} disabled={busy} onPress={() => void respond(false)} accessibilityRole="button" accessibilityLabel="Decline application"><Text style={[s.brSecondaryText, { color: "#E5484D" }]}>Decline</Text></Pressable>
+        </View>
+      ) : (
+        <Text style={[s.reqDetail, { color: sub, marginTop: 6, fontWeight: "700" }]}>{mine ? "Pending · they have 5 days to reply" : "Pending"}</Text>
+      )}
+    </View>
   );
 }
 

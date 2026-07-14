@@ -40,6 +40,17 @@ export interface StudioOverview {
   cancelledBookings: number;
 }
 
+/** A pending artist application to join a studio (owner's inbox). */
+export interface StudioApplication {
+  artistId: ArtistId;
+  displayName: string;
+  avatarPath: string | null;
+  headline: string | null;
+  ratingAvg: number;
+  ratingCount: number;
+  appliedAt: string;
+}
+
 /** Studio-owner dashboard: per-artist performance stats. */
 export interface StudioArtistStat {
   artistId: ArtistId;

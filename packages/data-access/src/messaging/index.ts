@@ -40,7 +40,7 @@ interface ConvRow {
   id: string;
   type: string;
   studio_id: string | null;
-  studios: { name: string; slug: string; logo_path: string | null } | null;
+  studios: { name: string; slug: string; logo_path: string | null; owner_id: string } | null;
   last_message_at: string | null;
   last_message_preview: string | null;
   conversation_participants: { profile_id: string; last_read_at: string | null; profiles: { display_name: string; avatar_path: string | null } | null }[] | null;
@@ -51,7 +51,7 @@ export async function listConversations(client: InkoraClient): Promise<Conversat
   const me = userRes.user?.id;
   const { data, error } = await client
     .from("conversations")
-    .select("id, type, studio_id, studios(name, slug, logo_path), last_message_at, last_message_preview, conversation_participants(profile_id, last_read_at, profiles(display_name, avatar_path))")
+    .select("id, type, studio_id, studios(name, slug, logo_path, owner_id), last_message_at, last_message_preview, conversation_participants(profile_id, last_read_at, profiles(display_name, avatar_path))")
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(100)
     .returns<ConvRow[]>();
@@ -61,15 +61,18 @@ export async function listConversations(client: InkoraClient): Promise<Conversat
     const mine = parts.find((p) => p.profile_id === me);
     const other = parts.find((p) => p.profile_id !== me);
     const unread = c.last_message_at != null && (mine?.last_read_at == null || c.last_message_at > mine.last_read_at);
-    // A studio-tagged conversation shows the STUDIO's identity, not the owner's.
+    // A studio-tagged conversation shows the STUDIO's identity — but to the
+    // studio's OWNER it shows the other participant (e.g. the applying artist),
+    // since "chatting with your own studio" makes no sense.
+    const showStudio = !!c.studios && c.studios.owner_id !== me;
     return {
       id: c.id as ConversationId,
       type: c.type as ConversationType,
       otherId: (other?.profile_id as ProfileId | null) ?? null,
-      otherName: c.studios?.name ?? other?.profiles?.display_name ?? "Conversation",
-      otherAvatarPath: c.studios ? c.studios.logo_path : (other?.profiles?.avatar_path ?? null),
+      otherName: (showStudio ? c.studios?.name : null) ?? other?.profiles?.display_name ?? "Conversation",
+      otherAvatarPath: showStudio ? (c.studios?.logo_path ?? null) : (other?.profiles?.avatar_path ?? null),
       studioId: (c.studio_id as ConversationSummary["studioId"]) ?? null,
-      studioSlug: c.studios?.slug ?? null,
+      studioSlug: showStudio ? (c.studios?.slug ?? null) : null,
       lastMessagePreview: c.last_message_preview,
       lastMessageAt: c.last_message_at,
       unread,

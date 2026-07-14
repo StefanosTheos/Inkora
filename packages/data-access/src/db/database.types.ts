@@ -2412,6 +2412,18 @@ export type Database = {
           cancelled_bookings: number
         }[]
       }
+      studio_applications: {
+        Args: { p_studio_id: string }
+        Returns: {
+          artist_id: string
+          display_name: string
+          avatar_path: string | null
+          headline: string | null
+          rating_avg: number
+          rating_count: number
+          applied_at: string
+        }[]
+      }
       studio_artist_stats: {
         Args: { p_studio_id: string }
         Returns: {

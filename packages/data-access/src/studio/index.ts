@@ -1,11 +1,12 @@
 import type {
-  ArtistId, PortfolioImage, PortfolioImageId, ProfileId, ReviewId, ReviewItem, StudioArtistStat,
-  StudioId, StudioOverview, StudioProfile,
+  ArtistId, PortfolioImage, PortfolioImageId, ProfileId, ReviewId, ReviewItem, StudioApplication,
+  StudioArtistStat, StudioId, StudioOverview, StudioProfile,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
+import { sendMessage, startStudioConversation } from "../messaging";
 
 const STUDIO_SELECT =
   "id, owner_id, name, slug, bio, logo_path, address_line, city, country, latitude, longitude, opening_hours, " +
@@ -174,7 +175,44 @@ export async function getMyMembership(client: InkoraClient, artistId: string): P
 export async function applyToStudio(client: InkoraClient, studioId: string): Promise<string> {
   const { data, error } = await client.rpc("apply_to_studio", { p_studio_id: studioId });
   if (error) throw toAppError(error);
+  // Surface the application in the owner's chat so they can respond there too.
+  try {
+    const { data: u } = await client.auth.getUser();
+    const me = u.user?.id;
+    const cid = await startStudioConversation(client, studioId);
+    if (me && cid) {
+      await sendMessage(client, cid, me, {
+        type: "booking_card",
+        body: "🎨 Application to join your studio",
+        metadata: { kind: "application", studioId },
+      });
+    }
+  } catch { /* the application chat card is best-effort */ }
   return (data as string) ?? "requested";
+}
+
+/** Owner accepts or rejects a pending application. */
+export async function respondStudioApplication(client: InkoraClient, studioId: string, artistId: string, accept: boolean): Promise<void> {
+  const { error } = await client.rpc("respond_studio_application", { p_studio_id: studioId, p_artist_id: artistId, p_accept: accept });
+  if (error) throw toAppError(error);
+}
+
+/** Pending applications to a studio (owner inbox), oldest first. */
+export async function getStudioApplications(client: InkoraClient, studioId: string): Promise<StudioApplication[]> {
+  const { data, error } = await client.rpc("studio_applications", { p_studio_id: studioId }).returns<{
+    artist_id: string; display_name: string; avatar_path: string | null; headline: string | null;
+    rating_avg: number; rating_count: number; applied_at: string;
+  }[]>();
+  if (error) throw toAppError(error);
+  return (data ?? []).map((r) => ({
+    artistId: r.artist_id as ArtistId,
+    displayName: r.display_name,
+    avatarPath: r.avatar_path,
+    headline: r.headline,
+    ratingAvg: Number(r.rating_avg),
+    ratingCount: r.rating_count,
+    appliedAt: r.applied_at,
+  }));
 }
 
 /** Artist withdraws their own pending application. */
@@ -265,4 +303,7 @@ export function useStudioOverview(client: InkoraClient, studioId: string) {
 }
 export function useStudioArtistStats(client: InkoraClient, studioId: string) {
   return useQuery({ queryKey: ["studio-artist-stats", studioId], queryFn: () => getStudioArtistStats(client, studioId), enabled: !!studioId });
+}
+export function useStudioApplications(client: InkoraClient, studioId: string) {
+  return useQuery({ queryKey: ["studio-applications", studioId], queryFn: () => getStudioApplications(client, studioId), enabled: !!studioId });
 }
