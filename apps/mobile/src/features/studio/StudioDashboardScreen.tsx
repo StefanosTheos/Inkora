@@ -52,7 +52,7 @@ export function StudioDashboardScreen() {
       toast.show((e as Error).message, "error");
     }
   }
-  async function setMembership(artistId: string, status: "suspended" | "removed") {
+  async function setMembership(artistId: string, status: "active" | "suspended" | "removed") {
     setMenuArtist(null);
     try {
       await studioSetMembership(supabase, st?.id ?? "", artistId, status);
@@ -61,11 +61,15 @@ export function StudioDashboardScreen() {
         qc.invalidateQueries({ queryKey: ["studio-artist-stats", st?.id] }),
         qc.invalidateQueries({ queryKey: ["studio-overview", st?.id] }),
       ]);
-      toast.show(status === "removed" ? "Artist removed from studio" : "Artist suspended");
+      toast.show(status === "removed" ? "Artist removed from studio" : status === "active" ? "Artist reactivated" : "Artist suspended");
     } catch (e) {
       toast.show((e as Error).message, "error");
     }
   }
+  const confirmRemove = (artistId: string, name: string) => {
+    void confirm({ title: `Remove ${name}?`, message: "They'll be taken off your roster.", confirmLabel: "Remove", destructive: true })
+      .then((ok) => { if (ok) void setMembership(artistId, "removed"); });
+  };
   const confirmSignOut = () => {
     void confirm({ title: "Sign out?", message: "You'll need to sign in again to manage your studio.", confirmLabel: "Sign out", destructive: true })
       .then((ok) => { if (ok) void signOut(); });
@@ -161,6 +165,35 @@ export function StudioDashboardScreen() {
             <ArtistStatCard key={a.id} artist={a} stat={statsById.get(a.id)} onOpen={() => router.push(`/artist/${a.id}`)} onMessage={() => void messageArtist(a.id)} onMenu={() => setMenuArtist({ id: a.id, name: a.displayName })} />
           ))
         )}
+
+        {/* Suspended members — off the roster, still tied to the studio. */}
+        {st.suspended.length > 0 ? (
+          <>
+            <Text style={s.section} accessibilityRole="header">Suspended</Text>
+            {st.suspended.map((a) => (
+              <View key={a.id} style={s.card}>
+                <View style={s.cardHead}>
+                  <Pressable style={s.cardPerson} onPress={() => router.push(`/artist/${a.id}`)} accessibilityRole="button" accessibilityLabel={`View ${a.displayName}'s profile`}>
+                    <Avatar path={a.avatarPath} name={a.displayName} size={44} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.cardName} numberOfLines={1}>{a.displayName}</Text>
+                      <Text style={s.cardSub} numberOfLines={1}>{a.headline ?? "Tattoo artist"}</Text>
+                    </View>
+                  </Pressable>
+                  <View style={s.suspendedChip}><Text style={s.suspendedChipText}>Suspended</Text></View>
+                </View>
+                <View style={s.suspendActions}>
+                  <Pressable style={[s.suspendBtn, s.reactivateBtn]} onPress={() => void setMembership(a.id, "active")} accessibilityRole="button" accessibilityLabel={`Reactivate ${a.displayName}`}>
+                    <Text style={s.reactivateText}>Reactivate</Text>
+                  </Pressable>
+                  <Pressable style={[s.suspendBtn, s.removeOutlineBtn]} onPress={() => confirmRemove(a.id, a.displayName)} accessibilityRole="button" accessibilityLabel={`Remove ${a.displayName}`}>
+                    <Text style={s.removeOutlineText}>Remove</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </>
+        ) : null}
 
         {/* Recent reviews of the studio */}
         {(reviewsQ.data ?? []).length > 0 ? (
@@ -339,6 +372,14 @@ const s = StyleSheet.create({
   metric: { alignItems: "center", flex: 1 },
   metricValue: { fontWeight: "800", fontSize: 15, color: "#18181B" },
   metricLabel: { color: "#A1A1AA", fontSize: 10, fontWeight: "600", marginTop: 2 },
+  suspendedChip: { backgroundColor: "#FFF7ED", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  suspendedChipText: { color: "#C2410C", fontWeight: "800", fontSize: 12 },
+  suspendActions: { flexDirection: "row", gap: 10, marginTop: 12 },
+  suspendBtn: { flex: 1, borderRadius: 12, paddingVertical: 11, alignItems: "center" },
+  reactivateBtn: { backgroundColor: "#18181B" },
+  reactivateText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  removeOutlineBtn: { borderWidth: 1, borderColor: "#E4E4E7" },
+  removeOutlineText: { color: "#DC2626", fontWeight: "800", fontSize: 14 },
   reviewCard: { borderWidth: 1, borderColor: "#F0F0F2", borderRadius: 14, padding: 12, marginBottom: 10 },
   reviewHead: { fontWeight: "800", fontSize: 14, color: "#18181B" },
   reviewTitle: { fontWeight: "600", marginTop: 4, color: "#18181B" },

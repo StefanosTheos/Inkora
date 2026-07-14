@@ -239,6 +239,10 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
               <View style={[s.ctaPrimary, s.ctaDisabled]} accessibilityRole="text" accessibilityLabel="You work here">
                 <Text style={s.ctaPrimaryText}>✓ You work here</Text>
               </View>
+            ) : hereStatus === "suspended" ? (
+              <View style={[s.ctaPrimary, s.ctaSuspended]} accessibilityRole="text" accessibilityLabel="Your membership at this studio is suspended">
+                <Text style={[s.ctaPrimaryText, s.ctaSuspendedText]}>Membership suspended</Text>
+              </View>
             ) : hereStatus === "invited" ? (
               <>
                 <Pressable style={s.ctaSecondary} disabled={applyBusy} accessibilityRole="button" accessibilityLabel="Decline invitation" onPress={() => onRespondInvite(false)}>
@@ -427,4 +431,6 @@ const s = StyleSheet.create({
   ctaDisabled: { backgroundColor: "#D4D4D8" },
   ctaPending: { backgroundColor: "#fff", borderWidth: 1, borderColor: "#E5484D" },
   ctaPendingText: { color: "#E5484D" },
+  ctaSuspended: { backgroundColor: "#FFF7ED", borderWidth: 1, borderColor: "#FDBA74" },
+  ctaSuspendedText: { color: "#C2410C" },
 });

@@ -47,17 +47,18 @@ interface StudioRow {
 }
 
 function mapStudioRow(r: StudioRow): StudioProfile {
-  const roster = (r.studio_memberships ?? [])
-    .filter((m) => m.status === "active" && m.artists)
-    .map((m) => ({
-      id: m.artists!.id as ArtistId,
-      displayName: m.artists!.profiles?.display_name ?? "Artist",
-      avatarPath: m.artists!.profiles?.avatar_path ?? null,
-      headline: m.artists!.headline,
-      ratingAvg: Number(m.artists!.rating_avg),
-      ratingCount: m.artists!.rating_count,
-      styles: (m.artists!.artist_styles ?? []).map((s) => s.tattoo_styles?.slug).filter((x): x is string => Boolean(x)),
-    }));
+  const toArtist = (m: RosterMember) => ({
+    id: m.artists!.id as ArtistId,
+    displayName: m.artists!.profiles?.display_name ?? "Artist",
+    avatarPath: m.artists!.profiles?.avatar_path ?? null,
+    headline: m.artists!.headline,
+    ratingAvg: Number(m.artists!.rating_avg),
+    ratingCount: m.artists!.rating_count,
+    styles: (m.artists!.artist_styles ?? []).map((s) => s.tattoo_styles?.slug).filter((x): x is string => Boolean(x)),
+  });
+  const members = (r.studio_memberships ?? []).filter((m) => m.artists);
+  const roster = members.filter((m) => m.status === "active").map(toArtist);
+  const suspended = members.filter((m) => m.status === "suspended").map(toArtist);
   const styles = Array.from(new Set(roster.flatMap((a) => a.styles)));
   return {
     id: r.id as StudioId,
@@ -77,6 +78,7 @@ function mapStudioRow(r: StudioRow): StudioProfile {
     openingHours: r.opening_hours ?? {},
     styles,
     roster,
+    suspended,
   };
 }
 

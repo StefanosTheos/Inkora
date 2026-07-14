@@ -31,6 +31,8 @@ export interface StudioProfile {
   /** Union of the roster's style slugs (studio "specialties"). */
   styles: string[];
   roster: StudioRosterArtist[];
+  /** Suspended members — only populated for the studio owner (RLS-scoped). */
+  suspended: StudioRosterArtist[];
 }
 
 /** Editable studio fields (studio-owner "Edit studio"). */
