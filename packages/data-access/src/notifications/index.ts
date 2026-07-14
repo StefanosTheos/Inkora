@@ -136,6 +136,17 @@ function acquireNotificationChannel(client: InkoraClient, qc: QueryClientRef): (
             void qc.invalidateQueries({ queryKey: [detailKey, n.entityId] });
           }
         }
+        // Studio membership events: an artist applied (-> owner) or the studio
+        // replied (-> artist). Refresh the owner's dashboard/applications and
+        // the artist's membership state so both update without a manual reload.
+        if (n.type === "membership_request") {
+          void qc.invalidateQueries({ queryKey: ["my-membership"] });
+          void qc.invalidateQueries({ queryKey: ["my-studio"] });
+          if (n.entityId) {
+            void qc.invalidateQueries({ queryKey: ["studio-overview", n.entityId] });
+            void qc.invalidateQueries({ queryKey: ["studio-applications", n.entityId] });
+          }
+        }
       })
       .subscribe();
   }

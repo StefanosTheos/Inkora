@@ -67,5 +67,21 @@ begin
       values (v_conv, r.artist_id, 'booking_card', '🎨 Application to join your studio',
               jsonb_build_object('kind', 'application', 'studioId', v_studio::text), r.created_at);
     end if;
+
+    -- owner notification (the apply_to_studio RPC sends this for real applies;
+    -- seeded rows bypass it, so add one here for the bell). Idempotent.
+    if not exists (
+      select 1 from public.notifications n
+      where n.recipient_id = v_owner and n.type = 'membership_request'
+        and n.entity_id = v_studio and (n.data->>'artistId') = r.artist_id::text
+    ) then
+      insert into public.notifications (recipient_id, type, title, body, entity_type, entity_id, data, created_at)
+      select v_owner, 'membership_request', 'New artist application',
+             coalesce(p.display_name, 'An artist') || ' applied to join your studio',
+             'studio', v_studio,
+             jsonb_build_object('artistId', r.artist_id::text, 'studioId', v_studio::text),
+             r.created_at
+      from public.profiles p where p.id = r.artist_id;
+    end if;
   end loop;
 end $$;

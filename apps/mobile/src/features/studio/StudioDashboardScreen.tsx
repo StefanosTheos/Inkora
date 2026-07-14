@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  startDirectConversation, useAuth, useMyStudio, useStudioArtistStats, useStudioOverview,
+  startDirectConversation, useAuth, useMyStudio, useNotifications, useStudioArtistStats, useStudioOverview,
 } from "@inkora/data-access";
 import type { StudioArtistStat, StudioRosterArtist } from "@inkora/domain";
 import { Image } from "expo-image";
@@ -26,6 +26,8 @@ export function StudioDashboardScreen() {
   const st = studioQ.data;
   const overviewQ = useStudioOverview(supabase, st?.id ?? "");
   const statsQ = useStudioArtistStats(supabase, st?.id ?? "");
+  const { notifications } = useNotifications(supabase);
+  const unread = notifications.filter((n) => !n.readAt).length;
   const ov = overviewQ.data;
   const statsById = new Map((statsQ.data ?? []).map((x) => [x.artistId, x]));
 
@@ -58,9 +60,15 @@ export function StudioDashboardScreen() {
       <ScrollView contentContainerStyle={s.body}>
         <View style={s.topbar}>
           <Text style={s.topTitle} accessibilityRole="header">Studio</Text>
-          <Pressable onPress={() => router.push("/profile/account")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Account settings">
-            <Ionicons name="settings-outline" size={24} color="#18181B" />
-          </Pressable>
+          <View style={s.topActions}>
+            <Pressable onPress={() => router.push("/notifications")} hitSlop={10} accessibilityRole="button" accessibilityLabel={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}>
+              <Ionicons name="notifications-outline" size={24} color="#18181B" />
+              {unread > 0 ? <View style={s.bellDot} /> : null}
+            </Pressable>
+            <Pressable onPress={() => router.push("/profile/account")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Account settings">
+              <Ionicons name="settings-outline" size={24} color="#18181B" />
+            </Pressable>
+          </View>
         </View>
 
         {/* Studio identity */}
@@ -68,7 +76,7 @@ export function StudioDashboardScreen() {
           {st.logoPath ? (
             <Image source={{ uri: imageUrl(st.logoPath, 120) }} style={s.logo} contentFit="cover" accessibilityRole="image" accessibilityLabel="Studio logo" />
           ) : (
-            <View style={[s.logo, s.logoEmpty]}><Ionicons name="business" size={26} color="#A1A1AA" /></View>
+            <View style={s.logo}><Text style={s.logoInitial}>{st.name.charAt(0).toUpperCase()}</Text></View>
           )}
           <View style={{ flex: 1 }}>
             <Text style={s.name} numberOfLines={1}>{st.name}</Text>
@@ -204,9 +212,11 @@ const s = StyleSheet.create({
   body: { padding: 16, paddingBottom: 40, gap: 4 },
   topbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   topTitle: { fontSize: 28, fontWeight: "800" },
+  topActions: { flexDirection: "row", alignItems: "center", gap: 18 },
+  bellDot: { position: "absolute", top: -2, right: -2, width: 9, height: 9, borderRadius: 5, backgroundColor: "#E5484D", borderWidth: 1.5, borderColor: "#fff" },
   studioRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  logo: { width: 60, height: 60, borderRadius: 16, backgroundColor: "#F4F4F5" },
-  logoEmpty: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#EEE" },
+  logo: { width: 60, height: 60, borderRadius: 16, backgroundColor: "#1F1B2E", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  logoInitial: { color: "#fff", fontSize: 26, fontWeight: "800" },
   name: { fontSize: 20, fontWeight: "800", color: "#18181B" },
   sub: { color: "#71717A", marginTop: 2, fontWeight: "600" },
   headerBtns: { flexDirection: "row", gap: 10, marginTop: 12 },
