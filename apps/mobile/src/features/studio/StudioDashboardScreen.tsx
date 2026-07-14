@@ -88,13 +88,21 @@ export function StudioDashboardScreen() {
 
         {/* Overview */}
         <Text style={s.section} accessibilityRole="header">Overview</Text>
-        <View style={s.tiles}>
-          <StatTile label="Artists" value={ov?.activeArtists ?? 0} icon="people-outline" />
-          <StatTile label="Applications" value={ov?.pendingApplications ?? 0} icon="mail-unread-outline" accent={!!ov?.pendingApplications} />
-          <StatTile label="Profile visits" value={ov?.profileVisits ?? 0} icon="eye-outline" />
-          <StatTile label="Completed" value={ov?.completedBookings ?? 0} icon="checkmark-done-outline" />
-          <StatTile label="Scheduled" value={ov?.scheduledBookings ?? 0} icon="calendar-outline" />
-          <StatTile label="Cancelled" value={ov?.cancelledBookings ?? 0} icon="close-circle-outline" />
+        <View style={s.hero}>
+          <View style={s.heroBloom} />
+          <HeroStat value={ov?.activeArtists ?? 0} label="Artists" />
+          <View style={s.heroDivider} />
+          <HeroStat value={(ov?.completedBookings ?? 0) + (ov?.scheduledBookings ?? 0)} label="Bookings" />
+          <View style={s.heroDivider} />
+          <HeroStat value={ov?.profileVisits ?? 0} label="Visits" />
+        </View>
+        <View style={s.gridRow}>
+          <BigTile label="Completed" value={ov?.completedBookings ?? 0} icon="checkmark-done-outline" />
+          <BigTile label="Scheduled" value={ov?.scheduledBookings ?? 0} icon="calendar-outline" />
+        </View>
+        <View style={s.gridRow}>
+          <BigTile label="Cancelled" value={ov?.cancelledBookings ?? 0} icon="close-circle-outline" />
+          <BigTile label="Applications" value={ov?.pendingApplications ?? 0} icon="mail-unread-outline" alert={!!ov?.pendingApplications} />
         </View>
 
         {/* Roster */}
@@ -126,12 +134,21 @@ export function StudioDashboardScreen() {
   );
 }
 
-function StatTile({ label, value, icon, accent }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; accent?: boolean }) {
+function HeroStat({ value, label }: { value: number; label: string }) {
   return (
-    <View style={[s.tile, accent && s.tileAccent]} accessible accessibilityLabel={`${value} ${label}`}>
-      <Ionicons name={icon} size={16} color={accent ? "#E5484D" : "#71717A"} />
-      <Text style={[s.tileValue, accent && { color: "#E5484D" }]}>{value}</Text>
-      <Text style={s.tileLabel}>{label}</Text>
+    <View style={s.heroStat} accessible accessibilityLabel={`${value} ${label}`}>
+      <Text style={s.heroValue}>{value}</Text>
+      <Text style={s.heroLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function BigTile({ label, value, icon, alert }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; alert?: boolean }) {
+  return (
+    <View style={s.bigTile} accessible accessibilityLabel={`${value} ${label}`}>
+      <Ionicons name={icon} size={16} color="#D4D4D8" style={s.bigIcon} />
+      <Text style={[s.bigValue, alert && { color: "#E5484D" }]}>{value}</Text>
+      <Text style={s.bigLabel}>{label}</Text>
     </View>
   );
 }
@@ -190,11 +207,17 @@ const s = StyleSheet.create({
   outlineBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 12, paddingVertical: 11 },
   outlineBtnText: { fontWeight: "700", fontSize: 14, color: "#18181B" },
   section: { fontSize: 18, fontWeight: "800", marginTop: 22, marginBottom: 10 },
-  tiles: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  tile: { width: "31.5%", backgroundColor: "#F9FAFB", borderRadius: 16, paddingVertical: 14, paddingHorizontal: 10, gap: 4 },
-  tileAccent: { backgroundColor: "#FEF2F2" },
-  tileValue: { fontSize: 22, fontWeight: "900", color: "#18181B" },
-  tileLabel: { color: "#71717A", fontSize: 11, fontWeight: "600" },
+  hero: { flexDirection: "row", alignItems: "center", backgroundColor: "#18181B", borderRadius: 22, paddingVertical: 22, paddingHorizontal: 8, overflow: "hidden", marginBottom: 10 },
+  heroBloom: { position: "absolute", top: -44, right: -24, width: 160, height: 160, borderRadius: 80, backgroundColor: "#E5484D", opacity: 0.22 },
+  heroStat: { flex: 1, alignItems: "center" },
+  heroValue: { color: "#fff", fontSize: 28, fontWeight: "900" },
+  heroLabel: { color: "#A1A1AA", fontSize: 12, fontWeight: "600", marginTop: 5, letterSpacing: 0.2 },
+  heroDivider: { width: 1, height: 36, backgroundColor: "rgba(255,255,255,0.12)" },
+  gridRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  bigTile: { flex: 1, borderRadius: 18, padding: 16, backgroundColor: "#fff", borderWidth: 1, borderColor: "#EEEEF0" },
+  bigIcon: { position: "absolute", top: 15, right: 15 },
+  bigValue: { fontSize: 28, fontWeight: "900", color: "#18181B", marginTop: 4 },
+  bigLabel: { color: "#A1A1AA", fontSize: 11, fontWeight: "700", marginTop: 4, textTransform: "uppercase", letterSpacing: 0.7 },
   card: { borderWidth: 1, borderColor: "#F0F0F2", borderRadius: 16, padding: 12, marginBottom: 10 },
   cardHead: { flexDirection: "row", alignItems: "center", gap: 12 },
   cardName: { fontWeight: "800", fontSize: 15, color: "#18181B" },
