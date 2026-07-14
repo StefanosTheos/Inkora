@@ -12,10 +12,14 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
+import { Pager } from "../../components/Pager";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDate } from "../booking/components/ui";
+
+/** Artists shown per page on the roster before paging kicks in. */
+const ROSTER_PAGE_SIZE = 5;
 
 /** Compact currency for headline numbers: €0, €120, €2.4k, €18k. */
 const compactMoney = (n: number): string => {
@@ -34,6 +38,7 @@ export function StudioDashboardScreen() {
   const { ctx, signOut } = useAuth();
   const meId = ctx.userId ?? "";
   const [menuArtist, setMenuArtist] = useState<{ id: string; name: string } | null>(null);
+  const [rosterPage, setRosterPage] = useState(0);
   const studioQ = useMyStudio(supabase, meId);
   const st = studioQ.data;
   const overviewQ = useStudioOverview(supabase, st?.id ?? "");
@@ -43,6 +48,10 @@ export function StudioDashboardScreen() {
   const unread = notifications.filter((n) => !n.readAt).length;
   const ov = overviewQ.data;
   const statsById = new Map((statsQ.data ?? []).map((x) => [x.artistId, x]));
+  const roster = st?.roster ?? [];
+  const rosterPages = Math.max(1, Math.ceil(roster.length / ROSTER_PAGE_SIZE));
+  const safeRosterPage = Math.min(rosterPage, rosterPages - 1);
+  const pagedRoster = roster.slice(safeRosterPage * ROSTER_PAGE_SIZE, safeRosterPage * ROSTER_PAGE_SIZE + ROSTER_PAGE_SIZE);
 
   async function messageArtist(artistId: string) {
     try {
@@ -158,12 +167,15 @@ export function StudioDashboardScreen() {
         </View>
         {statsQ.isLoading ? (
           <ActivityIndicator style={{ marginTop: 12 }} />
-        ) : st.roster.length === 0 ? (
+        ) : roster.length === 0 ? (
           <Text style={s.muted}>No artists onboarded yet. Invite one to get started.</Text>
         ) : (
-          st.roster.map((a) => (
-            <ArtistStatCard key={a.id} artist={a} stat={statsById.get(a.id)} onOpen={() => router.push(`/artist/${a.id}`)} onMessage={() => void messageArtist(a.id)} onMenu={() => setMenuArtist({ id: a.id, name: a.displayName })} />
-          ))
+          <>
+            {pagedRoster.map((a) => (
+              <ArtistStatCard key={a.id} artist={a} stat={statsById.get(a.id)} onOpen={() => router.push(`/artist/${a.id}`)} onMessage={() => void messageArtist(a.id)} onMenu={() => setMenuArtist({ id: a.id, name: a.displayName })} />
+            ))}
+            <Pager page={safeRosterPage} totalPages={rosterPages} onChange={setRosterPage} />
+          </>
         )}
 
         {/* Suspended members — off the roster, still tied to the studio. */}
