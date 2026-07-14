@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  recordProfileVisit, startDirectConversation, useArtistAvailability, useArtistFlashes, useArtistPortfolio,
-  useArtistProfile, useArtistReviews, useArtistSaved, useAuth,
+  recordProfileVisit, startDirectConversation, studioInviteArtist, useArtistAvailability, useArtistFlashes,
+  useArtistPortfolio, useArtistProfile, useArtistReviews, useArtistSaved, useAuth, useMyStudio,
 } from "@inkora/data-access";
 import {
   type AvailabilitySlot, type Complexity, DAY_LABELS,
   estimatePrice, formatAmount, formatStyleSlug, type PortfolioImage, type ReviewItem,
 } from "@inkora/domain";
+import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -50,12 +51,44 @@ export function ArtistProfileScreen({ id }: { id: string }) {
   const save = useArtistSaved(supabase, id);
   const [tab, setTab] = useState<Tab>("portfolio");
   const [complexity, setComplexity] = useState<Complexity>("medium");
+  // A studio owner sees business actions (Message, Invite) — not client ones
+  // (Save, Request booking).
+  const qc = useQueryClient();
+  const isStudioOwner = ctx.roles.includes("studio_admin");
+  const myStudio = useMyStudio(supabase, isStudioOwner ? (ctx.userId ?? "") : "");
+  const onRoster = (myStudio.data?.roster ?? []).some((r) => r.id === id);
+  const [inviteBusy, setInviteBusy] = useState(false);
 
   const onToggleSave = () => {
     const next = !save.saved;
     save.toggle();
     toast.show(next ? "Saved to your artists" : "Removed from saved");
   };
+  async function messageArtist() {
+    try {
+      const cid = await startDirectConversation(supabase, id);
+      router.push(`/chats/${cid}`);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    }
+  }
+  async function inviteToStudio() {
+    const sid = myStudio.data?.id;
+    if (!sid) return;
+    setInviteBusy(true);
+    try {
+      await studioInviteArtist(supabase, sid, id);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["my-studio", ctx.userId] }),
+        qc.invalidateQueries({ queryKey: ["studio-overview", sid] }),
+      ]);
+      toast.show("Invitation sent");
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setInviteBusy(false);
+    }
+  }
 
   if (profile.isLoading) {
     return <View style={s.center}><ActivityIndicator /></View>;
@@ -148,6 +181,22 @@ export function ArtistProfileScreen({ id }: { id: string }) {
         <View style={[s.cta, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Text style={s.selfNote}>This is your public profile — edit it from your dashboard.</Text>
         </View>
+      ) : isStudioOwner ? (
+        // Studio owner: business actions only — Message + invite to the roster.
+        <View style={[s.cta, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <Pressable style={s.ctaSecondary} onPress={() => void messageArtist()}>
+            <Text style={s.ctaSecondaryText}>Message</Text>
+          </Pressable>
+          {onRoster ? (
+            <View style={[s.ctaPrimary, s.ctaDisabled]} accessibilityRole="text" accessibilityLabel="Already on your roster">
+              <Text style={s.ctaPrimaryText}>✓ On your roster</Text>
+            </View>
+          ) : (
+            <Pressable style={[s.ctaPrimary, inviteBusy && s.ctaDisabled]} disabled={inviteBusy} onPress={() => void inviteToStudio()} accessibilityRole="button" accessibilityLabel={`Invite ${a.displayName} to your studio`}>
+              {inviteBusy ? <ActivityIndicator color="#fff" /> : <Text style={s.ctaPrimaryText}>Invite to studio</Text>}
+            </Pressable>
+          )}
+        </View>
       ) : (
         <View style={[s.cta, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <Pressable
@@ -160,17 +209,7 @@ export function ArtistProfileScreen({ id }: { id: string }) {
           >
             <Ionicons name={save.saved ? "heart" : "heart-outline"} size={24} color={save.saved ? "#E5484D" : "#18181B"} />
           </Pressable>
-          <Pressable
-            style={s.ctaSecondary}
-            onPress={async () => {
-              try {
-                const cid = await startDirectConversation(supabase, a.id);
-                router.push(`/chats/${cid}`);
-              } catch (e) {
-                toast.show((e as Error).message, "error");
-              }
-            }}
-          >
+          <Pressable style={s.ctaSecondary} onPress={() => void messageArtist()}>
             <Text style={s.ctaSecondaryText}>Message</Text>
           </Pressable>
           <Pressable

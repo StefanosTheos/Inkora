@@ -66,6 +66,10 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
   const mem = membership.data;
   const hereStatus = mem && mem.studioId === st.id ? mem.status : null; // requested | active | ...
   const boundElsewhere = !!mem && mem.studioId !== st.id;
+  // Studio owners are business accounts: no "Request booking". Viewing their own
+  // studio's public page, they just preview it (no message-yourself either).
+  const isStudioAdmin = ctx.roles.includes("studio_admin");
+  const isOwnerViewer = !!meId && st.ownerId === meId;
   // A pending application elsewhere reads differently from actually working there.
   const elsewhereHint = mem?.status === "requested"
     ? "You've already applied to work for another studio."
@@ -204,6 +208,10 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
 
       {/* Sticky CTA */}
       <View style={[s.cta, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        {isOwnerViewer ? (
+          <Text style={s.ctaHint} accessibilityRole="text">This is your studio&apos;s public page — edit it from your dashboard.</Text>
+        ) : (
+          <>
         {boundElsewhere && (
           <Text style={s.ctaHint} accessibilityRole="text">{elsewhereHint}</Text>
         )}
@@ -265,7 +273,7 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
                 )}
               </Pressable>
             )
-          ) : (
+          ) : isStudioAdmin ? null : (
             <Pressable
               style={s.ctaPrimary}
               accessibilityRole="button"
@@ -276,6 +284,8 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
             </Pressable>
           )}
         </View>
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
