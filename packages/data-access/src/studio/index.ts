@@ -1,6 +1,6 @@
 import type {
   ArtistId, PortfolioImage, PortfolioImageId, ProfileId, ReviewId, ReviewItem, StudioApplication,
-  StudioArtistStat, StudioEditInput, StudioId, StudioOverview, StudioProfile,
+  StudioArtistStat, StudioEditInput, StudioId, StudioOverview, StudioProfile, StudioRosterArtist,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
@@ -201,6 +201,52 @@ export async function applyToStudio(client: InkoraClient, studioId: string): Pro
 export async function respondStudioApplication(client: InkoraClient, studioId: string, artistId: string, accept: boolean): Promise<void> {
   const { error } = await client.rpc("respond_studio_application", { p_studio_id: studioId, p_artist_id: artistId, p_accept: accept });
   if (error) throw toAppError(error);
+}
+
+/** Owner suspends / removes / reactivates a roster member. */
+export async function studioSetMembership(client: InkoraClient, studioId: string, artistId: string, status: "active" | "suspended" | "removed"): Promise<void> {
+  const { error } = await client.rpc("studio_set_membership", { p_studio_id: studioId, p_artist_id: artistId, p_status: status });
+  if (error) throw toAppError(error);
+}
+
+/** Owner invites an artist to the studio (artist then accepts/declines). */
+export async function studioInviteArtist(client: InkoraClient, studioId: string, artistId: string): Promise<void> {
+  const { error } = await client.rpc("studio_invite_artist", { p_studio_id: studioId, p_artist_id: artistId });
+  if (error) throw toAppError(error);
+}
+
+/** Artist accepts or declines a studio invitation. */
+export async function respondStudioInvite(client: InkoraClient, studioId: string, accept: boolean): Promise<void> {
+  const { error } = await client.rpc("respond_studio_invite", { p_studio_id: studioId, p_accept: accept });
+  if (error) throw toAppError(error);
+}
+
+interface InviteArtistRow {
+  id: string;
+  display_name: string;
+  avatar_path: string | null;
+  artists: { headline: string | null; rating_avg: number; rating_count: number } | null;
+}
+/** Search artists by name for the invite picker. */
+export async function searchArtistsForInvite(client: InkoraClient, query: string): Promise<StudioRosterArtist[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const { data, error } = await client
+    .from("profiles")
+    .select("id, display_name, avatar_path, artists!inner(headline, rating_avg, rating_count)")
+    .ilike("display_name", `%${q}%`)
+    .limit(20)
+    .returns<InviteArtistRow[]>();
+  if (error) throw toAppError(error);
+  return (data ?? []).map((r) => ({
+    id: r.id as ArtistId,
+    displayName: r.display_name,
+    avatarPath: r.avatar_path,
+    headline: r.artists?.headline ?? null,
+    ratingAvg: Number(r.artists?.rating_avg ?? 0),
+    ratingCount: r.artists?.rating_count ?? 0,
+    styles: [],
+  }));
 }
 
 /** Pending applications to a studio (owner inbox), oldest first. */

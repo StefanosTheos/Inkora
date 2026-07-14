@@ -2416,6 +2416,18 @@ export type Database = {
           rating_count: number
         }[]
       }
+      studio_set_membership: {
+        Args: { p_studio_id: string; p_artist_id: string; p_status: string }
+        Returns: undefined
+      }
+      studio_invite_artist: {
+        Args: { p_studio_id: string; p_artist_id: string }
+        Returns: undefined
+      }
+      respond_studio_invite: {
+        Args: { p_studio_id: string; p_accept: boolean }
+        Returns: string
+      }
       update_studio: {
         Args: {
           p_studio_id: string

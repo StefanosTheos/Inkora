@@ -59,10 +59,11 @@ export function notificationHref(n: Pick<Notification, "type" | "data" | "entity
     case "reward":
       return "/rewards";
     case "membership_request":
-      // The studio owner's "new application" notification carries artistId ->
-      // open the Applications inbox. The artist's accept/decline reply has no
-      // studio slug to deep-link to, so it stays on the inbox screen.
-      return d["artistId"] ? "/studio-applications" : "/notifications";
+      // Owner's "new application" (has artistId) -> Applications inbox.
+      // Artist's invitation (has studioSlug) -> the studio page to accept.
+      if (d["artistId"]) return "/studio-applications";
+      if (d["studioSlug"]) return `/studio/${d["studioSlug"]}`;
+      return "/notifications";
     default:
       return "/notifications";
   }

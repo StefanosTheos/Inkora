@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  applyToStudio, recordProfileVisit, startStudioConversation, useAuth, useMyMembership, useStudioPortfolio,
-  useStudioProfile, useStudioReviews, withdrawStudioApplication,
+  applyToStudio, recordProfileVisit, respondStudioInvite, startStudioConversation, useAuth, useMyMembership,
+  useStudioPortfolio, useStudioProfile, useStudioReviews, withdrawStudioApplication,
 } from "@inkora/data-access";
 import { formatStyleSlug, type PortfolioImage, type ReviewItem, type StudioRosterArtist } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
@@ -85,6 +85,19 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
       await applyToStudio(supabase, st!.id);
       await refreshMembership();
       toast.show("Application sent");
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setApplyBusy(false);
+    }
+  }
+
+  async function onRespondInvite(accept: boolean) {
+    setApplyBusy(true);
+    try {
+      await respondStudioInvite(supabase, st!.id, accept);
+      await refreshMembership();
+      toast.show(accept ? `You joined ${st!.name}` : "Invitation declined");
     } catch (e) {
       toast.show((e as Error).message, "error");
     } finally {
@@ -195,27 +208,38 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
           <Text style={s.ctaHint} accessibilityRole="text">{elsewhereHint}</Text>
         )}
         <View style={s.ctaRow}>
-          <Pressable
-            style={s.ctaSecondary}
-            accessibilityRole="button"
-            accessibilityLabel={`Message ${st.name}`}
-            onPress={async () => {
-              try {
-                const cid = await startStudioConversation(supabase, st.id);
-                router.push(`/chats/${cid}`);
-              } catch (e) {
-                toast.show((e as Error).message, "error");
-              }
-            }}
-          >
-            <Text style={s.ctaSecondaryText}>Message</Text>
-          </Pressable>
+          {hereStatus !== "invited" ? (
+            <Pressable
+              style={s.ctaSecondary}
+              accessibilityRole="button"
+              accessibilityLabel={`Message ${st.name}`}
+              onPress={async () => {
+                try {
+                  const cid = await startStudioConversation(supabase, st.id);
+                  router.push(`/chats/${cid}`);
+                } catch (e) {
+                  toast.show((e as Error).message, "error");
+                }
+              }}
+            >
+              <Text style={s.ctaSecondaryText}>Message</Text>
+            </Pressable>
+          ) : null}
 
           {isArtist ? (
             hereStatus === "active" ? (
               <View style={[s.ctaPrimary, s.ctaDisabled]} accessibilityRole="text" accessibilityLabel="You work here">
                 <Text style={s.ctaPrimaryText}>✓ You work here</Text>
               </View>
+            ) : hereStatus === "invited" ? (
+              <>
+                <Pressable style={s.ctaSecondary} disabled={applyBusy} accessibilityRole="button" accessibilityLabel="Decline invitation" onPress={() => onRespondInvite(false)}>
+                  <Text style={s.ctaSecondaryText}>Decline</Text>
+                </Pressable>
+                <Pressable style={[s.ctaPrimary, applyBusy && s.ctaDisabled]} disabled={applyBusy} accessibilityRole="button" accessibilityLabel="Accept invitation" onPress={() => onRespondInvite(true)}>
+                  {applyBusy ? <ActivityIndicator color="#fff" /> : <Text style={s.ctaPrimaryText}>Accept invite</Text>}
+                </Pressable>
+              </>
             ) : hereStatus === "requested" ? (
               <Pressable
                 style={[s.ctaPrimary, s.ctaPending]}
