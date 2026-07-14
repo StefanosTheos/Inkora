@@ -12,7 +12,7 @@ import { CountBadge } from "../../components/CountBadge";
 import { Pager } from "../../components/Pager";
 import { useBadgeCounts } from "../../lib/badges";
 import { registerPushToken, scheduleAppointmentReminders } from "../../lib/notifications";
-import { useMarkAppointmentsSeen } from "../../lib/seen-appointments";
+import { useMarkAppointmentsSeen, useMarkCompletedSeen, useSeenAppointments, useSeenCompleted } from "../../lib/seen-appointments";
 import { useMarkRequestSeen, useSeenRequests } from "../../lib/seen-requests";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, money, requestChip, StatusChip } from "./components/ui";
@@ -28,10 +28,13 @@ export function MyBookingsScreen() {
   const goTab = (t: Tab) => { setTab(t); setPage(0); };
   const apptsQ = useMyAppointments(supabase);
   const reqsQ = useMyRequests(supabase, "client");
-  const { offers: offersUnread, openRequests: openReqBadge, newBookings, apptReplies } = useBadgeCounts();
+  const { offers: offersUnread, openRequests: openReqBadge, newBookings, newCompleted, apptReplies } = useBadgeCounts();
   const seenSet = new Set(useSeenRequests());
+  const seenApptSet = new Set(useSeenAppointments());
+  const seenCompletedSet = new Set(useSeenCompleted());
   const markSeen = useMarkRequestSeen();
   const markApptsSeen = useMarkAppointmentsSeen();
+  const markCompletedSeen = useMarkCompletedSeen();
 
   useEffect(() => { void registerPushToken(); }, []);
   useEffect(() => {
@@ -52,13 +55,8 @@ export function MyBookingsScreen() {
   // (scheduled/rescheduled/cancelled) stays under Upcoming.
   const upcomingAppts = appts.filter((a) => a.status !== "completed");
   const completedAppts = appts.filter((a) => a.status === "completed");
-  // Viewing the Upcoming tab marks those bookings seen, clearing the
-  // "new booking" badge (profile dot, dashboard "See all", this tab).
-  const upcomingIdsKey = upcomingAppts.map((a) => a.id).join(",");
-  useEffect(() => {
-    if (tab === "upcoming" && upcomingAppts.length) markApptsSeen(upcomingAppts.map((a) => a.id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, upcomingIdsKey]);
+  // New bookings/completions carry a per-card "unread" mark (like requests):
+  // the badge on the tab + a red dot on the card, cleared by tapping that card.
   // Unread requests (not yet opened) float to the top, separated from read ones.
   const openRequests = reqs
     .filter((r) => r.status !== "converted")
@@ -79,7 +77,7 @@ export function MyBookingsScreen() {
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabsScroll} contentContainerStyle={s.tabs}>
         <TabButton label={`Upcoming${upcomingAppts.length ? ` (${upcomingAppts.length})` : ""}`} active={tab === "upcoming"} onPress={() => goTab("upcoming")} badge={newBookings + apptReplies} />
-        <TabButton label={`Completed${completedAppts.length ? ` (${completedAppts.length})` : ""}`} active={tab === "completed"} onPress={() => goTab("completed")} />
+        <TabButton label={`Completed${completedAppts.length ? ` (${completedAppts.length})` : ""}`} active={tab === "completed"} onPress={() => goTab("completed")} badge={newCompleted} />
         <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => goTab("requests")} badge={offersUnread + openReqBadge} />
       </ScrollView>
 
@@ -87,11 +85,11 @@ export function MyBookingsScreen() {
         {tab === "upcoming" ? (
           apptsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
           upcomingAppts.length === 0 ? <Empty icon="calendar-outline" text="No upcoming appointments. When an artist’s offer is accepted, it shows up here." /> :
-          paged(upcomingAppts).map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
+          paged(upcomingAppts).map((a) => <AppointmentCard key={a.id} appt={a} unread={!seenApptSet.has(a.id)} onPress={() => { markApptsSeen([a.id]); router.push(`/booking/${a.id}`); }} />)
         ) : tab === "completed" ? (
           apptsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
           completedAppts.length === 0 ? <Empty icon="checkmark-done-outline" text="No completed bookings yet. Finished sessions move here." /> :
-          paged(completedAppts).map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
+          paged(completedAppts).map((a) => <AppointmentCard key={a.id} appt={a} unread={!seenCompletedSet.has(a.id)} onPress={() => { markCompletedSeen([a.id]); router.push(`/booking/${a.id}`); }} />)
         ) : (
           reqsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
           openRequests.length === 0 ? <Empty icon="paper-plane-outline" text="No open requests. Find an artist and tap “Request booking” to get started." /> :
@@ -119,12 +117,15 @@ function TabButton({ label, active, onPress, badge = 0 }: { label: string; activ
   );
 }
 
-export function AppointmentCard({ appt, onPress }: { appt: AppointmentView; onPress: () => void }) {
+export function AppointmentCard({ appt, onPress, unread = false }: { appt: AppointmentView; onPress: () => void; unread?: boolean }) {
   return (
-    <Pressable style={s.card} onPress={onPress}>
+    <Pressable style={[s.card, unread && s.cardUnread]} onPress={onPress}>
       <Avatar path={appt.counterparty.avatarPath} name={appt.counterparty.name} />
       <View style={{ flex: 1 }}>
-        <Text style={s.cardName}>{appt.counterparty.name}</Text>
+        <View style={s.nameRow}>
+          {unread ? <View style={s.unreadDot} accessibilityLabel="New" /> : null}
+          <Text style={[s.cardName, { flex: 1 }]} numberOfLines={1}>{appt.counterparty.name}</Text>
+        </View>
         {appt.studioName ? <Text style={s.cardStudio}>🏠 {appt.studioName}</Text> : null}
         <Text style={s.cardSub}>{fmtDateTime(appt.scheduledStart)}</Text>
         {appt.priceAmount != null ? <Text style={s.cardPrice}>{money(appt.priceAmount)}</Text> : null}

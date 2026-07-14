@@ -1,13 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMyAppointments, useUpcomingAppointments } from "@inkora/data-access";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CountBadge } from "../../components/CountBadge";
 import { useBadgeCounts } from "../../lib/badges";
-import { useMarkAppointmentsSeen, useMarkCompletedSeen } from "../../lib/seen-appointments";
+import { useMarkAppointmentsSeen, useMarkCompletedSeen, useSeenAppointments, useSeenCompleted } from "../../lib/seen-appointments";
 import { supabase } from "../../lib/supabase";
 import { AppointmentCard } from "./MyBookingsScreen";
 
@@ -23,25 +23,15 @@ export function UpcomingAppointmentsScreen() {
   const { newBookings, newCompleted, apptReplies } = useBadgeCounts();
   const markApptsSeen = useMarkAppointmentsSeen();
   const markCompletedSeen = useMarkCompletedSeen();
+  const seenApptSet = new Set(useSeenAppointments());
+  const seenCompletedSet = new Set(useSeenCompleted());
 
   const upcoming = upcomingQ.data ?? [];
   const completed = (allQ.data ?? [])
     .filter((a) => a.status === "completed")
     .sort((a, b) => b.scheduledStart.localeCompare(a.scheduledStart)); // most recent first
-
-  // Viewing a tab marks those bookings seen, clearing the matching badge
-  // (profile dot, dashboard "See all", and the tab itself).
-  const scheduledIds = (allQ.data ?? []).filter((a) => a.status === "scheduled" || a.status === "rescheduled").map((a) => a.id);
-  const scheduledKey = scheduledIds.join(",");
-  const completedKey = completed.map((a) => a.id).join(",");
-  useEffect(() => {
-    if (tab === "upcoming") markApptsSeen(scheduledIds);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, scheduledKey]);
-  useEffect(() => {
-    if (tab === "completed") markCompletedSeen(completed.map((a) => a.id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, completedKey]);
+  // New bookings/completions carry a per-card "unread" mark cleared by tapping
+  // that card (like requests) — the tab badge counts the unmarked ones.
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
@@ -62,11 +52,11 @@ export function UpcomingAppointmentsScreen() {
         {tab === "upcoming" ? (
           upcomingQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
           upcoming.length === 0 ? <Text style={s.empty}>No upcoming appointments. Accepted offers appear here.</Text> :
-          upcoming.map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
+          upcoming.map((a) => <AppointmentCard key={a.id} appt={a} unread={!seenApptSet.has(a.id)} onPress={() => { markApptsSeen([a.id]); router.push(`/booking/${a.id}`); }} />)
         ) : (
           allQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
           completed.length === 0 ? <Text style={s.empty}>No completed appointments yet.</Text> :
-          completed.map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
+          completed.map((a) => <AppointmentCard key={a.id} appt={a} unread={!seenCompletedSet.has(a.id)} onPress={() => { markCompletedSeen([a.id]); router.push(`/booking/${a.id}`); }} />)
         )}
       </ScrollView>
     </SafeAreaView>
