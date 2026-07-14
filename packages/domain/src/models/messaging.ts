@@ -7,6 +7,8 @@ export interface ConversationSummary {
   otherId: ProfileId | null;
   otherName: string;
   otherAvatarPath: string | null;
+  /** Whether the other party is an artist (drives which profile the header opens). */
+  otherIsArtist: boolean;
   /** Set when the conversation belongs to a studio (identity shown is the studio's). */
   studioId: StudioId | null;
   studioSlug: string | null;

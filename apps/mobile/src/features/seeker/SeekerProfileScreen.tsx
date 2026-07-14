@@ -29,9 +29,10 @@ export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { i
   const { ctx } = useAuth();
   const profile = usePublicSeekerProfile(supabase, id);
   const reviews = useSeekerReviews(supabase, id);
-  // Artists (and the client themselves) can see how artists have rated this
-  // client. The RPC enforces the same rule, so this just avoids a dead fetch.
-  const canSeeClientReviews = ctx.roles.includes("artist") || ctx.userId === id;
+  // Artists, studio owners (both business decision-makers) and the client
+  // themselves can see how artists have rated this client. The RPC enforces the
+  // same rule, so this just avoids a dead fetch.
+  const canSeeClientReviews = ctx.roles.includes("artist") || ctx.roles.includes("studio_admin") || ctx.userId === id;
   const clientReviews = useClientReviews(supabase, id, canSeeClientReviews);
   const [zoomUri, setZoomUri] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -45,8 +46,8 @@ export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { i
     setTab("journey");
     scrollRef.current?.scrollTo({ y: 0, animated: true });
   }, [featuredReviewId, appointmentId]);
-  // Artists can start a chat with the seeker from here.
-  const canMessage = ctx.roles.includes("artist") && !!ctx.userId && ctx.userId !== id;
+  // Artists and studio owners can start a chat with the seeker from here.
+  const canMessage = (ctx.roles.includes("artist") || ctx.roles.includes("studio_admin")) && !!ctx.userId && ctx.userId !== id;
   const isOwn = ctx.userId === id;
   async function messageSeeker() {
     try {

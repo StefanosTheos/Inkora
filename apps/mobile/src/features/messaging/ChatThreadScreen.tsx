@@ -43,18 +43,16 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
   const conv = convs.data?.find((c) => c.id === conversationId);
   const title = conv?.otherName ?? "Chat";
   const avatarUrl = img(conv?.otherAvatarPath);
-  // Tapping the header opens a profile. Support conversations have none.
-  // Studio chats open the studio. For a direct chat the destination depends on
-  // who's viewing: an artist opens the other party's seeker (client) details
-  // page; a seeker opens the artist's profile.
-  const isArtist = ctx.roles.includes("artist");
-  // Studio owners are a business account — no client "request quote / consultation".
+  // Tapping the header opens a profile. Support conversations have none. Studio
+  // chats open the studio. For a direct chat, route by the OTHER party's type —
+  // artists open their artist profile, everyone else (seekers) their seeker
+  // profile — so it's correct for any viewer (incl. studio owners).
   const isStudio = ctx.roles.includes("studio_admin");
   const canOpenProfile = !!(conv?.studioSlug || (conv?.type === "direct" && conv?.otherId));
   const openProfile = () => {
     if (conv?.studioSlug) router.push(`/studio/${conv.studioSlug}`);
     else if (conv?.type === "direct" && conv?.otherId) {
-      router.push(isArtist ? `/seeker/${conv.otherId}` : `/artist/${conv.otherId}`);
+      router.push(conv.otherIsArtist ? `/artist/${conv.otherId}` : `/seeker/${conv.otherId}`);
     }
   };
 
