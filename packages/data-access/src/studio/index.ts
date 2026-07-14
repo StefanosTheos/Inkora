@@ -1,10 +1,15 @@
 import type {
-  ArtistId, PortfolioImage, PortfolioImageId, ProfileId, ReviewId, ReviewItem, StudioId, StudioProfile,
+  ArtistId, PortfolioImage, PortfolioImageId, ProfileId, ReviewId, ReviewItem, StudioArtistStat,
+  StudioId, StudioOverview, StudioProfile,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
+
+const STUDIO_SELECT =
+  "id, owner_id, name, slug, bio, logo_path, address_line, city, country, latitude, longitude, opening_hours, " +
+  "studio_memberships(status, artists(id, headline, rating_avg, rating_count, profiles(display_name, avatar_path), artist_styles(tattoo_styles(slug))))";
 
 /** A membership that hasn't reached a terminal state — drives the Apply button. */
 export type ActiveMembership = { studioId: string; status: "requested" | "invited" | "active" | "suspended" };
@@ -37,18 +42,7 @@ interface StudioRow {
   studio_memberships: RosterMember[] | null;
 }
 
-export async function getStudioProfile(client: InkoraClient, slug: string): Promise<StudioProfile | null> {
-  const { data, error } = await client
-    .from("studios")
-    .select(
-      "id, owner_id, name, slug, bio, logo_path, address_line, city, country, latitude, longitude, opening_hours, " +
-        "studio_memberships(status, artists(id, headline, rating_avg, rating_count, profiles(display_name, avatar_path), artist_styles(tattoo_styles(slug))))",
-    )
-    .eq("slug", slug)
-    .maybeSingle<StudioRow>();
-  if (error) throw toAppError(error);
-  if (!data) return null;
-  const r = data;
+function mapStudioRow(r: StudioRow): StudioProfile {
   const roster = (r.studio_memberships ?? [])
     .filter((m) => m.status === "active" && m.artists)
     .map((m) => ({
@@ -77,6 +71,20 @@ export async function getStudioProfile(client: InkoraClient, slug: string): Prom
     styles,
     roster,
   };
+}
+
+export async function getStudioProfile(client: InkoraClient, slug: string): Promise<StudioProfile | null> {
+  const { data, error } = await client.from("studios").select(STUDIO_SELECT).eq("slug", slug).maybeSingle<StudioRow>();
+  if (error) throw toAppError(error);
+  return data ? mapStudioRow(data) : null;
+}
+
+/** The studio owned by the current user (studio-owner dashboard). */
+export async function getMyStudio(client: InkoraClient, ownerId: string): Promise<StudioProfile | null> {
+  if (!ownerId) return null;
+  const { data, error } = await client.from("studios").select(STUDIO_SELECT).eq("owner_id", ownerId).maybeSingle<StudioRow>();
+  if (error) throw toAppError(error);
+  return data ? mapStudioRow(data) : null;
 }
 
 /** Aggregate portfolio across the studio's resident artists. */
@@ -202,4 +210,59 @@ export function useStudioPortfolio(client: InkoraClient, artistIds: string[]) {
 }
 export function useStudioReviews(client: InkoraClient, studioId: string) {
   return useQuery({ queryKey: ["studio-reviews", studioId], queryFn: () => getStudioReviews(client, studioId), enabled: !!studioId });
+}
+
+// ---- Studio-owner dashboard: stats + visit tracking -----------------
+
+export async function getStudioOverview(client: InkoraClient, studioId: string): Promise<StudioOverview | null> {
+  const { data, error } = await client.rpc("studio_overview", { p_studio_id: studioId }).returns<{
+    active_artists: number; pending_applications: number; profile_visits: number;
+    completed_bookings: number; scheduled_bookings: number; cancelled_bookings: number;
+  }[]>();
+  if (error) throw toAppError(error);
+  const r = data?.[0];
+  if (!r) return null;
+  return {
+    activeArtists: r.active_artists,
+    pendingApplications: r.pending_applications,
+    profileVisits: r.profile_visits,
+    completedBookings: r.completed_bookings,
+    scheduledBookings: r.scheduled_bookings,
+    cancelledBookings: r.cancelled_bookings,
+  };
+}
+
+export async function getStudioArtistStats(client: InkoraClient, studioId: string): Promise<StudioArtistStat[]> {
+  const { data, error } = await client.rpc("studio_artist_stats", { p_studio_id: studioId }).returns<{
+    artist_id: string; rating_avg: number; rating_count: number; saved_by: number; work_saves: number;
+    completed: number; scheduled: number; cancelled: number; profile_visits: number;
+  }[]>();
+  if (error) throw toAppError(error);
+  return (data ?? []).map((r) => ({
+    artistId: r.artist_id as ArtistId,
+    ratingAvg: Number(r.rating_avg),
+    ratingCount: r.rating_count,
+    savedBy: r.saved_by,
+    workSaves: r.work_saves,
+    completed: r.completed,
+    scheduled: r.scheduled,
+    cancelled: r.cancelled,
+    profileVisits: r.profile_visits,
+  }));
+}
+
+/** Log a view of an artist/studio profile (best-effort; dedupes server-side). */
+export async function recordProfileVisit(client: InkoraClient, targetType: "artist" | "studio", targetId: string): Promise<void> {
+  if (!targetId) return;
+  await client.rpc("record_profile_visit", { p_target_type: targetType, p_target_id: targetId });
+}
+
+export function useMyStudio(client: InkoraClient, ownerId: string) {
+  return useQuery({ queryKey: ["my-studio", ownerId], queryFn: () => getMyStudio(client, ownerId), enabled: !!ownerId });
+}
+export function useStudioOverview(client: InkoraClient, studioId: string) {
+  return useQuery({ queryKey: ["studio-overview", studioId], queryFn: () => getStudioOverview(client, studioId), enabled: !!studioId });
+}
+export function useStudioArtistStats(client: InkoraClient, studioId: string) {
+  return useQuery({ queryKey: ["studio-artist-stats", studioId], queryFn: () => getStudioArtistStats(client, studioId), enabled: !!studioId });
 }

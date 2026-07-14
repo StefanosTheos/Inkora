@@ -1,13 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  applyToStudio, startStudioConversation, useAuth, useMyMembership, useStudioPortfolio,
+  applyToStudio, recordProfileVisit, startStudioConversation, useAuth, useMyMembership, useStudioPortfolio,
   useStudioProfile, useStudioReviews, withdrawStudioApplication,
 } from "@inkora/data-access";
 import { formatStyleSlug, type PortfolioImage, type ReviewItem, type StudioRosterArtist } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -43,6 +43,11 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
   const portfolio = useStudioPortfolio(supabase, artistIds);
   const reviews = useStudioReviews(supabase, studio.data?.id ?? "");
   const [tab, setTab] = useState<Tab>("artists");
+  // Log the visit (best-effort; server ignores self-views + dedupes per day).
+  const studioId = studio.data?.id;
+  useEffect(() => {
+    if (studioId) void recordProfileVisit(supabase, "studio", studioId).catch(() => { /* best-effort */ });
+  }, [studioId]);
   const [applyBusy, setApplyBusy] = useState(false);
 
   if (studio.isLoading) return <View style={s.center}><ActivityIndicator /></View>;

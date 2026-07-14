@@ -29,3 +29,26 @@ export interface StudioProfile {
   styles: string[];
   roster: StudioRosterArtist[];
 }
+
+/** Studio-owner dashboard: headline aggregates across the studio. */
+export interface StudioOverview {
+  activeArtists: number;
+  pendingApplications: number;
+  profileVisits: number;
+  completedBookings: number;
+  scheduledBookings: number;
+  cancelledBookings: number;
+}
+
+/** Studio-owner dashboard: per-artist performance stats. */
+export interface StudioArtistStat {
+  artistId: ArtistId;
+  ratingAvg: number;
+  ratingCount: number;
+  savedBy: number; // people who favourited the artist
+  workSaves: number; // people who favourited the artist's work
+  completed: number;
+  scheduled: number;
+  cancelled: number;
+  profileVisits: number;
+}

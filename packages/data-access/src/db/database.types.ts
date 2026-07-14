@@ -2397,6 +2397,35 @@ export type Database = {
         Args: { p_appointment_id: string; p_start: string; p_end: string }
         Returns: undefined
       }
+      record_profile_visit: {
+        Args: { p_target_type: string; p_target_id: string }
+        Returns: undefined
+      }
+      studio_overview: {
+        Args: { p_studio_id: string }
+        Returns: {
+          active_artists: number
+          pending_applications: number
+          profile_visits: number
+          completed_bookings: number
+          scheduled_bookings: number
+          cancelled_bookings: number
+        }[]
+      }
+      studio_artist_stats: {
+        Args: { p_studio_id: string }
+        Returns: {
+          artist_id: string
+          rating_avg: number
+          rating_count: number
+          saved_by: number
+          work_saves: number
+          completed: number
+          scheduled: number
+          cancelled: number
+          profile_visits: number
+        }[]
+      }
       accept_reschedule: {
         Args: { p_appointment_id: string }
         Returns: undefined

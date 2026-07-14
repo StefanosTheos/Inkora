@@ -41,6 +41,10 @@ function ProfileTabIcon(props: IconProps) {
 }
 
 export default function TabsLayout() {
+  const { ctx } = useAuth();
+  // Studio owners get a business-only tab set: Studio dashboard + Chats. The
+  // discovery/AI/profile tabs are hidden (routes still exist for deep links).
+  const isStudio = ctx.roles.includes("studio_admin");
   return (
     <Tabs
       screenOptions={{
@@ -49,9 +53,9 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: "#71717A",
       }}
     >
-      <Tabs.Screen name="index" options={{ title: "Home", tabBarIcon: tabIcon("home", "home-outline") }} />
-      <Tabs.Screen name="discover" options={{ title: "Discover", tabBarIcon: tabIcon("search", "search-outline") }} />
-      <Tabs.Screen name="create" options={{ title: "Create", tabBarIcon: tabIcon("add-circle", "add-circle-outline") }} />
+      <Tabs.Screen name="index" options={{ title: isStudio ? "Studio" : "Home", tabBarIcon: tabIcon(isStudio ? "business" : "home", isStudio ? "business-outline" : "home-outline") }} />
+      <Tabs.Screen name="discover" options={{ title: "Discover", tabBarIcon: tabIcon("search", "search-outline"), href: isStudio ? null : undefined }} />
+      <Tabs.Screen name="create" options={{ title: "Create", tabBarIcon: tabIcon("add-circle", "add-circle-outline"), href: isStudio ? null : undefined }} />
       <Tabs.Screen
         name="chats"
         options={{ title: "Chats", tabBarIcon: (p) => <ChatsTabIcon {...p} /> }}
@@ -66,7 +70,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="profile"
-        options={{ title: "Profile", tabBarIcon: (p) => <ProfileTabIcon {...p} /> }}
+        options={{ title: "Profile", tabBarIcon: (p) => <ProfileTabIcon {...p} />, href: isStudio ? null : undefined }}
         listeners={{
           // Always land on the dashboard, even if Edit profile / Account
           // settings is still on top of the Profile stack from a deep-link

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  startDirectConversation, useArtistAvailability, useArtistFlashes, useArtistPortfolio,
+  recordProfileVisit, startDirectConversation, useArtistAvailability, useArtistFlashes, useArtistPortfolio,
   useArtistProfile, useArtistReviews, useArtistSaved, useAuth,
 } from "@inkora/data-access";
 import {
@@ -9,7 +9,7 @@ import {
 } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -38,6 +38,10 @@ export function ArtistProfileScreen({ id }: { id: string }) {
   const insets = useSafeAreaInsets();
   const { ctx } = useAuth();
   const isSelf = !!ctx.userId && ctx.userId === id;
+  // Log the visit (best-effort; server ignores the artist's own views + dedupes).
+  useEffect(() => {
+    if (id && !isSelf) void recordProfileVisit(supabase, "artist", id).catch(() => { /* best-effort */ });
+  }, [id, isSelf]);
   const profile = useArtistProfile(supabase, id);
   const portfolio = useArtistPortfolio(supabase, id);
   const reviews = useArtistReviews(supabase, id);

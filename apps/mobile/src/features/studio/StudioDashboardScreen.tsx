@@ -1,0 +1,212 @@
+import { Ionicons } from "@expo/vector-icons";
+import {
+  startDirectConversation, useAuth, useMyStudio, useStudioArtistStats, useStudioOverview,
+} from "@inkora/data-access";
+import type { StudioArtistStat, StudioRosterArtist } from "@inkora/domain";
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { useConfirm } from "../../components/ConfirmDialog";
+import { useToast } from "../../components/Toast";
+import { imageUrl } from "../../lib/images";
+import { supabase } from "../../lib/supabase";
+import { Avatar } from "../booking/components/ui";
+
+/** The studio-owner home: studio identity, headline stats, and the onboarded
+ *  roster with per-artist performance. Business-focused — no discovery/AI. */
+export function StudioDashboardScreen() {
+  const router = useRouter();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const { ctx, signOut } = useAuth();
+  const meId = ctx.userId ?? "";
+  const studioQ = useMyStudio(supabase, meId);
+  const st = studioQ.data;
+  const overviewQ = useStudioOverview(supabase, st?.id ?? "");
+  const statsQ = useStudioArtistStats(supabase, st?.id ?? "");
+  const ov = overviewQ.data;
+  const statsById = new Map((statsQ.data ?? []).map((x) => [x.artistId, x]));
+
+  async function messageArtist(artistId: string) {
+    try {
+      const cid = await startDirectConversation(supabase, artistId);
+      router.push(`/chats/${cid}`);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    }
+  }
+  const confirmSignOut = () => {
+    void confirm({ title: "Sign out?", message: "You'll need to sign in again to manage your studio.", confirmLabel: "Sign out", destructive: true })
+      .then((ok) => { if (ok) void signOut(); });
+  };
+
+  if (studioQ.isLoading) {
+    return <SafeAreaView style={s.safe} edges={["top"]}><View style={s.center}><ActivityIndicator /></View></SafeAreaView>;
+  }
+  if (!st) {
+    return (
+      <SafeAreaView style={s.safe} edges={["top"]}>
+        <View style={s.center}><Ionicons name="business-outline" size={40} color="#D4D4D8" /><Text style={s.muted}>No studio is linked to your account yet.</Text></View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={s.safe} edges={["top"]}>
+      <ScrollView contentContainerStyle={s.body}>
+        <View style={s.topbar}>
+          <Text style={s.topTitle} accessibilityRole="header">Studio</Text>
+          <Pressable onPress={() => router.push("/profile/account")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Account settings">
+            <Ionicons name="settings-outline" size={24} color="#18181B" />
+          </Pressable>
+        </View>
+
+        {/* Studio identity */}
+        <View style={s.studioRow}>
+          {st.logoPath ? (
+            <Image source={{ uri: imageUrl(st.logoPath, 120) }} style={s.logo} contentFit="cover" accessibilityRole="image" accessibilityLabel="Studio logo" />
+          ) : (
+            <View style={[s.logo, s.logoEmpty]}><Ionicons name="business" size={26} color="#A1A1AA" /></View>
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={s.name} numberOfLines={1}>{st.name}</Text>
+            <Text style={s.sub} numberOfLines={1}>{[st.city, st.country].filter(Boolean).join(", ") || "Your studio"}</Text>
+          </View>
+        </View>
+        <View style={s.headerBtns}>
+          <Pressable style={s.outlineBtn} onPress={() => router.push(`/studio/${st.slug}`)} accessibilityRole="button" accessibilityLabel="View public page">
+            <Ionicons name="eye-outline" size={16} color="#18181B" />
+            <Text style={s.outlineBtnText}>Public page</Text>
+          </Pressable>
+          <Pressable style={s.outlineBtn} onPress={() => toast.show("Studio editing is coming next")} accessibilityRole="button" accessibilityLabel="Edit studio">
+            <Ionicons name="create-outline" size={16} color="#18181B" />
+            <Text style={s.outlineBtnText}>Edit studio</Text>
+          </Pressable>
+        </View>
+
+        {/* Overview */}
+        <Text style={s.section} accessibilityRole="header">Overview</Text>
+        <View style={s.tiles}>
+          <StatTile label="Artists" value={ov?.activeArtists ?? 0} icon="people-outline" />
+          <StatTile label="Applications" value={ov?.pendingApplications ?? 0} icon="mail-unread-outline" accent={!!ov?.pendingApplications} />
+          <StatTile label="Profile visits" value={ov?.profileVisits ?? 0} icon="eye-outline" />
+          <StatTile label="Completed" value={ov?.completedBookings ?? 0} icon="checkmark-done-outline" />
+          <StatTile label="Scheduled" value={ov?.scheduledBookings ?? 0} icon="calendar-outline" />
+          <StatTile label="Cancelled" value={ov?.cancelledBookings ?? 0} icon="close-circle-outline" />
+        </View>
+
+        {/* Roster */}
+        <Text style={s.section} accessibilityRole="header">Artists</Text>
+        {statsQ.isLoading ? (
+          <ActivityIndicator style={{ marginTop: 12 }} />
+        ) : st.roster.length === 0 ? (
+          <Text style={s.muted}>No artists onboarded yet.</Text>
+        ) : (
+          st.roster.map((a) => (
+            <ArtistStatCard key={a.id} artist={a} stat={statsById.get(a.id)} onOpen={() => router.push(`/artist/${a.id}`)} onMessage={() => void messageArtist(a.id)} />
+          ))
+        )}
+
+        {/* Settings */}
+        <View style={s.settingsCard}>
+          <Pressable style={s.settingRow} onPress={() => router.push("/profile/account")} accessibilityRole="button" accessibilityLabel="Account settings">
+            <Ionicons name="settings-outline" size={20} color="#52525B" />
+            <Text style={s.settingLabel}>Account settings</Text>
+            <Ionicons name="chevron-forward" size={16} color="#D4D4D8" />
+          </Pressable>
+          <Pressable style={s.settingRow} onPress={confirmSignOut} accessibilityRole="button" accessibilityLabel="Sign out">
+            <Ionicons name="log-out-outline" size={20} color="#DC2626" />
+            <Text style={[s.settingLabel, { color: "#DC2626" }]}>Sign out</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function StatTile({ label, value, icon, accent }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; accent?: boolean }) {
+  return (
+    <View style={[s.tile, accent && s.tileAccent]} accessible accessibilityLabel={`${value} ${label}`}>
+      <Ionicons name={icon} size={16} color={accent ? "#E5484D" : "#71717A"} />
+      <Text style={[s.tileValue, accent && { color: "#E5484D" }]}>{value}</Text>
+      <Text style={s.tileLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function ArtistStatCard({ artist, stat, onOpen, onMessage }: { artist: StudioRosterArtist; stat?: StudioArtistStat; onOpen: () => void; onMessage: () => void }) {
+  return (
+    <View style={s.card}>
+      <Pressable style={s.cardHead} onPress={onOpen} accessibilityRole="button" accessibilityLabel={`View ${artist.displayName}'s profile`}>
+        <Avatar path={artist.avatarPath} name={artist.displayName} size={44} />
+        <View style={{ flex: 1 }}>
+          <Text style={s.cardName} numberOfLines={1}>{artist.displayName}</Text>
+          <Text style={s.cardSub} numberOfLines={1}>{artist.headline ?? "Tattoo artist"}</Text>
+        </View>
+        <View style={s.rating}>
+          <Ionicons name="star" size={13} color="#E5484D" />
+          <Text style={s.ratingText}>{artist.ratingAvg > 0 ? artist.ratingAvg.toFixed(1) : "—"}</Text>
+        </View>
+        <Pressable onPress={onMessage} hitSlop={10} style={s.msgBtn} accessibilityRole="button" accessibilityLabel={`Message ${artist.displayName}`}>
+          <Ionicons name="chatbubble-outline" size={18} color="#18181B" />
+        </Pressable>
+      </Pressable>
+      <View style={s.metrics}>
+        <Metric label="Reviews" value={stat?.ratingCount ?? 0} />
+        <Metric label="Saves" value={(stat?.savedBy ?? 0) + (stat?.workSaves ?? 0)} />
+        <Metric label="Done" value={stat?.completed ?? 0} />
+        <Metric label="Upcoming" value={stat?.scheduled ?? 0} />
+        <Metric label="Cancelled" value={stat?.cancelled ?? 0} />
+        <Metric label="Visits" value={stat?.profileVisits ?? 0} />
+      </View>
+    </View>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <View style={s.metric} accessible accessibilityLabel={`${value} ${label}`}>
+      <Text style={s.metricValue}>{value}</Text>
+      <Text style={s.metricLabel}>{label}</Text>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#fff" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 24 },
+  muted: { color: "#A1A1AA", textAlign: "center", lineHeight: 20 },
+  body: { padding: 16, paddingBottom: 40, gap: 4 },
+  topbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  topTitle: { fontSize: 28, fontWeight: "800" },
+  studioRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  logo: { width: 60, height: 60, borderRadius: 16, backgroundColor: "#F4F4F5" },
+  logoEmpty: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#EEE" },
+  name: { fontSize: 20, fontWeight: "800", color: "#18181B" },
+  sub: { color: "#71717A", marginTop: 2, fontWeight: "600" },
+  headerBtns: { flexDirection: "row", gap: 10, marginTop: 12 },
+  outlineBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 12, paddingVertical: 11 },
+  outlineBtnText: { fontWeight: "700", fontSize: 14, color: "#18181B" },
+  section: { fontSize: 18, fontWeight: "800", marginTop: 22, marginBottom: 10 },
+  tiles: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  tile: { width: "31.5%", backgroundColor: "#F9FAFB", borderRadius: 16, paddingVertical: 14, paddingHorizontal: 10, gap: 4 },
+  tileAccent: { backgroundColor: "#FEF2F2" },
+  tileValue: { fontSize: 22, fontWeight: "900", color: "#18181B" },
+  tileLabel: { color: "#71717A", fontSize: 11, fontWeight: "600" },
+  card: { borderWidth: 1, borderColor: "#F0F0F2", borderRadius: 16, padding: 12, marginBottom: 10 },
+  cardHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  cardName: { fontWeight: "800", fontSize: 15, color: "#18181B" },
+  cardSub: { color: "#71717A", fontSize: 13, marginTop: 2 },
+  rating: { flexDirection: "row", alignItems: "center", gap: 3 },
+  ratingText: { fontWeight: "800", color: "#18181B", fontSize: 13 },
+  msgBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F4F4F5", alignItems: "center", justifyContent: "center" },
+  metrics: { flexDirection: "row", justifyContent: "space-between", marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#F4F4F5" },
+  metric: { alignItems: "center", flex: 1 },
+  metricValue: { fontWeight: "800", fontSize: 15, color: "#18181B" },
+  metricLabel: { color: "#A1A1AA", fontSize: 10, fontWeight: "600", marginTop: 2 },
+  settingsCard: { borderWidth: 1, borderColor: "#F4F4F5", borderRadius: 16, overflow: "hidden", marginTop: 24 },
+  settingRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
+  settingLabel: { flex: 1, fontWeight: "600", fontSize: 15, color: "#18181B" },
+});
