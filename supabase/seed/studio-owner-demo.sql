@@ -7,8 +7,10 @@
 --   Login:  studio@demo.inkora.dev  /  password123
 --   Creates a studio "Iron Lotus" owned by that account, staffs it with a few
 --   existing demo artists (top-rated), adds 2 pending applicants, and seeds
---   favourites / profile visits / scheduled+cancelled bookings so every
---   dashboard stat is populated. Idempotent — safe to re-run.
+--   favourites / profile visits / bookings (scheduled, cancelled AND completed
+--   with prices) / studio-tagged reviews / studio favourites so every dashboard
+--   stat — including revenue, rating, recent reviews and "Saved by" — is
+--   populated. Idempotent — safe to re-run.
 -- =====================================================================
 
 -- Fixed demo ids
@@ -119,18 +121,74 @@ select 'studio', 'e1000000-0000-4000-8000-000000000001', p.id, now() - (random()
 from (select id from public.profiles
         where id <> 'e0000000-0000-4000-8000-000000000001' order by created_at limit 24) p;
 
--- 9) A couple of scheduled + cancelled bookings for variety -----------
-insert into public.appointments (id, client_id, artist_id, scheduled_start, scheduled_end, status, price_amount)
-select gen_random_uuid(),
-       (select id from public.profiles where id <> m.artist_id and id not in (select id from public.artists) order by created_at limit 1),
-       m.artist_id, now() + interval '6 days', now() + interval '6 days 2 hours', 'scheduled', 180
-from (select artist_id from public.studio_memberships
-        where studio_id = 'e1000000-0000-4000-8000-000000000001' and status = 'active' limit 3) m;
+-- 9) Bookings (completed w/ revenue + reviews, upcoming, cancelled) + studio
+--    favourites. The booking/review part is guarded to run once; favourites
+--    upsert — so the whole script stays idempotent.
+do $$
+declare
+  v_studio  uuid := 'e1000000-0000-4000-8000-000000000001';
+  v_owner   uuid := 'e0000000-0000-4000-8000-000000000001';
+  clients   uuid[];
+  m         record;
+  v_appt    uuid;
+  v_client  uuid;
+  i         int;
+  n         int := 0;
+  titles    text[] := array['Incredible detail', 'Exactly what I wanted', 'Clean & professional', 'Worth every euro'];
+  bodies    text[] := array['The studio was spotless and the artist nailed the design.',
+                            'Welcoming space, great communication throughout.',
+                            'Booked again already — fantastic experience.',
+                            'Beautiful linework, healed perfectly.'];
+begin
+  -- a pool of seeker clients (non-artists, not the owner)
+  select array_agg(id) into clients from (
+    select id from public.profiles
+    where id not in (select id from public.artists) and id <> v_owner
+    order by created_at limit 6
+  ) q;
+  if clients is null or array_length(clients, 1) < 2 then
+    return; -- no seekers to attribute revenue/reviews to
+  end if;
 
-insert into public.appointments (id, client_id, artist_id, scheduled_start, scheduled_end, status, price_amount, cancelled_at, cancellation_reason)
-select gen_random_uuid(),
-       (select id from public.profiles where id <> m.artist_id and id not in (select id from public.artists) order by created_at limit 1),
-       m.artist_id, now() - interval '9 days', now() - interval '9 days' + interval '2 hours', 'cancelled', 160,
-       now() - interval '10 days', 'Client rescheduled elsewhere'
-from (select artist_id from public.studio_memberships
-        where studio_id = 'e1000000-0000-4000-8000-000000000001' and status = 'active' limit 2) m;
+  -- seed bookings once (skip if this studio already has any appointment)
+  if not exists (
+    select 1 from public.appointments ap
+    join public.studio_memberships mm on mm.artist_id = ap.artist_id and mm.studio_id = v_studio and mm.status = 'active'
+    where ap.studio_id = v_studio
+  ) then
+    for m in
+      select artist_id from public.studio_memberships
+      where studio_id = v_studio and status = 'active'
+    loop
+      -- 3 completed sessions (revenue) each with a studio-tagged review
+      for i in 1..3 loop
+        v_client := clients[1 + ((i - 1) % array_length(clients, 1))];
+        v_appt := gen_random_uuid();
+        insert into public.appointments (id, client_id, artist_id, studio_id, scheduled_start, scheduled_end, status, price_amount, completed_at)
+        values (v_appt, v_client, m.artist_id, v_studio,
+                now() - ((i * 21) || ' days')::interval,
+                now() - ((i * 21) || ' days')::interval + interval '2 hours',
+                'completed', 130 + i * 45 + (random() * 90)::int,
+                now() - ((i * 21) || ' days')::interval + interval '2 hours');
+        insert into public.reviews (appointment_id, author_id, artist_id, studio_id, overall_rating, title, body, is_published)
+        values (v_appt, v_client, m.artist_id, v_studio, 4 + (i % 2), titles[1 + (i % 4)], bodies[1 + (i % 4)], true);
+      end loop;
+
+      -- one upcoming session
+      insert into public.appointments (id, client_id, artist_id, studio_id, scheduled_start, scheduled_end, status, price_amount)
+      values (gen_random_uuid(), clients[1], m.artist_id, v_studio, now() + interval '6 days', now() + interval '6 days 2 hours', 'scheduled', 180);
+
+      -- one cancelled for the first couple of artists
+      if n < 2 then
+        insert into public.appointments (id, client_id, artist_id, studio_id, scheduled_start, scheduled_end, status, price_amount, cancelled_at, cancellation_reason)
+        values (gen_random_uuid(), clients[1], m.artist_id, v_studio, now() - interval '9 days', now() - interval '9 days' + interval '2 hours', 'cancelled', 160, now() - interval '10 days', 'Client rescheduled elsewhere');
+      end if;
+      n := n + 1;
+    end loop;
+  end if;
+
+  -- studio favourites ("Saved by") — idempotent
+  insert into public.favorites (profile_id, target_type, target_id)
+  select unnest(clients), 'studio', v_studio
+  on conflict (profile_id, target_type, target_id) do nothing;
+end $$;
