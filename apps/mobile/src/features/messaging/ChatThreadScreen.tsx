@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   bookingKeys, declineRequest, getChatSignedUrl, markEntityNotificationsRead, publicStorageUrl,
   respondStudioApplication, respondToOffer, uploadChatFile, useAuth, useBookingRequest, useChat,
-  useConversations, useOfferStatus,
+  useConversations, useMyStudio, useOfferStatus, useStudioApplications,
 } from "@inkora/data-access";
 import { type ArtistId, type ConversationId, type Message, messageKind, TIME_OF_DAY_LABEL, type TimeOfDay } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
@@ -605,30 +605,40 @@ function RescheduleAcceptedCard({ message, mine }: { message: Message; mine: boo
 }
 
 /** An artist's application to join a studio. The owner can accept/decline
- *  inline; the applying artist sees a pending status. */
+ *  inline; the card's state is derived from the shared studio queries so it
+ *  stays in sync with the Applications page (and vice-versa). The applying
+ *  artist sees a pending status. */
 function StudioApplicationCard({ message, mine }: { message: Message; mine: boolean }) {
   const toast = useToast();
   const qc = useQueryClient();
   const { ctx } = useAuth();
   const md = (message.metadata ?? {}) as ApplicationMeta;
+  const studioId = md.studioId ?? "";
+  const applicantId = message.senderId ?? "";
   const isOwner = ctx.roles.includes("studio_admin") && !mine;
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<"accepted" | "declined" | null>(null);
   const color = mine ? "#fff" : "#18181B";
   const sub = mine ? "rgba(255,255,255,0.85)" : "#52525B";
 
+  // Owner-only: derive live state from the same queries the Applications page
+  // uses, so accepting/declining in either place is reflected in both.
+  const appsQ = useStudioApplications(supabase, isOwner ? studioId : "");
+  const studioQ = useMyStudio(supabase, isOwner ? (ctx.userId ?? "") : "");
+  const pending = (appsQ.data ?? []).some((a) => a.artistId === applicantId);
+  const onRoster = (studioQ.data?.roster ?? []).some((r) => r.id === applicantId);
+  const ownerState: "pending" | "accepted" | "declined" = pending ? "pending" : onRoster ? "accepted" : "declined";
+
   async function respond(accept: boolean) {
-    if (!md.studioId || !message.senderId) return;
+    if (!studioId || !applicantId) return;
     setBusy(true);
     try {
-      await respondStudioApplication(supabase, md.studioId, message.senderId, accept);
+      await respondStudioApplication(supabase, studioId, applicantId, accept);
       await Promise.all([
-        qc.invalidateQueries({ queryKey: ["studio-applications", md.studioId] }),
-        qc.invalidateQueries({ queryKey: ["studio-overview", md.studioId] }),
-        qc.invalidateQueries({ queryKey: ["studio-artist-stats", md.studioId] }),
+        qc.invalidateQueries({ queryKey: ["studio-applications", studioId] }),
+        qc.invalidateQueries({ queryKey: ["studio-overview", studioId] }),
+        qc.invalidateQueries({ queryKey: ["studio-artist-stats", studioId] }),
         qc.invalidateQueries({ queryKey: ["my-studio", ctx.userId] }),
       ]);
-      setDone(accept ? "accepted" : "declined");
       toast.show(accept ? "Artist added to your studio" : "Application declined");
     } catch (e) {
       toast.show((e as Error).message, "error");
@@ -637,19 +647,25 @@ function StudioApplicationCard({ message, mine }: { message: Message; mine: bool
     }
   }
 
+  // Keep the buttons up while the request is in flight to avoid a flicker
+  // through the "declined" state before the roster refetch lands.
+  const showButtons = isOwner && (busy || ownerState === "pending");
+
   return (
     <View style={s.reqCard}>
       <Text style={[s.reqTitle, { color }]}>🎨 Studio application</Text>
       <Text style={[s.reqDetail, { color: sub }]}>Wants to join your studio.</Text>
-      {done ? (
-        <Text style={[s.reqDetail, { color: sub, marginTop: 6, fontWeight: "700" }]}>{done === "accepted" ? "✓ Accepted" : "Declined"}</Text>
-      ) : isOwner ? (
+      {showButtons ? (
         <View style={s.bookingReqActions}>
           <Pressable style={[s.brBtn, s.brPrimary]} disabled={busy} onPress={() => void respond(true)} accessibilityRole="button" accessibilityLabel="Accept application"><Text style={s.brPrimaryText}>Accept</Text></Pressable>
           <Pressable style={[s.brBtn, s.brSecondary]} disabled={busy} onPress={() => void respond(false)} accessibilityRole="button" accessibilityLabel="Decline application"><Text style={[s.brSecondaryText, { color: "#E5484D" }]}>Decline</Text></Pressable>
         </View>
       ) : (
-        <Text style={[s.reqDetail, { color: sub, marginTop: 6, fontWeight: "700" }]}>{mine ? "Pending · they have 5 days to reply" : "Pending"}</Text>
+        <Text style={[s.reqDetail, { color: sub, marginTop: 6, fontWeight: "700" }]}>
+          {isOwner
+            ? (ownerState === "accepted" ? "✓ Accepted" : "Declined")
+            : (mine ? "Pending · they have 5 days to reply" : "Pending")}
+        </Text>
       )}
     </View>
   );
