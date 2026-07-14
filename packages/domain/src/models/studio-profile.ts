@@ -53,6 +53,10 @@ export interface StudioOverview {
   completedBookings: number;
   scheduledBookings: number;
   cancelledBookings: number;
+  revenue: number; // sum of completed-booking prices across the roster
+  studioSaves: number; // people who saved the studio
+  ratingAvg: number; // the studio's own review rating
+  ratingCount: number;
 }
 
 /** A pending artist application to join a studio (owner's inbox). */
@@ -77,4 +81,5 @@ export interface StudioArtistStat {
   scheduled: number;
   cancelled: number;
   profileVisits: number;
+  revenue: number; // sum of the artist's completed-booking prices
 }

@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@inkora/data-access";
+import { useAuth, useNotifications } from "@inkora/data-access";
 import { router, Tabs } from "expo-router";
 import type { ComponentProps } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { useBadgeCounts } from "../../src/lib/badges";
+import { supabase } from "../../src/lib/supabase";
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 type IconProps = { color: string; size: number; focused: boolean };
@@ -31,6 +32,18 @@ function ChatsTabIcon(props: IconProps) {
   return <DotIcon {...props} active="chatbubble" inactive="chatbubble-outline" show={chats > 0} />;
 }
 
+// The first tab is Home for seekers/artists and the Studio dashboard for owners.
+// Studio owners get a dot for unread notifications (new applications, etc.).
+function HomeTabIcon(props: IconProps) {
+  const { ctx } = useAuth();
+  const isStudio = ctx.roles.includes("studio_admin");
+  const { notifications } = useNotifications(supabase);
+  const unread = notifications.filter((n) => !n.readAt).length;
+  return isStudio
+    ? <DotIcon {...props} active="business" inactive="business-outline" show={unread > 0} />
+    : <DotIcon {...props} active="home" inactive="home-outline" show={false} />;
+}
+
 function ProfileTabIcon(props: IconProps) {
   const { ctx } = useAuth();
   const { rewards, offers, requests, journey, openRequests, newBookings, newCompleted, apptReplies } = useBadgeCounts();
@@ -53,7 +66,7 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: "#71717A",
       }}
     >
-      <Tabs.Screen name="index" options={{ title: isStudio ? "Studio" : "Home", tabBarIcon: tabIcon(isStudio ? "business" : "home", isStudio ? "business-outline" : "home-outline") }} />
+      <Tabs.Screen name="index" options={{ title: isStudio ? "Studio" : "Home", tabBarIcon: (p) => <HomeTabIcon {...p} /> }} />
       <Tabs.Screen name="discover" options={{ title: "Discover", tabBarIcon: tabIcon("search", "search-outline"), href: isStudio ? null : undefined }} />
       <Tabs.Screen name="create" options={{ title: "Create", tabBarIcon: tabIcon("add-circle", "add-circle-outline"), href: isStudio ? null : undefined }} />
       <Tabs.Screen

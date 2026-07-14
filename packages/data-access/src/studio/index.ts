@@ -262,6 +262,7 @@ export async function getStudioOverview(client: InkoraClient, studioId: string):
   const { data, error } = await client.rpc("studio_overview", { p_studio_id: studioId }).returns<{
     active_artists: number; pending_applications: number; profile_visits: number;
     completed_bookings: number; scheduled_bookings: number; cancelled_bookings: number;
+    revenue: number; studio_saves: number; rating_avg: number; rating_count: number;
   }[]>();
   if (error) throw toAppError(error);
   const r = data?.[0];
@@ -273,13 +274,17 @@ export async function getStudioOverview(client: InkoraClient, studioId: string):
     completedBookings: r.completed_bookings,
     scheduledBookings: r.scheduled_bookings,
     cancelledBookings: r.cancelled_bookings,
+    revenue: Number(r.revenue),
+    studioSaves: r.studio_saves,
+    ratingAvg: Number(r.rating_avg),
+    ratingCount: r.rating_count,
   };
 }
 
 export async function getStudioArtistStats(client: InkoraClient, studioId: string): Promise<StudioArtistStat[]> {
   const { data, error } = await client.rpc("studio_artist_stats", { p_studio_id: studioId }).returns<{
     artist_id: string; rating_avg: number; rating_count: number; saved_by: number; work_saves: number;
-    completed: number; scheduled: number; cancelled: number; profile_visits: number;
+    completed: number; scheduled: number; cancelled: number; profile_visits: number; revenue: number;
   }[]>();
   if (error) throw toAppError(error);
   return (data ?? []).map((r) => ({
@@ -292,6 +297,7 @@ export async function getStudioArtistStats(client: InkoraClient, studioId: strin
     scheduled: r.scheduled,
     cancelled: r.cancelled,
     profileVisits: r.profile_visits,
+    revenue: Number(r.revenue),
   }));
 }
 

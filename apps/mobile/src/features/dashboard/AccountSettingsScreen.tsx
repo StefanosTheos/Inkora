@@ -17,7 +17,7 @@ export function AccountSettingsScreen() {
   const { ctx, signOut } = useAuth();
   const toast = useToast();
   const confirm = useConfirm();
-  const isArtist = ctx.roles.includes("artist");
+  const roleLabel = ctx.roles.includes("studio_admin") ? "Studio Owner" : ctx.roles.includes("artist") ? "Artist" : "Seeker";
   const settings = useAccountSettings(supabase);
 
   const [email, setEmail] = useState("");
@@ -78,7 +78,7 @@ export function AccountSettingsScreen() {
           <View style={s.card}>
             <Row label="Email" value={email} />
             <Row label="Signed in via" value={provider.charAt(0).toUpperCase() + provider.slice(1)} />
-            <Row label="Role" value={isArtist ? "Artist" : "Seeker"} last />
+            <Row label="Role" value={roleLabel} last />
           </View>
 
           {/* Notifications */}

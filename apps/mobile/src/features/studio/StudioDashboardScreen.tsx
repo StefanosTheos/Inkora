@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  startDirectConversation, useAuth, useMyStudio, useNotifications, useStudioArtistStats, useStudioOverview,
+  startDirectConversation, useAuth, useMyStudio, useNotifications, useStudioArtistStats,
+  useStudioOverview, useStudioReviews,
 } from "@inkora/data-access";
-import type { StudioArtistStat, StudioRosterArtist } from "@inkora/domain";
+import type { ReviewItem, StudioArtistStat, StudioRosterArtist } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -12,7 +13,14 @@ import { useConfirm } from "../../components/ConfirmDialog";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
-import { Avatar } from "../booking/components/ui";
+import { Avatar, fmtDate } from "../booking/components/ui";
+
+/** Compact currency for headline numbers: €0, €120, €2.4k, €18k. */
+const compactMoney = (n: number): string => {
+  if (n >= 10000) return `€${Math.round(n / 1000)}k`;
+  if (n >= 1000) return `€${(n / 1000).toFixed(1)}k`;
+  return `€${Math.round(n)}`;
+};
 
 /** The studio-owner home: studio identity, headline stats, and the onboarded
  *  roster with per-artist performance. Business-focused — no discovery/AI. */
@@ -26,6 +34,7 @@ export function StudioDashboardScreen() {
   const st = studioQ.data;
   const overviewQ = useStudioOverview(supabase, st?.id ?? "");
   const statsQ = useStudioArtistStats(supabase, st?.id ?? "");
+  const reviewsQ = useStudioReviews(supabase, st?.id ?? "");
   const { notifications } = useNotifications(supabase);
   const unread = notifications.filter((n) => !n.readAt).length;
   const ov = overviewQ.data;
@@ -98,11 +107,11 @@ export function StudioDashboardScreen() {
         <Text style={s.section} accessibilityRole="header">Overview</Text>
         <View style={s.hero}>
           <View style={s.heroBloom} />
-          <HeroStat value={ov?.activeArtists ?? 0} label="Artists" />
+          <HeroStat text={String(ov?.activeArtists ?? 0)} label="Artists" />
           <View style={s.heroDivider} />
-          <HeroStat value={(ov?.completedBookings ?? 0) + (ov?.scheduledBookings ?? 0)} label="Bookings" />
+          <HeroStat text={compactMoney(ov?.revenue ?? 0)} label="Revenue" />
           <View style={s.heroDivider} />
-          <HeroStat value={ov?.profileVisits ?? 0} label="Visits" />
+          <HeroStat text={ov && ov.ratingCount > 0 ? `★${ov.ratingAvg.toFixed(1)}` : "—"} label="Rating" />
         </View>
         <View style={s.gridRow}>
           <BigTile label="Completed" value={ov?.completedBookings ?? 0} icon="checkmark-done-outline" />
@@ -111,6 +120,10 @@ export function StudioDashboardScreen() {
         <View style={s.gridRow}>
           <BigTile label="Cancelled" value={ov?.cancelledBookings ?? 0} icon="close-circle-outline" />
           <BigTile label="Applications" value={ov?.pendingApplications ?? 0} icon="mail-unread-outline" alert={!!ov?.pendingApplications} onPress={() => router.push("/studio-applications")} />
+        </View>
+        <View style={s.gridRow}>
+          <BigTile label="Profile visits" value={ov?.profileVisits ?? 0} icon="eye-outline" />
+          <BigTile label="Saved by" value={ov?.studioSaves ?? 0} icon="heart-outline" />
         </View>
 
         {/* Roster */}
@@ -124,6 +137,27 @@ export function StudioDashboardScreen() {
             <ArtistStatCard key={a.id} artist={a} stat={statsById.get(a.id)} onOpen={() => router.push(`/artist/${a.id}`)} onMessage={() => void messageArtist(a.id)} />
           ))
         )}
+
+        {/* Recent reviews of the studio */}
+        {(reviewsQ.data ?? []).length > 0 ? (
+          <>
+            <Text style={s.section} accessibilityRole="header">Recent reviews</Text>
+            {(reviewsQ.data ?? []).slice(0, 3).map((rv: ReviewItem) => (
+              <Pressable
+                key={rv.id}
+                style={s.reviewCard}
+                onPress={() => { if (rv.authorId) router.push(`/seeker/${rv.authorId}`); }}
+                accessibilityRole="button"
+                accessibilityLabel={`Review by ${rv.authorName}, ${rv.overallRating} stars`}
+              >
+                <Text style={s.reviewHead}>{rv.authorName} · ★ {rv.overallRating}</Text>
+                {rv.title ? <Text style={s.reviewTitle}>{rv.title}</Text> : null}
+                {rv.body ? <Text style={s.reviewBody} numberOfLines={2}>{rv.body}</Text> : null}
+                <Text style={s.reviewDate}>{fmtDate(rv.createdAt)}</Text>
+              </Pressable>
+            ))}
+          </>
+        ) : null}
 
         {/* Settings */}
         <View style={s.settingsCard}>
@@ -142,10 +176,10 @@ export function StudioDashboardScreen() {
   );
 }
 
-function HeroStat({ value, label }: { value: number; label: string }) {
+function HeroStat({ text, label }: { text: string; label: string }) {
   return (
-    <View style={s.heroStat} accessible accessibilityLabel={`${value} ${label}`}>
-      <Text style={s.heroValue}>{value}</Text>
+    <View style={s.heroStat} accessible accessibilityLabel={`${text} ${label}`}>
+      <Text style={s.heroValue}>{text}</Text>
       <Text style={s.heroLabel}>{label}</Text>
     </View>
   );
@@ -185,21 +219,21 @@ function ArtistStatCard({ artist, stat, onOpen, onMessage }: { artist: StudioRos
         </Pressable>
       </Pressable>
       <View style={s.metrics}>
-        <Metric label="Reviews" value={stat?.ratingCount ?? 0} />
-        <Metric label="Saves" value={(stat?.savedBy ?? 0) + (stat?.workSaves ?? 0)} />
+        <Metric label="Revenue" value={compactMoney(stat?.revenue ?? 0)} />
         <Metric label="Done" value={stat?.completed ?? 0} />
         <Metric label="Upcoming" value={stat?.scheduled ?? 0} />
-        <Metric label="Cancelled" value={stat?.cancelled ?? 0} />
+        <Metric label="Reviews" value={stat?.ratingCount ?? 0} />
+        <Metric label="Saves" value={(stat?.savedBy ?? 0) + (stat?.workSaves ?? 0)} />
         <Metric label="Visits" value={stat?.profileVisits ?? 0} />
       </View>
     </View>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <View style={s.metric} accessible accessibilityLabel={`${value} ${label}`}>
-      <Text style={s.metricValue}>{value}</Text>
+      <Text style={s.metricValue} numberOfLines={1}>{value}</Text>
       <Text style={s.metricLabel}>{label}</Text>
     </View>
   );
@@ -245,6 +279,11 @@ const s = StyleSheet.create({
   metric: { alignItems: "center", flex: 1 },
   metricValue: { fontWeight: "800", fontSize: 15, color: "#18181B" },
   metricLabel: { color: "#A1A1AA", fontSize: 10, fontWeight: "600", marginTop: 2 },
+  reviewCard: { borderWidth: 1, borderColor: "#F0F0F2", borderRadius: 14, padding: 12, marginBottom: 10 },
+  reviewHead: { fontWeight: "800", fontSize: 14, color: "#18181B" },
+  reviewTitle: { fontWeight: "600", marginTop: 4, color: "#18181B" },
+  reviewBody: { color: "#3F3F46", marginTop: 2, lineHeight: 19 },
+  reviewDate: { color: "#A1A1AA", fontSize: 12, marginTop: 6 },
   settingsCard: { borderWidth: 1, borderColor: "#F4F4F5", borderRadius: 16, overflow: "hidden", marginTop: 24 },
   settingRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
   settingLabel: { flex: 1, fontWeight: "600", fontSize: 15, color: "#18181B" },

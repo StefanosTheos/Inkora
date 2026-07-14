@@ -2410,6 +2410,10 @@ export type Database = {
           completed_bookings: number
           scheduled_bookings: number
           cancelled_bookings: number
+          revenue: number
+          studio_saves: number
+          rating_avg: number
+          rating_count: number
         }[]
       }
       update_studio: {
@@ -2450,6 +2454,7 @@ export type Database = {
           scheduled: number
           cancelled: number
           profile_visits: number
+          revenue: number
         }[]
       }
       accept_reschedule: {
