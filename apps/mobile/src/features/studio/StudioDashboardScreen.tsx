@@ -21,6 +21,26 @@ import { Avatar, fmtDate } from "../booking/components/ui";
 /** Artists shown per page on the roster before paging kicks in. */
 const ROSTER_PAGE_SIZE = 5;
 
+/** Roster sort options — each maps an artist (+ its stats) to a sortable
+ *  number; the roster is ordered high-to-low. */
+type SortKey = "revenue" | "rating" | "bookings" | "saves" | "visits";
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "revenue", label: "Revenue" },
+  { key: "rating", label: "Rating" },
+  { key: "bookings", label: "Bookings" },
+  { key: "saves", label: "Saves" },
+  { key: "visits", label: "Visits" },
+];
+function sortValue(key: SortKey, a: StudioRosterArtist, stat?: StudioArtistStat): number {
+  switch (key) {
+    case "revenue": return stat?.revenue ?? 0;
+    case "rating": return a.ratingAvg;
+    case "bookings": return stat?.completed ?? 0;
+    case "saves": return (stat?.savedBy ?? 0) + (stat?.workSaves ?? 0);
+    case "visits": return stat?.profileVisits ?? 0;
+  }
+}
+
 /** Compact currency for headline numbers: €0, €120, €2.4k, €18k. */
 const compactMoney = (n: number): string => {
   if (n >= 10000) return `€${Math.round(n / 1000)}k`;
@@ -39,6 +59,7 @@ export function StudioDashboardScreen() {
   const meId = ctx.userId ?? "";
   const [menuArtist, setMenuArtist] = useState<{ id: string; name: string } | null>(null);
   const [rosterPage, setRosterPage] = useState(0);
+  const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const studioQ = useMyStudio(supabase, meId);
   const st = studioQ.data;
   const overviewQ = useStudioOverview(supabase, st?.id ?? "");
@@ -48,7 +69,9 @@ export function StudioDashboardScreen() {
   const unread = notifications.filter((n) => !n.readAt).length;
   const ov = overviewQ.data;
   const statsById = new Map((statsQ.data ?? []).map((x) => [x.artistId, x]));
-  const roster = st?.roster ?? [];
+  const roster = [...(st?.roster ?? [])].sort(
+    (a, b) => sortValue(sortKey, b, statsById.get(b.id)) - sortValue(sortKey, a, statsById.get(a.id)),
+  );
   const rosterPages = Math.max(1, Math.ceil(roster.length / ROSTER_PAGE_SIZE));
   const safeRosterPage = Math.min(rosterPage, rosterPages - 1);
   const pagedRoster = roster.slice(safeRosterPage * ROSTER_PAGE_SIZE, safeRosterPage * ROSTER_PAGE_SIZE + ROSTER_PAGE_SIZE);
@@ -165,6 +188,26 @@ export function StudioDashboardScreen() {
             <Text style={s.inviteLinkText}>Invite</Text>
           </Pressable>
         </View>
+        {roster.length > 1 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.sortRow} style={s.sortScroll}>
+            <Ionicons name="swap-vertical-outline" size={15} color="#A1A1AA" style={{ alignSelf: "center", marginRight: 2 }} />
+            {SORT_OPTIONS.map((o) => {
+              const active = o.key === sortKey;
+              return (
+                <Pressable
+                  key={o.key}
+                  style={[s.sortChip, active && s.sortChipActive]}
+                  onPress={() => { setSortKey(o.key); setRosterPage(0); }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={`Sort by ${o.label}`}
+                >
+                  <Text style={[s.sortChipText, active && s.sortChipTextActive]}>{o.label}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
         {statsQ.isLoading ? (
           <ActivityIndicator style={{ marginTop: 12 }} />
         ) : roster.length === 0 ? (
@@ -355,6 +398,12 @@ const s = StyleSheet.create({
   sectionInline: { fontSize: 18, fontWeight: "800" },
   inviteLink: { flexDirection: "row", alignItems: "center", gap: 5 },
   inviteLinkText: { color: "#E5484D", fontWeight: "800", fontSize: 14 },
+  sortScroll: { flexGrow: 0, marginBottom: 12 },
+  sortRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  sortChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: "#F4F4F5" },
+  sortChipActive: { backgroundColor: "#18181B" },
+  sortChipText: { fontWeight: "700", color: "#52525B", fontSize: 13 },
+  sortChipTextActive: { color: "#fff" },
   cardPerson: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   sheetBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   sheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 12, paddingBottom: 28, gap: 4 },
