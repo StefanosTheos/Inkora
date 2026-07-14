@@ -80,7 +80,7 @@ export function StudioDashboardScreen() {
             <Ionicons name="eye-outline" size={16} color="#18181B" />
             <Text style={s.outlineBtnText}>Public page</Text>
           </Pressable>
-          <Pressable style={s.outlineBtn} onPress={() => toast.show("Studio editing is coming next")} accessibilityRole="button" accessibilityLabel="Edit studio">
+          <Pressable style={s.outlineBtn} onPress={() => router.push("/studio-edit")} accessibilityRole="button" accessibilityLabel="Edit studio">
             <Ionicons name="create-outline" size={16} color="#18181B" />
             <Text style={s.outlineBtnText}>Edit studio</Text>
           </Pressable>

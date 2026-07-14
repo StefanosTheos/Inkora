@@ -1,6 +1,6 @@
 import type {
   ArtistId, PortfolioImage, PortfolioImageId, ProfileId, ReviewId, ReviewItem, StudioApplication,
-  StudioArtistStat, StudioId, StudioOverview, StudioProfile,
+  StudioArtistStat, StudioEditInput, StudioId, StudioOverview, StudioProfile,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
@@ -9,7 +9,7 @@ import { toAppError } from "../errors";
 import { sendMessage, startStudioConversation } from "../messaging";
 
 const STUDIO_SELECT =
-  "id, owner_id, name, slug, bio, logo_path, address_line, city, country, latitude, longitude, opening_hours, " +
+  "id, owner_id, name, slug, bio, logo_path, email, phone, website, address_line, city, country, latitude, longitude, opening_hours, " +
   "studio_memberships(status, artists(id, headline, rating_avg, rating_count, profiles(display_name, avatar_path), artist_styles(tattoo_styles(slug))))";
 
 /** A membership that hasn't reached a terminal state — drives the Apply button. */
@@ -34,6 +34,9 @@ interface StudioRow {
   slug: string;
   bio: string | null;
   logo_path: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
   address_line: string | null;
   city: string | null;
   country: string | null;
@@ -63,6 +66,9 @@ function mapStudioRow(r: StudioRow): StudioProfile {
     slug: r.slug,
     bio: r.bio,
     logoPath: r.logo_path,
+    email: r.email,
+    phone: r.phone,
+    website: r.website,
     addressLine: r.address_line,
     city: r.city,
     country: r.country,
@@ -287,6 +293,22 @@ export async function getStudioArtistStats(client: InkoraClient, studioId: strin
     cancelled: r.cancelled,
     profileVisits: r.profile_visits,
   }));
+}
+
+/** Update the owner's studio (name, about, contact, city/address, hours). */
+export async function updateStudio(client: InkoraClient, studioId: string, input: StudioEditInput): Promise<void> {
+  const { error } = await client.rpc("update_studio", {
+    p_studio_id: studioId,
+    p_name: input.name,
+    p_bio: input.bio,
+    p_email: input.email,
+    p_phone: input.phone,
+    p_website: input.website,
+    p_address_line: input.addressLine,
+    p_city: input.city,
+    p_opening_hours: input.openingHours,
+  });
+  if (error) throw toAppError(error);
 }
 
 /** Log a view of an artist/studio profile (best-effort; dedupes server-side). */

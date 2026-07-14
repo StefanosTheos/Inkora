@@ -2412,6 +2412,20 @@ export type Database = {
           cancelled_bookings: number
         }[]
       }
+      update_studio: {
+        Args: {
+          p_studio_id: string
+          p_name: string
+          p_bio: string | null
+          p_email: string | null
+          p_phone: string | null
+          p_website: string | null
+          p_address_line: string | null
+          p_city: string | null
+          p_opening_hours: Json
+        }
+        Returns: undefined
+      }
       studio_applications: {
         Args: { p_studio_id: string }
         Returns: {

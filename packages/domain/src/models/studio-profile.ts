@@ -18,6 +18,9 @@ export interface StudioProfile {
   slug: string;
   bio: string | null;
   logoPath: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
   addressLine: string | null;
   city: string | null;
   country: string | null;
@@ -28,6 +31,18 @@ export interface StudioProfile {
   /** Union of the roster's style slugs (studio "specialties"). */
   styles: string[];
   roster: StudioRosterArtist[];
+}
+
+/** Editable studio fields (studio-owner "Edit studio"). */
+export interface StudioEditInput {
+  name: string;
+  bio: string | null;
+  email: string | null;
+  phone: string | null;
+  website: string | null;
+  addressLine: string | null;
+  city: string | null;
+  openingHours: Record<string, string[][]>;
 }
 
 /** Studio-owner dashboard: headline aggregates across the studio. */
