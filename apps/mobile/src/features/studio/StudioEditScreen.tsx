@@ -3,7 +3,7 @@ import { updateStudio, useAuth, useMyStudio } from "@inkora/data-access";
 import type { StudioProfile } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -110,51 +110,75 @@ function EditForm({ studio }: { studio: StudioProfile }) {
 
   return (
     <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
-      <Text style={s.label}>Studio name</Text>
-      <TextInput style={s.input} value={name} onChangeText={setName} placeholder="Studio name" />
+      <Text style={s.section} accessibilityRole="header">Profile</Text>
+      <View style={s.card}>
+        <Field label="Studio name">
+          <TextInput style={s.fieldInput} value={name} onChangeText={setName} placeholder="Studio name" placeholderTextColor="#A1A1AA" />
+        </Field>
+        <Field label="About" last>
+          <TextInput style={[s.fieldInput, s.multiline]} value={bio} onChangeText={setBio} placeholder="Tell clients about your studio" placeholderTextColor="#A1A1AA" multiline />
+        </Field>
+      </View>
 
-      <Text style={s.label}>About</Text>
-      <TextInput style={[s.input, s.multiline]} value={bio} onChangeText={setBio} placeholder="Tell clients about your studio" multiline />
+      <Text style={s.section} accessibilityRole="header">Contact</Text>
+      <View style={s.card}>
+        <Field label="Email">
+          <TextInput style={s.fieldInput} value={email} onChangeText={setEmail} placeholder="hello@studio.com" placeholderTextColor="#A1A1AA" keyboardType="email-address" autoCapitalize="none" />
+        </Field>
+        <Field label="Phone">
+          <TextInput style={s.fieldInput} value={phone} onChangeText={setPhone} placeholder="+30 …" placeholderTextColor="#A1A1AA" keyboardType="phone-pad" />
+        </Field>
+        <Field label="Website" last>
+          <TextInput style={s.fieldInput} value={website} onChangeText={setWebsite} placeholder="https://…" placeholderTextColor="#A1A1AA" keyboardType="url" autoCapitalize="none" />
+        </Field>
+      </View>
 
-      <Text style={s.section}>Contact</Text>
-      <Text style={s.label}>Email</Text>
-      <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder="hello@studio.com" keyboardType="email-address" autoCapitalize="none" />
-      <Text style={s.label}>Phone</Text>
-      <TextInput style={s.input} value={phone} onChangeText={setPhone} placeholder="+30 …" keyboardType="phone-pad" />
-      <Text style={s.label}>Website</Text>
-      <TextInput style={s.input} value={website} onChangeText={setWebsite} placeholder="https://…" keyboardType="url" autoCapitalize="none" />
-
-      <Text style={s.section}>Location</Text>
-      <Text style={s.label}>City</Text>
-      <TextInput style={s.input} value={city} onChangeText={setCity} placeholder="City" />
-      <Text style={s.label}>Address</Text>
-      <TextInput style={s.input} value={address} onChangeText={setAddress} placeholder="Street address" />
+      <Text style={s.section} accessibilityRole="header">Location</Text>
+      <View style={s.card}>
+        <Field label="City">
+          <TextInput style={s.fieldInput} value={city} onChangeText={setCity} placeholder="City" placeholderTextColor="#A1A1AA" />
+        </Field>
+        <Field label="Address" last>
+          <TextInput style={s.fieldInput} value={address} onChangeText={setAddress} placeholder="Street address" placeholderTextColor="#A1A1AA" />
+        </Field>
+      </View>
       <Text style={s.hint}>The map location stays as set — contact support to move the pin.</Text>
 
-      <Text style={s.section}>Opening hours</Text>
-      {DAYS.map(([key, label]) => {
-        const d = hours[key]!;
-        return (
-          <View key={key} style={s.dayRow}>
-            <Text style={s.dayLabel}>{label}</Text>
-            {d.open ? (
-              <View style={s.timeRow}>
-                <TextInput style={s.timeInput} value={d.from} onChangeText={(v) => setDay(key, { from: maskTime(v) })} placeholder="10:00" keyboardType="number-pad" maxLength={5} accessibilityLabel={`${label} opening time`} />
-                <Text style={s.timeDash}>–</Text>
-                <TextInput style={s.timeInput} value={d.to} onChangeText={(v) => setDay(key, { to: maskTime(v) })} placeholder="18:00" keyboardType="number-pad" maxLength={5} accessibilityLabel={`${label} closing time`} />
-              </View>
-            ) : (
-              <Text style={s.closed}>Closed</Text>
-            )}
-            <Switch value={d.open} onValueChange={(v) => setDay(key, { open: v })} trackColor={{ true: "#18181B", false: "#E4E4E7" }} thumbColor="#fff" />
-          </View>
-        );
-      })}
+      <Text style={s.section} accessibilityRole="header">Opening hours</Text>
+      <View style={s.card}>
+        {DAYS.map(([key, label], i) => {
+          const d = hours[key]!;
+          return (
+            <View key={key} style={[s.dayRow, i < DAYS.length - 1 && s.rowBorder]}>
+              <Text style={s.dayLabel} numberOfLines={1}>{label}</Text>
+              {d.open ? (
+                <View style={s.timeRow}>
+                  <TextInput style={s.timeInput} value={d.from} onChangeText={(v) => setDay(key, { from: maskTime(v) })} placeholder="10:00" placeholderTextColor="#A1A1AA" keyboardType="number-pad" maxLength={5} accessibilityLabel={`${label} opening time`} />
+                  <Text style={s.timeDash}>–</Text>
+                  <TextInput style={s.timeInput} value={d.to} onChangeText={(v) => setDay(key, { to: maskTime(v) })} placeholder="18:00" placeholderTextColor="#A1A1AA" keyboardType="number-pad" maxLength={5} accessibilityLabel={`${label} closing time`} />
+                </View>
+              ) : (
+                <Text style={s.closed}>Closed</Text>
+              )}
+              <Switch value={d.open} onValueChange={(v) => setDay(key, { open: v })} trackColor={{ true: "#E5484D" }} accessibilityLabel={`${label} open`} />
+            </View>
+          );
+        })}
+      </View>
 
       <Pressable style={[s.save, busy && s.disabled]} onPress={() => void save()} disabled={busy} accessibilityRole="button" accessibilityLabel="Save changes">
         <Text style={s.saveText}>{busy ? "Saving…" : "Save changes"}</Text>
       </Pressable>
     </ScrollView>
+  );
+}
+
+function Field({ label, children, last }: { label: string; children: ReactNode; last?: boolean }) {
+  return (
+    <View style={[s.field, !last && s.rowBorder]}>
+      <Text style={s.fieldLabel}>{label}</Text>
+      {children}
+    </View>
   );
 }
 
@@ -165,15 +189,18 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   muted: { color: "#A1A1AA" },
   body: { padding: 16, paddingBottom: 48 },
-  section: { fontSize: 17, fontWeight: "800", marginTop: 24, marginBottom: 4 },
-  label: { fontWeight: "700", fontSize: 13, color: "#3F3F46", marginTop: 14, marginBottom: 6 },
-  input: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
-  multiline: { minHeight: 90, textAlignVertical: "top" },
-  hint: { color: "#A1A1AA", fontSize: 12, marginTop: 6, lineHeight: 17 },
-  dayRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
-  dayLabel: { width: 84, fontWeight: "700", fontSize: 14, color: "#18181B" },
+  section: { fontSize: 12, fontWeight: "800", color: "#71717A", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 20, marginBottom: 8 },
+  card: { borderWidth: 1, borderColor: "#F0F0F2", borderRadius: 16, overflow: "hidden" },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
+  field: { paddingHorizontal: 14, paddingVertical: 10 },
+  fieldLabel: { fontWeight: "700", fontSize: 12, color: "#A1A1AA", marginBottom: 2 },
+  fieldInput: { fontSize: 15, color: "#18181B", paddingVertical: 4 },
+  multiline: { minHeight: 72, textAlignVertical: "top" },
+  hint: { color: "#A1A1AA", fontSize: 12, marginTop: 8, lineHeight: 17, paddingHorizontal: 2 },
+  dayRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  dayLabel: { width: 96, fontWeight: "700", fontSize: 14, color: "#18181B" },
   timeRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
-  timeInput: { flex: 1, backgroundColor: "#F4F4F5", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, fontSize: 15, textAlign: "center", fontWeight: "700" },
+  timeInput: { flex: 1, backgroundColor: "#F4F4F5", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, fontSize: 15, textAlign: "center", fontWeight: "700", color: "#18181B" },
   timeDash: { color: "#A1A1AA", fontWeight: "700" },
   closed: { flex: 1, color: "#A1A1AA", fontWeight: "600" },
   save: { backgroundColor: "#E5484D", borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 28 },
