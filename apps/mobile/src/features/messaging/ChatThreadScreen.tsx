@@ -48,6 +48,8 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
   // who's viewing: an artist opens the other party's seeker (client) details
   // page; a seeker opens the artist's profile.
   const isArtist = ctx.roles.includes("artist");
+  // Studio owners are a business account — no client "request quote / consultation".
+  const isStudio = ctx.roles.includes("studio_admin");
   const canOpenProfile = !!(conv?.studioSlug || (conv?.type === "direct" && conv?.otherId));
   const openProfile = () => {
     if (conv?.studioSlug) router.push(`/studio/${conv.studioSlug}`);
@@ -164,7 +166,7 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
         />
       )}
 
-      {showActions && (
+      {showActions && !isStudio && (
         <View style={s.actions}>
           <Pressable style={s.actionBtn} onPress={() => { void chat.sendQuote({ description: text.trim() || undefined }); setText(""); setShowActions(false); }}>
             <Text style={s.actionText}>💬 Request quote</Text>
@@ -176,7 +178,9 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
       )}
 
       <View style={[s.composer, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-        <Pressable onPress={() => setShowActions((v) => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel="More actions"><Ionicons name="add-circle-outline" size={26} color="#71717A" /></Pressable>
+        {!isStudio ? (
+          <Pressable onPress={() => setShowActions((v) => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel="More actions"><Ionicons name="add-circle-outline" size={26} color="#71717A" /></Pressable>
+        ) : null}
         <Pressable onPress={pickImage} hitSlop={8} accessibilityRole="button" accessibilityLabel="Attach photo"><Ionicons name="image-outline" size={24} color="#71717A" /></Pressable>
         <TextInput style={s.input} placeholder={recording ? "Recording…" : "Message"} value={text} onChangeText={onChange} multiline editable={!recording} />
         {text.trim().length > 0 ? (
