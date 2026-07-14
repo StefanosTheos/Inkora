@@ -131,7 +131,7 @@ export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { i
         <View style={s.tabs}>
           <TabBtn label="Journey" active={tab === "journey"} onPress={() => setTab("journey")} />
           <TabBtn label={`Reviews${allReviews.length ? ` (${allReviews.length})` : ""}`} active={tab === "reviews"} onPress={() => setTab("reviews")} />
-          {canSeeClientReviews ? <TabBtn label="Ratings" active={tab === "ratings"} onPress={() => setTab("ratings")} /> : null}
+          {canSeeClientReviews ? <TabBtn label={`Ratings${clientReviews.data?.length ? ` (${clientReviews.data.length})` : ""}`} active={tab === "ratings"} onPress={() => setTab("ratings")} /> : null}
         </View>
 
         {tab === "journey" ? (
@@ -402,7 +402,7 @@ const s = StyleSheet.create({
   crBarVal: { width: 26, textAlign: "right", fontSize: 12, fontWeight: "700", color: "#18181B" },
   crLocked: { color: "#A1A1AA", fontSize: 13, fontStyle: "italic", marginTop: 4 },
   reviewCard: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 12, padding: 12, marginTop: 10 },
-  featuredCard: { borderColor: "#FBCFE8", backgroundColor: "#FEF2F7" },
+  featuredCard: { borderColor: "#D4D4D8", backgroundColor: "#F4F4F5" },
   reviewHead: { fontWeight: "700" },
   reviewTitle: { fontWeight: "600", marginTop: 4 },
   reviewBody: { color: "#3F3F46", marginTop: 2 },
