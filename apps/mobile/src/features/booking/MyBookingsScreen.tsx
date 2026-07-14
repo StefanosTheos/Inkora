@@ -28,7 +28,7 @@ export function MyBookingsScreen() {
   const goTab = (t: Tab) => { setTab(t); setPage(0); };
   const apptsQ = useMyAppointments(supabase);
   const reqsQ = useMyRequests(supabase, "client");
-  const { offers: offersUnread, openRequests: openReqBadge, newBookings } = useBadgeCounts();
+  const { offers: offersUnread, openRequests: openReqBadge, newBookings, apptReplies } = useBadgeCounts();
   const seenSet = new Set(useSeenRequests());
   const markSeen = useMarkRequestSeen();
   const markApptsSeen = useMarkAppointmentsSeen();
@@ -78,7 +78,7 @@ export function MyBookingsScreen() {
         <View style={{ width: 26 }} />
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabsScroll} contentContainerStyle={s.tabs}>
-        <TabButton label={`Upcoming${upcomingAppts.length ? ` (${upcomingAppts.length})` : ""}`} active={tab === "upcoming"} onPress={() => goTab("upcoming")} badge={newBookings} />
+        <TabButton label={`Upcoming${upcomingAppts.length ? ` (${upcomingAppts.length})` : ""}`} active={tab === "upcoming"} onPress={() => goTab("upcoming")} badge={newBookings + apptReplies} />
         <TabButton label={`Completed${completedAppts.length ? ` (${completedAppts.length})` : ""}`} active={tab === "completed"} onPress={() => goTab("completed")} />
         <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => goTab("requests")} badge={offersUnread + openReqBadge} />
       </ScrollView>
@@ -129,7 +129,9 @@ export function AppointmentCard({ appt, onPress }: { appt: AppointmentView; onPr
         <Text style={s.cardSub}>{fmtDateTime(appt.scheduledStart)}</Text>
         {appt.priceAmount != null ? <Text style={s.cardPrice}>{money(appt.priceAmount)}</Text> : null}
       </View>
-      <StatusChip status={appt.status} label={APPOINTMENT_STATUS_LABEL[appt.status]} />
+      {appt.rescheduleStatus !== "none"
+        ? <StatusChip status="pending" label="Reschedule pending" />
+        : <StatusChip status={appt.status} label={APPOINTMENT_STATUS_LABEL[appt.status]} />}
     </Pressable>
   );
 }

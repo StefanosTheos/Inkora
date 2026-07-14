@@ -196,6 +196,10 @@ export type Database = {
           offer_id: string | null
           price_amount: number | null
           request_id: string | null
+          reschedule_by: string | null
+          reschedule_end: string | null
+          reschedule_start: string | null
+          reschedule_status: string
           scheduled_end: string
           scheduled_start: string
           status: Database["public"]["Enums"]["appointment_status"]
@@ -217,6 +221,10 @@ export type Database = {
           offer_id?: string | null
           price_amount?: number | null
           request_id?: string | null
+          reschedule_by?: string | null
+          reschedule_end?: string | null
+          reschedule_start?: string | null
+          reschedule_status?: string
           scheduled_end: string
           scheduled_start: string
           status?: Database["public"]["Enums"]["appointment_status"]
@@ -238,6 +246,10 @@ export type Database = {
           offer_id?: string | null
           price_amount?: number | null
           request_id?: string | null
+          reschedule_by?: string | null
+          reschedule_end?: string | null
+          reschedule_start?: string | null
+          reschedule_status?: string
           scheduled_end?: string
           scheduled_start?: string
           status?: Database["public"]["Enums"]["appointment_status"]
@@ -2375,10 +2387,19 @@ export type Database = {
           username: string | null
           avatar_path: string | null
           city: string | null
+          bio: string | null
           member_since: string
           bookings_count: number
           reviews_count: number
         }[]
+      }
+      propose_reschedule: {
+        Args: { p_appointment_id: string; p_start: string; p_end: string }
+        Returns: undefined
+      }
+      accept_reschedule: {
+        Args: { p_appointment_id: string }
+        Returns: undefined
       }
       client_reviews_for: {
         Args: { p_client_id: string }

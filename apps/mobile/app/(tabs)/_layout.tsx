@@ -33,10 +33,10 @@ function ChatsTabIcon(props: IconProps) {
 
 function ProfileTabIcon(props: IconProps) {
   const { ctx } = useAuth();
-  const { rewards, offers, requests, journey, openRequests, newBookings, newCompleted } = useBadgeCounts();
+  const { rewards, offers, requests, journey, openRequests, newBookings, newCompleted, apptReplies } = useBadgeCounts();
   const show = ctx.roles.includes("artist")
-    ? requests + newBookings + newCompleted > 0
-    : rewards + offers + journey + openRequests + newBookings > 0;
+    ? requests + newBookings + newCompleted + apptReplies > 0
+    : rewards + offers + journey + openRequests + newBookings + apptReplies > 0;
   return <DotIcon {...props} active="person" inactive="person-outline" show={show} />;
 }
 

@@ -203,6 +203,8 @@ function Bubble({ message, mine, isLastMine, seen }: { message: Message; mine: b
         {kind === "offer" && <BookingOfferCard message={message} mine={mine} />}
         {kind === "appointment" && <BookingApptCard message={message} mine={mine} />}
         {kind === "completed" && <BookingCompletedCard message={message} mine={mine} />}
+        {kind === "reschedule" && <BookingRescheduleCard message={message} mine={mine} />}
+        {kind === "reschedule_accepted" && <RescheduleAcceptedCard message={message} mine={mine} />}
       </View>
       {mine && isLastMine && <Text style={s.receipt}>{seen ? "Seen" : "Sent"}</Text>}
     </View>
@@ -356,7 +358,7 @@ interface OfferMeta {
   offerId?: string; requestId?: string; artistId?: string;
   proposedStart?: string | null; priceAmount?: number | null; currencyCode?: string | null; message?: string | null;
 }
-interface ApptMeta { appointmentId?: string; proposedStart?: string | null; priceAmount?: number | null }
+interface ApptMeta { appointmentId?: string; proposedStart?: string | null; proposedEnd?: string | null; priceAmount?: number | null }
 
 /** Snapshot of a booking request in the chat. The artist gets quick actions. */
 function BookingRequestCard({ message, mine }: { message: Message; mine: boolean }) {
@@ -566,6 +568,35 @@ function BookingCompletedCard({ message, mine }: { message: Message; mine: boole
       {/* The completion card is sent by the artist, so `mine` here means the
           artist's device — nudge them to leave a client review. */}
       {mine ? <Text style={[s.reqDetail, { color: sub, marginTop: 4, fontWeight: "700" }]}>Tap to review your client →</Text> : null}
+    </Pressable>
+  );
+}
+
+/** Sent when either party proposes a new time — tap to review/respond. */
+function BookingRescheduleCard({ message, mine }: { message: Message; mine: boolean }) {
+  const router = useRouter();
+  const md = (message.metadata ?? {}) as ApptMeta;
+  const color = mine ? "#fff" : "#18181B";
+  const sub = mine ? "rgba(255,255,255,0.85)" : "#52525B";
+  return (
+    <Pressable style={s.reqCard} onPress={() => { if (md.appointmentId) router.push(`/booking/${md.appointmentId}`); }} accessibilityRole="button" accessibilityLabel="Review reschedule request">
+      <Text style={[s.reqTitle, { color }]}>🔁 Reschedule requested</Text>
+      {md.proposedStart ? <Text style={[s.reqDetail, { color: sub }]}>{fmtDateTime(md.proposedStart)}</Text> : null}
+      <Text style={[s.reqDetail, { color: sub, marginTop: 4, fontWeight: "700" }]}>{mine ? "Waiting for a reply →" : "Tap to respond →"}</Text>
+    </Pressable>
+  );
+}
+
+/** Sent when a reschedule is accepted — confirms the new time to both parties. */
+function RescheduleAcceptedCard({ message, mine }: { message: Message; mine: boolean }) {
+  const router = useRouter();
+  const md = (message.metadata ?? {}) as ApptMeta;
+  const color = mine ? "#fff" : "#18181B";
+  const sub = mine ? "rgba(255,255,255,0.85)" : "#52525B";
+  return (
+    <Pressable style={s.reqCard} onPress={() => { if (md.appointmentId) router.push(`/booking/${md.appointmentId}`); }} accessibilityRole="button" accessibilityLabel="View appointment">
+      <Text style={[s.reqTitle, { color }]}>✅ Reschedule accepted</Text>
+      {md.proposedStart ? <Text style={[s.reqDetail, { color: sub }]}>{fmtDateTime(md.proposedStart)}</Text> : null}
     </Pressable>
   );
 }

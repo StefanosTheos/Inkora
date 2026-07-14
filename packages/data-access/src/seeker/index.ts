@@ -10,6 +10,7 @@ interface RpcRow {
   username: string | null;
   avatar_path: string | null;
   city: string | null;
+  bio: string | null;
   member_since: string;
   bookings_count: number;
   reviews_count: number;
@@ -28,6 +29,7 @@ export async function getPublicSeekerProfile(client: InkoraClient, profileId: st
     username: r.username,
     avatarPath: r.avatar_path,
     city: r.city,
+    bio: r.bio,
     memberSince: r.member_since,
     bookingsCount: r.bookings_count,
     reviewsCount: r.reviews_count,

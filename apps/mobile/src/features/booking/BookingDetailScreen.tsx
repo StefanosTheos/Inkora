@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  bookingKeys, cancelAppointment, cancelRequest, completeAppointment, createOffer, declineRequest,
-  getChatSignedUrl, markEntityNotificationsRead, rescheduleAppointment, respondToOffer,
+  acceptReschedule, bookingKeys, cancelAppointment, cancelRequest, completeAppointment, createOffer,
+  declineRequest, getChatSignedUrl, markEntityNotificationsRead, proposeReschedule, respondToOffer,
   startDirectConversation, submitClientReview, submitReview,
   useAppointment, useAppointmentClientReview, useAppointmentReview, useArtistAvailability,
   useArtistDaySlots, useAuth, useBookingRequest, withdrawOffer,
@@ -81,6 +81,11 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
   const confirm = useConfirm();
   const isArtist = appt.artistId === meId;
   const [busy, setBusy] = useState(false);
+  // Synchronous re-entrancy guard: `busy` state doesn't flip until the next
+  // render, so a fast double-tap (e.g. picking a reschedule slot twice) would
+  // otherwise fire the action twice. The ref blocks the second call in the
+  // same tick.
+  const busyRef = useRef(false);
   const [rescheduling, setRescheduling] = useState(false);
   const durationMin = Math.round((new Date(appt.scheduledEnd).getTime() - new Date(appt.scheduledStart).getTime()) / 60000);
   // The tattoo brief the client filled in during the request, carried over so
@@ -88,6 +93,8 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
   const reqQ = useBookingRequest(supabase, appt.requestId ?? "");
 
   async function run(fn: () => Promise<void>) {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       await fn();
@@ -96,11 +103,41 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
     } catch (e) {
       toast.show((e as Error).message, "error");
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
 
+  // Opening an appointment marks its updates seen (clears the reschedule-reply
+  // badge on the profile icon / See-all / Upcoming tab for this booking).
+  useEffect(() => {
+    void markEntityNotificationsRead(supabase, "appointment", appt.id)
+      .then(() => qc.invalidateQueries({ queryKey: ["notifications"] }))
+      .catch(() => { /* best-effort */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appt.id]);
+
   const active = appt.status === "scheduled" || appt.status === "rescheduled";
+
+  // Pending reschedule negotiation. Either party can propose; the other approves.
+  const reschedPending = appt.rescheduleStatus !== "none";
+  const iMustAnswer =
+    (appt.rescheduleStatus === "pending_client" && !isArtist) ||
+    (appt.rescheduleStatus === "pending_artist" && isArtist);
+
+  // Propose (or counter) a new time — the other party must then approve.
+  const proposeSlot = (start: string, end: string) => run(async () => {
+    await proposeReschedule(supabase, appt.id, start, end);
+    setRescheduling(false);
+    toast.show("Reschedule requested");
+  });
+  const declineFully = () => {
+    void confirm({
+      title: "Decline this appointment?",
+      message: `${appt.counterparty.name} will be notified and the appointment will be cancelled.`,
+      confirmLabel: "Decline", cancelLabel: "Keep", destructive: true,
+    }).then((ok) => { if (ok) void run(() => cancelAppointment(supabase, appt.id, "Declined reschedule")); });
+  };
 
   // Free reschedule/cancel up to 4 days before the appointment.
   const FREE_WINDOW_DAYS = 4;
@@ -174,16 +211,37 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
       {appt.status === "completed" && !isArtist ? <ReviewSection appt={appt} /> : null}
       {appt.status === "completed" && isArtist ? <ClientReviewSection appt={appt} /> : null}
 
-      {rescheduling && active ? (
+      {rescheduling && (active || reschedPending) ? (
         <SlotPicker
           artistId={appt.artistId}
           durationMinutes={durationMin}
           onCancel={() => setRescheduling(false)}
-          onPick={(start, end) => run(async () => {
-            await rescheduleAppointment(supabase, appt.id, start, end);
-            setRescheduling(false);
-          })}
+          onPick={proposeSlot}
         />
+      ) : reschedPending ? (
+        // A reschedule is awaiting approval. The awaited party can accept,
+        // counter, or decline; the proposer waits (and may still cancel).
+        <View style={s.reschedBox}>
+          <View style={s.reschedHead}>
+            <Ionicons name="swap-horizontal-outline" size={18} color="#B45309" />
+            <Text style={s.reschedTitle}>{iMustAnswer ? "New time proposed" : "Reschedule pending"}</Text>
+          </View>
+          <Text style={s.reschedTime}>
+            {fmtDate(appt.rescheduleStart ?? appt.scheduledStart)} · {fmtTime(appt.rescheduleStart ?? appt.scheduledStart)} – {fmtTime(appt.rescheduleEnd ?? appt.scheduledEnd)}
+          </Text>
+          <Text style={s.reschedHint}>
+            {iMustAnswer
+              ? `${appt.counterparty.name} proposed this new time. Accept it, propose another, or decline the appointment.`
+              : `Waiting for ${appt.counterparty.name} to confirm the new time.`}
+          </Text>
+          {iMustAnswer ? (
+            <>
+              <PrimaryBtn label="Accept new time" onPress={() => run(async () => { await acceptReschedule(supabase, appt.id); toast.show("Reschedule confirmed"); })} disabled={busy} />
+              <SecondaryBtn label="Propose a different time" onPress={onReschedulePress} disabled={busy} />
+            </>
+          ) : null}
+          <DangerBtn label={iMustAnswer ? "Decline appointment" : "Cancel appointment"} onPress={declineFully} disabled={busy} />
+        </View>
       ) : active ? (
         <View style={s.actions}>
           <SecondaryBtn label="Reschedule" onPress={onReschedulePress} disabled={busy} />
@@ -204,7 +262,7 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
         </View>
       ) : null}
 
-      {active && !isArtist ? (
+      {active && !isArtist && !reschedPending ? (
         <View style={[s.notice, withinFeeWindow && s.noticeWarn]}>
           <Ionicons
             name={withinFeeWindow ? "alert-circle-outline" : "information-circle-outline"}
@@ -806,6 +864,11 @@ const s = StyleSheet.create({
   noticeText: { flex: 1, color: "#92400E", fontSize: 13, lineHeight: 18 },
   noticeTextWarn: { color: "#B91C1C" },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 6 },
+  reschedBox: { borderWidth: 1, borderColor: "#FDE68A", backgroundColor: "#FFFBEB", borderRadius: 16, padding: 14, gap: 10, marginTop: 6 },
+  reschedHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+  reschedTitle: { fontWeight: "800", fontSize: 15, color: "#92400E" },
+  reschedTime: { fontWeight: "700", fontSize: 15, color: "#18181B" },
+  reschedHint: { color: "#92400E", fontSize: 13, lineHeight: 18 },
   reviewDone: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F0FDF4", borderRadius: 12, padding: 12, marginTop: 4 },
   reviewDoneText: { color: "#166534", fontWeight: "700" },
   reviewForm: { borderWidth: 1, borderColor: "#F4F4F5", borderRadius: 16, padding: 14, gap: 10, marginTop: 4 },

@@ -147,6 +147,9 @@ export interface AppointmentRequestView {
   offers: OfferView[];
 }
 
+/** Whose approval a proposed reschedule is waiting on (or 'none'). */
+export type RescheduleStatus = "none" | "pending_client" | "pending_artist";
+
 export interface AppointmentView {
   id: AppointmentId;
   requestId: AppointmentRequestId | null;
@@ -164,6 +167,11 @@ export interface AppointmentView {
   locationNote: string | null;
   notes: string | null;
   cancellationReason: string | null;
+  // Pending reschedule proposal (either party can propose; the other approves).
+  rescheduleStatus: RescheduleStatus;
+  rescheduleStart: string | null;
+  rescheduleEnd: string | null;
+  rescheduleBy: ProfileId | null; // who proposed the pending time
 }
 
 // ---------------------------------------------------------------- labels / colors

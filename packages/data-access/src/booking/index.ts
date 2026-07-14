@@ -46,6 +46,7 @@ interface ApptRow {
   scheduled_start: string; scheduled_end: string; status: string;
   price_amount: number | null; deposit_amount: number | null; deposit_paid: boolean;
   location_note: string | null; notes: string | null; cancellation_reason: string | null;
+  reschedule_status: string | null; reschedule_start: string | null; reschedule_end: string | null; reschedule_by: string | null;
   client: { id: string; display_name: string; avatar_path: string | null } | null;
   artist: { id: string; profiles: { display_name: string; avatar_path: string | null } | null } | null;
   studio: { name: string } | null;
@@ -60,6 +61,7 @@ const REQ_SELECT =
 
 const APPT_SELECT =
   "id, request_id, client_id, artist_id, studio_id, scheduled_start, scheduled_end, status, price_amount, deposit_amount, deposit_paid, location_note, notes, cancellation_reason, " +
+  "reschedule_status, reschedule_start, reschedule_end, reschedule_by, " +
   "client:profiles!appointments_client_id_fkey(id, display_name, avatar_path), " +
   "artist:artists!appointments_artist_id_fkey(id, profiles!inner(display_name, avatar_path)), " +
   "studio:studios(name)";
@@ -137,6 +139,10 @@ function mapAppt(row: ApptRow, meId: string): AppointmentView {
     locationNote: row.location_note,
     notes: row.notes,
     cancellationReason: row.cancellation_reason,
+    rescheduleStatus: (row.reschedule_status as AppointmentView["rescheduleStatus"] | null) ?? "none",
+    rescheduleStart: row.reschedule_start,
+    rescheduleEnd: row.reschedule_end,
+    rescheduleBy: (row.reschedule_by as ProfileId | null) ?? null,
   };
 }
 
@@ -449,17 +455,64 @@ export async function submitClientReview(client: InkoraClient, input: ClientRevi
 export async function cancelAppointment(client: InkoraClient, id: string, reason?: string): Promise<void> {
   const { error } = await client
     .from("appointments")
-    .update({ status: "cancelled", cancelled_at: new Date().toISOString(), cancellation_reason: reason ?? null })
+    .update({
+      status: "cancelled", cancelled_at: new Date().toISOString(), cancellation_reason: reason ?? null,
+      // clear any pending reschedule so a cancelled booking can't show as "pending reply"
+      reschedule_status: "none", reschedule_start: null, reschedule_end: null, reschedule_by: null,
+    })
     .eq("id", id);
   if (error) throw toAppError(error);
 }
 
-export async function rescheduleAppointment(client: InkoraClient, id: string, start: string, end: string): Promise<void> {
-  const { error } = await client
-    .from("appointments")
-    .update({ status: "rescheduled", scheduled_start: start, scheduled_end: end })
-    .eq("id", id);
+// Propose (or counter) a new time. The other party must approve before the
+// scheduled time actually moves (see propose_reschedule / accept_reschedule).
+// Notifies the other party (RPC) and drops a tappable card into the chat.
+export async function proposeReschedule(client: InkoraClient, id: string, start: string, end: string): Promise<void> {
+  const { error } = await client.rpc("propose_reschedule", { p_appointment_id: id, p_start: start, p_end: end });
   if (error) throw toAppError(error);
+
+  try {
+    const me = await meId(client);
+    const { data: appt } = await client
+      .from("appointments").select("request_id").eq("id", id)
+      .maybeSingle<{ request_id: string | null }>();
+    const reqId = appt?.request_id;
+    const { data: req } = reqId
+      ? await client.from("appointment_requests").select("conversation_id").eq("id", reqId).maybeSingle<{ conversation_id: string | null }>()
+      : { data: null };
+    if (req?.conversation_id) {
+      await sendMessage(client, req.conversation_id, me, {
+        type: "booking_card",
+        body: "🔁 Reschedule requested",
+        metadata: { kind: "reschedule", appointmentId: id, proposedStart: start, proposedEnd: end },
+      });
+    }
+  } catch { /* the reschedule card is best-effort; never fail the proposal */ }
+}
+
+/** Accept the pending reschedule proposal (moves the appointment to the new time). */
+export async function acceptReschedule(client: InkoraClient, id: string): Promise<void> {
+  const { error } = await client.rpc("accept_reschedule", { p_appointment_id: id });
+  if (error) throw toAppError(error);
+
+  // Confirm in the chat so both parties see the new time is locked in.
+  try {
+    const me = await meId(client);
+    const { data: appt } = await client
+      .from("appointments").select("request_id, scheduled_start").eq("id", id)
+      .maybeSingle<{ request_id: string | null; scheduled_start: string }>();
+    const reqId = appt?.request_id;
+    const { data: req } = reqId
+      ? await client.from("appointment_requests").select("conversation_id").eq("id", reqId).maybeSingle<{ conversation_id: string | null }>()
+      : { data: null };
+    if (req?.conversation_id) {
+      await sendMessage(client, req.conversation_id, me, {
+        type: "booking_card",
+        body: "✅ Reschedule accepted",
+        metadata: { kind: "reschedule_accepted", appointmentId: id, proposedStart: appt?.scheduled_start ?? null },
+      });
+    }
+  } catch { /* the confirmation card is best-effort; never fail the acceptance */ }
 }
 
 export async function completeAppointment(client: InkoraClient, id: string): Promise<void> {

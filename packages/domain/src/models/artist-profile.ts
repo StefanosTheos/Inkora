@@ -48,6 +48,7 @@ export interface PublicSeekerProfile {
   username: string | null;
   avatarPath: string | null;
   city: string | null;
+  bio: string | null;
   memberSince: string;
   bookingsCount: number;
   reviewsCount: number;

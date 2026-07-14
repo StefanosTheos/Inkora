@@ -50,5 +50,18 @@ export function useBadgeCounts() {
     newCompleted: (myAppointments.data ?? []).filter(
       (a) => a.status === "completed" && !seenCompleted.includes(a.id),
     ).length,
+    // Reschedule-negotiation activity on an existing appointment: the other
+    // party proposed/countered a new time, accepted your proposal, or declined
+    // (cancelled). Scoped by data.kind so it excludes brand-new bookings and
+    // completions. Clears when the affected appointment is opened. Drives the
+    // reschedule-reply badge on the profile icon / See-all / Upcoming tab.
+    apptReplies: unread.filter(
+      (n) =>
+        n.type === "booking_update" &&
+        n.entityType === "appointment" &&
+        RESCHEDULE_REPLY_KINDS.has(n.data?.["kind"] ?? ""),
+    ).length,
   };
 }
+
+const RESCHEDULE_REPLY_KINDS = new Set(["reschedule_proposed", "reschedule_accepted", "appt_cancelled"]);

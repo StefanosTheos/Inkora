@@ -20,7 +20,7 @@ export function UpcomingAppointmentsScreen() {
   const [tab, setTab] = useState<Tab>("upcoming");
   const upcomingQ = useUpcomingAppointments(supabase, 100);
   const allQ = useMyAppointments(supabase);
-  const { newBookings, newCompleted } = useBadgeCounts();
+  const { newBookings, newCompleted, apptReplies } = useBadgeCounts();
   const markApptsSeen = useMarkAppointmentsSeen();
   const markCompletedSeen = useMarkCompletedSeen();
 
@@ -54,7 +54,7 @@ export function UpcomingAppointmentsScreen() {
       </View>
 
       <View style={s.tabs}>
-        <TabButton label={`Upcoming${upcoming.length ? ` (${upcoming.length})` : ""}`} active={tab === "upcoming"} onPress={() => setTab("upcoming")} badge={newBookings} />
+        <TabButton label={`Upcoming${upcoming.length ? ` (${upcoming.length})` : ""}`} active={tab === "upcoming"} onPress={() => setTab("upcoming")} badge={newBookings + apptReplies} />
         <TabButton label={`Completed${completed.length ? ` (${completed.length})` : ""}`} active={tab === "completed"} onPress={() => setTab("completed")} badge={newCompleted} />
       </View>
 

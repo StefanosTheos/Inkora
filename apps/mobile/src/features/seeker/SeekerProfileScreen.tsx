@@ -111,6 +111,7 @@ export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { i
             {[p.username ? `@${p.username}` : null, p.city].filter(Boolean).join(" · ") || "Inkora member"}
           </Text>
           <Text style={s.since}>Member since {fmtDate(p.memberSince)}</Text>
+          {p.bio ? <Text style={s.bio}>{p.bio}</Text> : null}
         </View>
 
         {/* Stats */}
@@ -369,6 +370,7 @@ const s = StyleSheet.create({
   name: { fontSize: 22, fontWeight: "800", marginTop: 8 },
   sub: { color: "#52525B", fontWeight: "600" },
   since: { color: "#A1A1AA", fontSize: 13 },
+  bio: { color: "#3F3F46", fontSize: 14, lineHeight: 20, textAlign: "center", marginTop: 8, paddingHorizontal: 8 },
   stats: { flexDirection: "row", gap: 10, marginTop: 12, marginBottom: 8 },
   statBox: { flex: 1, backgroundColor: "#F4F4F5", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   messageBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#18181B", borderRadius: 14, paddingVertical: 13, marginTop: 4 },

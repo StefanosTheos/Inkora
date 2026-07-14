@@ -26,7 +26,7 @@ export function ArtistDashboardScreen() {
   const reviews = useArtistReviews(supabase, meId);
   // Booking requests badge: new incoming requests + clients' responses to the
   // artist's offers. Clears as requests are answered / the page is opened.
-  const { requests: newRequests, newBookings, newCompleted } = useBadgeCounts();
+  const { requests: newRequests, newBookings, newCompleted, apptReplies } = useBadgeCounts();
 
   const a = profile.data;
   const upcoming = upcomingQ.data ?? [];
@@ -76,7 +76,7 @@ export function ArtistDashboardScreen() {
         </View>
 
         {/* Upcoming appointments */}
-        <SectionHeader title="Appointments" onSeeAll={() => router.push("/artist-dashboard/upcoming")} badge={newBookings + newCompleted} />
+        <SectionHeader title="Appointments" onSeeAll={() => router.push("/artist-dashboard/upcoming")} badge={newBookings + newCompleted + apptReplies} />
         {upcomingQ.isLoading ? (
           <ActivityIndicator style={{ marginTop: 12 }} />
         ) : upcoming.length === 0 ? (
