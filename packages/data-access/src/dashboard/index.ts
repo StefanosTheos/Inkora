@@ -80,7 +80,9 @@ export async function getAccountSettings(client: InkoraClient): Promise<AccountS
   const channels = (prefs?.channels ?? {}) as Record<string, unknown>;
   return {
     searchRadiusKm: prof?.search_radius_km ?? 25,
-    pushEnabled: channels["push"] !== false,
+    // Push is opt-in: off unless the user has explicitly enabled it (which also
+    // requires OS-level permission). Email/in-app stay opt-out (on by default).
+    pushEnabled: channels["push"] === true,
     emailEnabled: channels["email"] !== false,
   };
 }

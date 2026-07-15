@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { registerPushToken, scheduleAppointmentReminders } from "../../lib/notifications";
+import { scheduleAppointmentReminders } from "../../lib/notifications";
 import { supabase } from "../../lib/supabase";
 import { MonthCalendar, toIsoDate } from "./components/MonthCalendar";
 import { AppointmentCard } from "./MyBookingsScreen";
@@ -16,7 +16,6 @@ export function ArtistAgendaScreen() {
   const appts = useMemo(() => (apptsQ.data ?? []).filter((a) => a.status !== "cancelled"), [apptsQ.data]);
   const [selected, setSelected] = useState<string>(() => toIsoDate(new Date()));
 
-  useEffect(() => { void registerPushToken(); }, []);
   useEffect(() => { if (apptsQ.data) void scheduleAppointmentReminders(apptsQ.data); }, [apptsQ.data]);
 
   const marked = useMemo(() => new Set(appts.map((a) => toIsoDate(new Date(a.scheduledStart)))), [appts]);

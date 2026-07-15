@@ -40,19 +40,25 @@ export async function ensureNotificationPermissions(): Promise<boolean> {
   return req.granted;
 }
 
-/** Register the device's push token so the server can send remote pushes (FCM). */
-export async function registerPushToken(): Promise<void> {
+/**
+ * Register the device's push token so the server can send remote pushes (FCM).
+ * Requests OS permission if needed. Returns true only if permission was granted
+ * and a token was stored — callers use this to gate the push opt-in.
+ */
+export async function registerPushToken(): Promise<boolean> {
   try {
-    if (!(await ensureNotificationPermissions())) return; // denied / can't ask again
+    if (!(await ensureNotificationPermissions())) return false; // denied / can't ask again
     const token = (await Notifications.getDevicePushTokenAsync()).data;
-    if (!token) return;
+    if (!token) return false;
     const { data } = await supabase.auth.getUser();
-    if (!data.user) return;
-    await supabase
+    if (!data.user) return false;
+    const { error } = await supabase
       .from("device_tokens")
       .upsert({ profile_id: data.user.id, fcm_token: token, platform: Platform.OS as "ios" | "android" | "web" }, { onConflict: "fcm_token" });
+    return !error;
   } catch (e) {
     console.warn("[push] token registration failed:", (e as Error)?.message ?? e);
+    return false;
   }
 }
 

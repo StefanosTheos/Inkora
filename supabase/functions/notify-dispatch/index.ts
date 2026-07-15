@@ -83,9 +83,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (!notif) return json({ error: "notification_not_found" }, 404);
 
-    // respect push preference (default on)
+    // Push is opt-in: only fan out to devices when the recipient has explicitly
+    // enabled push (which the app only persists after OS-level consent).
     const { data: prefs } = await svc.from("notification_preferences").select("channels").eq("profile_id", notif.recipient_id).maybeSingle();
-    if (((prefs?.channels ?? {}) as Record<string, unknown>)["push"] === false) return json({ ok: true, skipped: "push_disabled" });
+    if (((prefs?.channels ?? {}) as Record<string, unknown>)["push"] !== true) return json({ ok: true, skipped: "push_not_enabled" });
 
     const { data: tokens } = await svc
       .from("device_tokens")

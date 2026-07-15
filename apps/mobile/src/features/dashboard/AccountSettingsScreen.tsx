@@ -8,7 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useToast } from "../../components/Toast";
-import { getPushPermission } from "../../lib/notifications";
+import { getPushPermission, registerPushToken } from "../../lib/notifications";
 import { supabase } from "../../lib/supabase";
 
 export function AccountSettingsScreen() {
@@ -22,8 +22,9 @@ export function AccountSettingsScreen() {
 
   const [email, setEmail] = useState("");
   const [provider, setProvider] = useState("email");
-  const [push, setPush] = useState(true);
+  const [push, setPush] = useState(false);
   const [emailNotif, setEmailNotif] = useState(true);
+  // "Blocked" = permission denied and the OS won't let us ask again (→ Settings).
   const [osBlocked, setOsBlocked] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
@@ -33,7 +34,7 @@ export function AccountSettingsScreen() {
       const p = (data.user?.app_metadata as { provider?: string } | undefined)?.provider;
       setProvider(p ?? "email");
     });
-    void getPushPermission().then((p) => setOsBlocked(!p.granted));
+    void getPushPermission().then((p) => setOsBlocked(!p.granted && !p.canAskAgain));
   }, []);
   useEffect(() => {
     if (settings.data && !hydrated) {
@@ -43,13 +44,37 @@ export function AccountSettingsScreen() {
     }
   }, [settings.data, hydrated]);
 
-  async function toggle(kind: "push" | "email", value: boolean) {
-    if (kind === "push") setPush(value); else setEmailNotif(value);
+  async function persist(patch: { push?: boolean; email?: boolean }) {
     try {
-      await setNotificationPrefs(supabase, { [kind]: value });
+      await setNotificationPrefs(supabase, patch);
       await qc.invalidateQueries({ queryKey: dashboardKeys.accountSettings });
     } catch (e) {
       toast.show((e as Error).message, "error");
+    }
+  }
+  async function toggle(kind: "push" | "email", value: boolean) {
+    if (kind === "email") {
+      setEmailNotif(value);
+      await persist({ email: value });
+      return;
+    }
+    // Push is opt-in: enabling requires OS-level consent. Only persist push=on
+    // once the OS grants permission and we've registered a device token.
+    if (value) {
+      const granted = await registerPushToken();
+      if (!granted) {
+        const perm = await getPushPermission();
+        setOsBlocked(!perm.granted && !perm.canAskAgain);
+        setPush(false);
+        toast.show(perm.canAskAgain ? "Allow notifications to turn on push" : "Enable notifications in your phone Settings", "error");
+        return;
+      }
+      setOsBlocked(false);
+      setPush(true);
+      await persist({ push: true });
+    } else {
+      setPush(false);
+      await persist({ push: false });
     }
   }
   function confirmSignOut() {
@@ -93,9 +118,8 @@ export function AccountSettingsScreen() {
             <ToggleRow
               label="Push notifications"
               hint={osBlocked ? "Turn notifications on in your phone Settings first" : "Bookings, offers and messages"}
-              value={push && !osBlocked}
+              value={push}
               onValueChange={(v) => toggle("push", v)}
-              disabled={osBlocked}
             />
             <ToggleRow label="Email notifications" hint="Summaries and important updates" value={emailNotif} onValueChange={(v) => toggle("email", v)} last />
           </View>

@@ -11,7 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CountBadge } from "../../components/CountBadge";
 import { Pager } from "../../components/Pager";
 import { useBadgeCounts } from "../../lib/badges";
-import { registerPushToken, scheduleAppointmentReminders } from "../../lib/notifications";
+import { scheduleAppointmentReminders } from "../../lib/notifications";
 import { useMarkAppointmentsSeen, useMarkCompletedSeen, useSeenAppointments, useSeenCompleted } from "../../lib/seen-appointments";
 import { useMarkRequestSeen, useSeenRequests } from "../../lib/seen-requests";
 import { supabase } from "../../lib/supabase";
@@ -36,7 +36,6 @@ export function MyBookingsScreen() {
   const markApptsSeen = useMarkAppointmentsSeen();
   const markCompletedSeen = useMarkCompletedSeen();
 
-  useEffect(() => { void registerPushToken(); }, []);
   useEffect(() => {
     if (apptsQ.data) void scheduleAppointmentReminders(apptsQ.data);
   }, [apptsQ.data]);

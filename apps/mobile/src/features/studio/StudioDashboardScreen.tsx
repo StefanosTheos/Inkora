@@ -7,7 +7,7 @@ import type { ReviewItem, StudioArtistStat, StudioRosterArtist } from "@inkora/d
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -15,7 +15,6 @@ import { useConfirm } from "../../components/ConfirmDialog";
 import { Pager } from "../../components/Pager";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
-import { registerPushToken } from "../../lib/notifications";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDate } from "../booking/components/ui";
 
@@ -68,10 +67,6 @@ export function StudioDashboardScreen() {
   const reviewsQ = useStudioReviews(supabase, st?.id ?? "");
   const { notifications } = useNotifications(supabase);
   const unread = notifications.filter((n) => !n.readAt).length;
-
-  // Register for remote push so studio owners get application/invite alerts
-  // (their surfaces don't otherwise trigger the OS permission prompt).
-  useEffect(() => { void registerPushToken(); }, []);
   const ov = overviewQ.data;
   const statsById = new Map((statsQ.data ?? []).map((x) => [x.artistId, x]));
   const roster = [...(st?.roster ?? [])].sort(
