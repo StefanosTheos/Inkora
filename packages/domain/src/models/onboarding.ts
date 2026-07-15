@@ -27,7 +27,7 @@ export interface StylePreference {
   percentage: number; // 0–100, rounded
 }
 
-/** An artist recommended from the user's top styles. */
+/** An artist recommended from the user's style preferences. */
 export interface RecommendedArtist {
   id: ArtistId;
   displayName: string;
@@ -35,6 +35,14 @@ export interface RecommendedArtist {
   headline: string | null;
   ratingAvg: number;
   ratingCount: number;
-  matchCount: number; // how many of the user's top styles this artist covers
+  matchCount: number; // how many of the user's styles this artist covers
   styles: string[];
+  matchedStyles: string[]; // the user's style slugs this artist actually shares
+  distanceKm: number | null; // to the artist's studio, when the user's location is known
+}
+
+/** A weighted style preference passed to the recommender (slug + its weight). */
+export interface WeightedStyle {
+  slug: string;
+  weight: number;
 }

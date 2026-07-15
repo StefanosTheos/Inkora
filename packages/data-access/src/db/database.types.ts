@@ -2317,15 +2317,24 @@ export type Database = {
         Returns: undefined
       }
       recommended_artists: {
-        Args: { p_limit?: number; p_style_slugs: string[] }
+        Args: {
+          p_style_slugs: string[]
+          p_style_weights?: number[]
+          p_lat?: number
+          p_lng?: number
+          p_limit?: number
+        }
         Returns: {
           avatar_path: string
           display_name: string
+          distance_km: number | null
           headline: string
           id: string
           match_count: number
+          matched_styles: string[]
           rating_avg: number
           rating_count: number
+          score: number
           styles: string[]
         }[]
       }

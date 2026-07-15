@@ -69,20 +69,40 @@ export async function fetchTrendingArtists(client: InkoraClient, limit = 10): Pr
   return (data ?? []).map(toHomeArtist);
 }
 
-/** Recommended = artists overlapping the user's onboarding style preferences; falls back to featured. */
+/** Recommended = artists matching the user's weighted style preferences + proximity; falls back to featured. */
 export async function fetchRecommendedForMe(client: InkoraClient, limit = 10): Promise<HomeArtist[]> {
   const { data: prefs } = await client
     .from("user_style_preferences")
     .select("weight, tattoo_styles(slug)")
     .order("weight", { ascending: false })
-    .limit(5)
-    .returns<{ tattoo_styles: { slug: string } | null }[]>();
-  const slugs = (prefs ?? [])
-    .map((p) => p.tattoo_styles?.slug)
-    .filter((x): x is string => Boolean(x));
-  if (slugs.length === 0) return fetchFeaturedArtists(client, limit);
+    .limit(6)
+    .returns<{ weight: number; tattoo_styles: { slug: string } | null }[]>();
+  const weighted = (prefs ?? [])
+    .map((p) => ({ slug: p.tattoo_styles?.slug, weight: Number(p.weight) }))
+    .filter((p): p is { slug: string; weight: number } => Boolean(p.slug));
+  if (weighted.length === 0) return fetchFeaturedArtists(client, limit);
 
-  const { data, error } = await client.rpc("recommended_artists", { p_style_slugs: slugs, p_limit: limit });
+  // Proximity uses the user's own saved coordinates (owner-readable). Absent → neutral.
+  const { data: userRes } = await client.auth.getUser();
+  let lat: number | undefined;
+  let lng: number | undefined;
+  if (userRes.user) {
+    const { data: coords } = await client
+      .from("profiles_private")
+      .select("latitude, longitude")
+      .eq("id", userRes.user.id)
+      .maybeSingle();
+    lat = coords?.latitude ?? undefined;
+    lng = coords?.longitude ?? undefined;
+  }
+
+  const { data, error } = await client.rpc("recommended_artists", {
+    p_style_slugs: weighted.map((p) => p.slug),
+    p_style_weights: weighted.map((p) => p.weight),
+    p_lat: lat,
+    p_lng: lng,
+    p_limit: limit,
+  });
   if (error) throw toAppError(error);
   return (data ?? []).map((r) => ({
     id: r.id as ArtistId,

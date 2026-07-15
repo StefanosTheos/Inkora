@@ -1,5 +1,5 @@
 import type {
-  ArtistId, RecommendedArtist, Result, StyleCard, StyleId, StylePreference,
+  ArtistId, RecommendedArtist, Result, StyleCard, StyleId, StylePreference, WeightedStyle,
 } from "@inkora/domain";
 
 import type { InkoraClient } from "../client/types";
@@ -47,14 +47,28 @@ export function topStyleSlugs(prefs: StylePreference[], n = 3): string[] {
   return prefs.slice(0, n).map((p) => p.slug);
 }
 
-/** Recommend artists overlapping the user's top styles (via the recommended_artists RPC). */
+/** Top-N weighted preferences (slug + weight) for the recommender. */
+export function topWeightedStyles(prefs: StylePreference[], n = 6): WeightedStyle[] {
+  return prefs.slice(0, n).map((p) => ({ slug: p.slug, weight: p.weight }));
+}
+
+/**
+ * Recommend artists for the user's weighted style preferences, ranked by
+ * weighted style fit + rating confidence + proximity (via recommended_artists).
+ * Pass `location` to activate proximity; omit it for neutral distance scoring.
+ */
 export async function getRecommendedArtists(
   client: InkoraClient,
-  styleSlugs: string[],
+  prefs: WeightedStyle[],
+  location?: { lat: number; lng: number } | null,
   limit = 10,
 ): Promise<RecommendedArtist[]> {
+  if (prefs.length === 0) return [];
   const { data, error } = await client.rpc("recommended_artists", {
-    p_style_slugs: styleSlugs,
+    p_style_slugs: prefs.map((p) => p.slug),
+    p_style_weights: prefs.map((p) => p.weight),
+    p_lat: location?.lat,
+    p_lng: location?.lng,
     p_limit: limit,
   });
   if (error) throw toAppError(error);
@@ -67,6 +81,8 @@ export async function getRecommendedArtists(
     ratingCount: r.rating_count,
     matchCount: Number(r.match_count),
     styles: r.styles ?? [],
+    matchedStyles: r.matched_styles ?? [],
+    distanceKm: r.distance_km ?? null,
   }));
 }
 

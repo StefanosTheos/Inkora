@@ -1,5 +1,5 @@
 import {
-  type OnboardingReaction, REACTION_WEIGHTS, type StyleCard,
+  type OnboardingReaction, REACTION_WEIGHTS, type StyleCard, type WeightedStyle,
 } from "@inkora/domain";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
@@ -12,12 +12,17 @@ export function useStyleDeck(client: InkoraClient) {
   return useQuery({ queryKey: ["style-deck"], queryFn: () => fetchStyleCards(client) });
 }
 
-/** Recommendations for the given top style slugs (enabled once slugs exist). */
-export function useRecommendedArtists(client: InkoraClient, styleSlugs: string[], enabled = true) {
+/** Recommendations for the user's weighted style preferences (enabled once prefs exist). */
+export function useRecommendedArtists(
+  client: InkoraClient,
+  prefs: WeightedStyle[],
+  location?: { lat: number; lng: number } | null,
+  enabled = true,
+) {
   return useQuery({
-    queryKey: ["recommendations", styleSlugs],
-    queryFn: () => getRecommendedArtists(client, styleSlugs),
-    enabled: enabled && styleSlugs.length > 0,
+    queryKey: ["recommendations", prefs.map((p) => `${p.slug}:${p.weight}`), location?.lat ?? null, location?.lng ?? null],
+    queryFn: () => getRecommendedArtists(client, prefs, location),
+    enabled: enabled && prefs.length > 0,
   });
 }
 

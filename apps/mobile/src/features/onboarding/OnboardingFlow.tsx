@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   becomeArtist, computePreferences, createStudio, geocodeCity, publicStorageUrl, sendWelcomeEmail,
-  setNotificationPrefs, topStyleSlugs, updateProfileLocation, useAuth, useFinishOnboarding,
+  setNotificationPrefs, topWeightedStyles, updateProfileLocation, useAuth, useFinishOnboarding,
   useOnboardingController, useRecommendedArtists, useStyleDeck,
 } from "@inkora/data-access";
 import type { RecommendedArtist, StyleCard, StylePreference } from "@inkora/domain";
@@ -314,8 +314,9 @@ function Results({
   const [country, setCountry] = useState("");
   const [busy, setBusy] = useState(false);
   const prefs = useMemo(() => computePreferences(weights, styles), [weights, styles]);
-  const slugs = useMemo(() => topStyleSlugs(prefs, 3), [prefs]);
-  const recs = useRecommendedArtists(supabase, slugs, true);
+  const topPrefs = useMemo(() => topWeightedStyles(prefs), [prefs]);
+  const nameBySlug = useMemo(() => new Map(styles.map((st) => [st.slug, st.name])), [styles]);
+  const recs = useRecommendedArtists(supabase, topPrefs, null, true);
 
   async function onFinish() {
     setBusy(true);
@@ -353,7 +354,7 @@ function Results({
       ) : (recs.data ?? []).length === 0 ? (
         <Text style={s.muted}>No matches near you yet — explore the feed to discover more.</Text>
       ) : (
-        (recs.data ?? []).map((a) => <ArtistRow key={a.id} artist={a} />)
+        (recs.data ?? []).map((a) => <ArtistRow key={a.id} artist={a} reason={matchReason(a, nameBySlug)} />)
       )}
 
       <Text style={[s.title, { marginTop: 24 }]}>Where are you based?</Text>
@@ -385,7 +386,17 @@ function PreferenceBar({ pref }: { pref: StylePreference }) {
   );
 }
 
-function ArtistRow({ artist }: { artist: RecommendedArtist }) {
+/** A short, human "why this artist" line from the recommender's match signals. */
+function matchReason(a: RecommendedArtist, nameBySlug: Map<string, string>): string {
+  const names = a.matchedStyles.map((sl) => nameBySlug.get(sl) ?? sl).slice(0, 2);
+  const parts: string[] = [];
+  if (names.length) parts.push(`Matches your ${names.join(" & ")}`);
+  if (a.distanceKm != null) parts.push(`${a.distanceKm < 1 ? "<1" : Math.round(a.distanceKm)} km away`);
+  if (a.ratingCount > 0) parts.push(`★ ${a.ratingAvg.toFixed(1)} (${a.ratingCount})`);
+  return parts.join("  ·  ");
+}
+
+function ArtistRow({ artist, reason }: { artist: RecommendedArtist; reason?: string }) {
   return (
     <View style={s.artistRow}>
       <View style={s.avatar}>
@@ -393,7 +404,7 @@ function ArtistRow({ artist }: { artist: RecommendedArtist }) {
       </View>
       <View style={{ flex: 1 }}>
         <Text style={s.artistName}>{artist.displayName}</Text>
-        <Text style={s.muted} numberOfLines={1}>{artist.headline ?? artist.styles.join(", ")}</Text>
+        <Text style={reason ? s.why : s.muted} numberOfLines={1}>{reason || artist.headline || artist.styles.join(", ")}</Text>
       </View>
       <Text style={s.rating}>★ {artist.ratingAvg.toFixed(1)}</Text>
     </View>
@@ -453,6 +464,7 @@ const s = StyleSheet.create({
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#1F1B2E", alignItems: "center", justifyContent: "center" },
   avatarInitial: { color: "#fff", fontWeight: "700", fontSize: 18 },
   artistName: { fontWeight: "700", fontSize: 15 },
+  why: { color: "#E5484D", fontSize: 12.5, fontWeight: "600", marginTop: 2 },
   rating: { fontWeight: "700", color: "#18181B" },
   cityInput: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 10, padding: 14, fontSize: 16, marginTop: 4 },
   finishBtn: { backgroundColor: "#E5484D", padding: 16, borderRadius: 14, alignItems: "center", marginTop: 20 },

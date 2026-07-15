@@ -1,9 +1,9 @@
 "use client";
 import {
-  computePreferences, publicStorageUrl, topStyleSlugs, updateProfileLocation, useAuth,
+  computePreferences, publicStorageUrl, topWeightedStyles, updateProfileLocation, useAuth,
   useFinishOnboarding, useRecommendedArtists, useStyleDeck,
 } from "@inkora/data-access";
-import { type OnboardingReaction, REACTION_WEIGHTS, type StyleCard } from "@inkora/domain";
+import { type OnboardingReaction, REACTION_WEIGHTS, type RecommendedArtist, type StyleCard } from "@inkora/domain";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -33,8 +33,9 @@ export function OnboardingFlow() {
     return w;
   }, [reactions]);
   const prefs = useMemo(() => computePreferences(weights, styles), [weights, styles]);
-  const slugs = useMemo(() => topStyleSlugs(prefs, 3), [prefs]);
-  const recs = useRecommendedArtists(client, slugs, phase === "results");
+  const topPrefs = useMemo(() => topWeightedStyles(prefs), [prefs]);
+  const nameBySlug = useMemo(() => new Map(styles.map((st) => [st.slug, st.name])), [styles]);
+  const recs = useRecommendedArtists(client, topPrefs, null, phase === "results");
 
   const cycle = (id: string) =>
     setReactions((prev) => ({ ...prev, [id]: NEXT[prev[id] ?? "skip"] }));
@@ -85,7 +86,11 @@ export function OnboardingFlow() {
               </div>
               <div className="flex-1">
                 <p className="font-semibold">{a.displayName}</p>
-                <p className="truncate text-sm text-zinc-500">{a.headline ?? a.styles.join(", ")}</p>
+                {reasonFor(a, nameBySlug) ? (
+                  <p className="truncate text-sm font-medium text-[#E5484D]">{reasonFor(a, nameBySlug)}</p>
+                ) : (
+                  <p className="truncate text-sm text-zinc-500">{a.headline ?? a.styles.join(", ")}</p>
+                )}
               </div>
               <span className="font-bold">★ {a.ratingAvg.toFixed(1)}</span>
             </div>
@@ -138,6 +143,16 @@ export function OnboardingFlow() {
       </button>
     </main>
   );
+}
+
+/** A short, human "why this artist" line from the recommender's match signals. */
+function reasonFor(a: RecommendedArtist, nameBySlug: Map<string, string>): string {
+  const names = a.matchedStyles.map((sl) => nameBySlug.get(sl) ?? sl).slice(0, 2);
+  const parts: string[] = [];
+  if (names.length) parts.push(`Matches your ${names.join(" & ")}`);
+  if (a.distanceKm != null) parts.push(`${a.distanceKm < 1 ? "<1" : Math.round(a.distanceKm)} km away`);
+  if (a.ratingCount > 0) parts.push(`★ ${a.ratingAvg.toFixed(1)} (${a.ratingCount})`);
+  return parts.join("  ·  ");
 }
 
 function StyleTile({ card, reaction, onClick }: { card: StyleCard; reaction: OnboardingReaction; onClick: () => void }) {
