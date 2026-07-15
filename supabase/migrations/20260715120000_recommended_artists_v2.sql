@@ -38,7 +38,7 @@ returns table (
 )
 language sql
 stable
-set search_path = public
+set search_path = public, extensions
 as $$
   with prefs as (
     select s.slug, coalesce(w.weight, 1)::numeric as weight
