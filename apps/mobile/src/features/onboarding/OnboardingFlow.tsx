@@ -11,6 +11,7 @@ import { ActivityIndicator, type DimensionValue, Pressable, ScrollView, StyleShe
 
 import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
+import { EMAIL_NOTIFICATIONS_ENABLED } from "../../lib/features";
 import { registerPushToken } from "../../lib/notifications";
 import { supabase } from "../../lib/supabase";
 
@@ -33,7 +34,8 @@ export function OnboardingFlow() {
 // Settings). Saying yes to email also fires the one welcome email.
 function CommsConsent({ onDone }: { onDone: () => void }) {
   const toast = useToast();
-  const [step, setStep] = useState<"email" | "push">("email");
+  // Email consent is skipped while email notifications are disabled — start on push.
+  const [step, setStep] = useState<"email" | "push">(EMAIL_NOTIFICATIONS_ENABLED ? "email" : "push");
   const [busy, setBusy] = useState(false);
 
   async function chooseEmail(allow: boolean) {
@@ -80,10 +82,12 @@ function CommsConsent({ onDone }: { onDone: () => void }) {
         <Pressable style={s.consentGhost} disabled={busy} onPress={() => void (email ? chooseEmail(false) : choosePush(false))} accessibilityRole="button" accessibilityLabel="Not now">
           <Text style={s.consentGhostText}>Not now</Text>
         </Pressable>
-        <View style={s.consentDots}>
-          <View style={[s.consentDot, email && s.consentDotActive]} />
-          <View style={[s.consentDot, !email && s.consentDotActive]} />
-        </View>
+        {EMAIL_NOTIFICATIONS_ENABLED ? (
+          <View style={s.consentDots}>
+            <View style={[s.consentDot, email && s.consentDotActive]} />
+            <View style={[s.consentDot, !email && s.consentDotActive]} />
+          </View>
+        ) : null}
       </View>
     </View>
   );

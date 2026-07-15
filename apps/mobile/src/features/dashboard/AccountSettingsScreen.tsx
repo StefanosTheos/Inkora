@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useToast } from "../../components/Toast";
+import { EMAIL_NOTIFICATIONS_ENABLED } from "../../lib/features";
 import { getPushPermission, registerPushToken } from "../../lib/notifications";
 import { supabase } from "../../lib/supabase";
 
@@ -120,8 +121,11 @@ export function AccountSettingsScreen() {
               hint={osBlocked ? "Turn notifications on in your phone Settings first" : "Bookings, offers and messages"}
               value={push}
               onValueChange={(v) => toggle("push", v)}
+              last={!EMAIL_NOTIFICATIONS_ENABLED}
             />
-            <ToggleRow label="Email notifications" hint="Summaries and important updates" value={emailNotif} onValueChange={(v) => toggle("email", v)} last />
+            {EMAIL_NOTIFICATIONS_ENABLED ? (
+              <ToggleRow label="Email notifications" hint="Summaries and important updates" value={emailNotif} onValueChange={(v) => toggle("email", v)} last />
+            ) : null}
           </View>
 
           {/* Support & legal */}
