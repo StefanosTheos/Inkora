@@ -2342,6 +2342,19 @@ export type Database = {
         Args: { p_artist_id: string }
         Returns: undefined
       }
+      trending_artists: {
+        Args: { p_days?: number; p_limit?: number }
+        Returns: {
+          avatar_path: string
+          display_name: string
+          headline: string
+          id: string
+          momentum: number
+          rating_avg: number
+          rating_count: number
+          styles: string[]
+        }[]
+      }
       recompute_idea_save_count: {
         Args: { p_idea_id: string }
         Returns: undefined

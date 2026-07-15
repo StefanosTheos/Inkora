@@ -56,8 +56,8 @@ export async function fetchFeaturedArtists(client: InkoraClient, limit = 10): Pr
   return (data ?? []).map(toHomeArtist);
 }
 
-/** Trending = most-reviewed (popularity proxy). */
-export async function fetchTrendingArtists(client: InkoraClient, limit = 10): Promise<HomeArtist[]> {
+/** All-time most-reviewed — the fallback when there's no recent momentum yet. */
+async function fetchMostReviewed(client: InkoraClient, limit = 10): Promise<HomeArtist[]> {
   const { data, error } = await client
     .from("artists")
     .select(ARTIST_SELECT)
@@ -67,6 +67,27 @@ export async function fetchTrendingArtists(client: InkoraClient, limit = 10): Pr
     .returns<EmbeddedArtistRow[]>();
   if (error) throw toAppError(error);
   return (data ?? []).map(toHomeArtist);
+}
+
+/**
+ * Trending = recent momentum (bookings×3 + reviews×2 + saves×1 over the last
+ * 7 days), via the trending_artists RPC. Falls back to all-time most-reviewed
+ * when nothing has moved recently (quiet week / fresh data) so the row is never
+ * empty.
+ */
+export async function fetchTrendingArtists(client: InkoraClient, limit = 10): Promise<HomeArtist[]> {
+  const { data, error } = await client.rpc("trending_artists", { p_days: 7, p_limit: limit });
+  if (error) throw toAppError(error);
+  const rows = (data ?? []).map((r) => ({
+    id: r.id as ArtistId,
+    displayName: r.display_name,
+    avatarPath: r.avatar_path,
+    headline: r.headline,
+    ratingAvg: Number(r.rating_avg),
+    ratingCount: r.rating_count,
+    styles: r.styles ?? [],
+  }));
+  return rows.length > 0 ? rows : fetchMostReviewed(client, limit);
 }
 
 /** Recommended = artists matching the user's weighted style preferences + proximity; falls back to featured. */
