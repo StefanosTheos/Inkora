@@ -70,3 +70,14 @@ export async function createStudio(client: InkoraClient, input: CreateStudioInpu
   await client.auth.refreshSession(); // re-mint JWT with studio_admin role
   return { ok: true, value: data.studioId };
 }
+
+/**
+ * Send the one-time welcome email (invoked when a new user consents to email
+ * during onboarding). No-op server-side if email delivery isn't configured, so
+ * this never blocks the signup flow.
+ */
+export async function sendWelcomeEmail(client: InkoraClient): Promise<Result<void>> {
+  const { error } = await client.functions.invoke("send-welcome-email", { body: {} });
+  if (error) return { ok: false, error: toAppError(error) };
+  return { ok: true, value: undefined };
+}

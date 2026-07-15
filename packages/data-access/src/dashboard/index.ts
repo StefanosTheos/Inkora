@@ -80,10 +80,11 @@ export async function getAccountSettings(client: InkoraClient): Promise<AccountS
   const channels = (prefs?.channels ?? {}) as Record<string, unknown>;
   return {
     searchRadiusKm: prof?.search_radius_km ?? 25,
-    // Push is opt-in: off unless the user has explicitly enabled it (which also
-    // requires OS-level permission). Email/in-app stay opt-out (on by default).
+    // Push and email are both opt-in — off unless the user explicitly enabled
+    // them (during the onboarding consent step, or later in settings). In-app
+    // notifications stay always-on. Push additionally requires OS permission.
     pushEnabled: channels["push"] === true,
-    emailEnabled: channels["email"] !== false,
+    emailEnabled: channels["email"] === true,
   };
 }
 

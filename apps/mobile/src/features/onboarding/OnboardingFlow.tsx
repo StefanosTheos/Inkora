@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  becomeArtist, computePreferences, createStudio, geocodeCity, publicStorageUrl, topStyleSlugs,
-  updateProfileLocation, useAuth, useFinishOnboarding, useOnboardingController, useRecommendedArtists,
-  useStyleDeck,
+  becomeArtist, computePreferences, createStudio, geocodeCity, publicStorageUrl, sendWelcomeEmail,
+  setNotificationPrefs, topStyleSlugs, updateProfileLocation, useAuth, useFinishOnboarding,
+  useOnboardingController, useRecommendedArtists, useStyleDeck,
 } from "@inkora/data-access";
 import type { RecommendedArtist, StyleCard, StylePreference } from "@inkora/domain";
 import { Image } from "expo-image";
@@ -11,19 +11,86 @@ import { ActivityIndicator, type DimensionValue, Pressable, ScrollView, StyleShe
 
 import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
+import { registerPushToken } from "../../lib/notifications";
 import { supabase } from "../../lib/supabase";
 
 const CARD_COLORS = ["#1F1B2E", "#3B2F4A", "#2E2A3F", "#42313B", "#283042", "#3A2E2E"];
 
 export function OnboardingFlow() {
-  const [mode, setMode] = useState<"choose" | "seeker">("choose");
-  if (mode === "choose") return <RoleChoice onSeeker={() => setMode("seeker")} />;
-  return <SeekerOnboarding />;
+  const { refresh } = useAuth();
+  const [mode, setMode] = useState<"choose" | "seeker" | "permissions">("choose");
+  // A role path finished writing its data (and stamped onboarded_at) — hold the
+  // user on the consent step before refreshing the session routes them to Home.
+  const onComplete = () => setMode("permissions");
+  if (mode === "permissions") return <CommsConsent onDone={() => void refresh()} />;
+  if (mode === "choose") return <RoleChoice onSeeker={() => setMode("seeker")} onComplete={onComplete} />;
+  return <SeekerOnboarding onComplete={onComplete} />;
+}
+
+// ------------------------------------------------------- comms consent step
+// Shown once, right before entering the app. Both channels are opt-in: we only
+// enable email/push if the user says yes here (they can change it later in
+// Settings). Saying yes to email also fires the one welcome email.
+function CommsConsent({ onDone }: { onDone: () => void }) {
+  const toast = useToast();
+  const [step, setStep] = useState<"email" | "push">("email");
+  const [busy, setBusy] = useState(false);
+
+  async function chooseEmail(allow: boolean) {
+    setBusy(true);
+    try {
+      await setNotificationPrefs(supabase, { email: allow });
+      if (allow) void sendWelcomeEmail(supabase); // fire-and-forget; server no-ops if unconfigured
+    } catch { /* non-blocking — consent shouldn't gate entering the app */ }
+    setBusy(false);
+    setStep("push");
+  }
+
+  async function choosePush(allow: boolean) {
+    setBusy(true);
+    try {
+      if (allow) {
+        const granted = await registerPushToken(); // triggers the device permission prompt
+        await setNotificationPrefs(supabase, { push: granted });
+        if (!granted) toast.show("No problem — you can turn on push later in Settings");
+      } else {
+        await setNotificationPrefs(supabase, { push: false });
+      }
+    } catch { /* non-blocking */ }
+    setBusy(false);
+    onDone(); // refresh session → root gate routes into the app
+  }
+
+  const email = step === "email";
+  return (
+    <View style={s.consentWrap}>
+      <View style={s.consentCard}>
+        <View style={s.consentIcon}>
+          <Ionicons name={email ? "mail-outline" : "notifications-outline"} size={30} color="#E5484D" />
+        </View>
+        <Text style={s.consentTitle}>{email ? "Stay in the loop" : "Turn on notifications"}</Text>
+        <Text style={s.consentBody}>
+          {email
+            ? "Can we email you about big news, new features and the occasional offer? We keep it rare — everyday activity like bookings and messages stays in the app."
+            : "Get notified about bookings, offers and messages the moment they happen. You'll be asked for your device's permission next."}
+        </Text>
+        <Pressable style={s.consentPrimary} disabled={busy} onPress={() => void (email ? chooseEmail(true) : choosePush(true))} accessibilityRole="button" accessibilityLabel={email ? "Allow emails" : "Allow notifications"}>
+          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.consentPrimaryText}>{email ? "Allow emails" : "Allow notifications"}</Text>}
+        </Pressable>
+        <Pressable style={s.consentGhost} disabled={busy} onPress={() => void (email ? chooseEmail(false) : choosePush(false))} accessibilityRole="button" accessibilityLabel="Not now">
+          <Text style={s.consentGhostText}>Not now</Text>
+        </Pressable>
+        <View style={s.consentDots}>
+          <View style={[s.consentDot, email && s.consentDotActive]} />
+          <View style={[s.consentDot, !email && s.consentDotActive]} />
+        </View>
+      </View>
+    </View>
+  );
 }
 
 // ---------------------------------------------------------------- role choice
-function RoleChoice({ onSeeker }: { onSeeker: () => void }) {
-  const { refresh } = useAuth();
+function RoleChoice({ onSeeker, onComplete }: { onSeeker: () => void; onComplete: () => void }) {
   const finish = useFinishOnboarding(supabase);
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -42,8 +109,8 @@ function RoleChoice({ onSeeker }: { onSeeker: () => void }) {
     // Mark onboarded (no style prefs needed for artists), then re-mint the session.
     const fin = await finish.mutateAsync({});
     if (!fin.ok) { setBusy(false); toast.show(fin.error.message, "error"); return; }
-    await refresh(); // artist role + onboarded → root gate routes to Home
     setBusy(false);
+    onComplete(); // → comms consent step, then Home
   }
 
   async function onStudio() {
@@ -62,8 +129,8 @@ function RoleChoice({ onSeeker }: { onSeeker: () => void }) {
     // Mark onboarded (studio owners skip the style questionnaire), then re-mint.
     const fin = await finish.mutateAsync({});
     if (!fin.ok) { setBusy(false); toast.show(fin.error.message, "error"); return; }
-    await refresh(); // studio_admin role + onboarded → root gate routes to the studio dashboard
     setBusy(false);
+    onComplete(); // → comms consent step, then the studio dashboard
   }
 
   const toggle = (which: "artist" | "studio") => setExpanded((cur) => (cur === which ? null : which));
@@ -149,7 +216,7 @@ function RoleChoice({ onSeeker }: { onSeeker: () => void }) {
 }
 
 // ---------------------------------------------------------------- seeker flow
-function SeekerOnboarding() {
+function SeekerOnboarding({ onComplete }: { onComplete: () => void }) {
   const deck = useStyleDeck(supabase);
   const styles = deck.data ?? [];
   const c = useOnboardingController(styles);
@@ -164,7 +231,7 @@ function SeekerOnboarding() {
   }
 
   return c.done ? (
-    <Results weights={c.weights} styles={styles} onRestart={c.reset} />
+    <Results weights={c.weights} styles={styles} onRestart={c.reset} onComplete={onComplete} />
   ) : (
     <Deck
       card={c.current}
@@ -230,13 +297,13 @@ function Deck({
 
 // ------------------------------------------------------------- results step
 function Results({
-  weights, styles, onRestart,
+  weights, styles, onRestart, onComplete,
 }: {
   weights: Record<string, number>;
   styles: StyleCard[];
   onRestart: () => void;
+  onComplete: () => void;
 }) {
-  const { refresh } = useAuth();
   const toast = useToast();
   const finish = useFinishOnboarding(supabase);
   const [city, setCity] = useState("");
@@ -255,8 +322,8 @@ function Results({
       toast.show(res.error.message, "error");
       return;
     }
-    await refresh(); // flips isOnboarded → root gate routes to Home
     setBusy(false);
+    onComplete(); // → comms consent step, then Home
   }
 
   if (prefs.length === 0) {
@@ -331,6 +398,18 @@ function ArtistRow({ artist }: { artist: RecommendedArtist }) {
 
 const s = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 8 },
+  consentWrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: "#fff" },
+  consentCard: { width: "100%", maxWidth: 420, alignItems: "center", borderWidth: 1, borderColor: "#EEEEF0", borderRadius: 24, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 20 },
+  consentIcon: { width: 64, height: 64, borderRadius: 20, backgroundColor: "#FCE7E8", alignItems: "center", justifyContent: "center", marginBottom: 16 },
+  consentTitle: { fontSize: 22, fontWeight: "800", color: "#18181B", textAlign: "center" },
+  consentBody: { color: "#52525B", fontSize: 15, lineHeight: 22, textAlign: "center", marginTop: 10, marginBottom: 22 },
+  consentPrimary: { backgroundColor: "#E5484D", borderRadius: 14, paddingVertical: 15, alignItems: "center", alignSelf: "stretch" },
+  consentPrimaryText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  consentGhost: { paddingVertical: 14, alignItems: "center", alignSelf: "stretch", marginTop: 4 },
+  consentGhostText: { color: "#71717A", fontWeight: "700", fontSize: 15 },
+  consentDots: { flexDirection: "row", gap: 7, marginTop: 12 },
+  consentDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#E4E4E7" },
+  consentDotActive: { backgroundColor: "#18181B" },
   roleWrap: { padding: 20, paddingTop: 48, flexGrow: 1 },
   roleCard: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 16, padding: 18, marginBottom: 14, gap: 6 },
   roleHead: { flexDirection: "row", alignItems: "center", gap: 10 },
