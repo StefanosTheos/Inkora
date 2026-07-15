@@ -345,8 +345,7 @@ function Results({
 
   return (
     <ScrollView contentContainerStyle={s.results}>
-      <Text style={s.title}>Your tattoo taste</Text>
-      {prefs.map((p) => <PreferenceBar key={p.styleId} pref={p} />)}
+      <TasteProfile prefs={prefs} styles={styles} />
 
       <Text style={[s.title, { marginTop: 24 }]}>Artists for you</Text>
       {recs.isLoading ? (
@@ -374,14 +373,36 @@ function Results({
   );
 }
 
-function PreferenceBar({ pref }: { pref: StylePreference }) {
+/** Visual "taste board": a personal summary + image tiles of the top styles,
+ *  loved ones badged. Replaces the arbitrary per-style percentages with the
+ *  qualitative Loved/Liked signal the swipe deck actually captured. */
+function TasteProfile({ prefs, styles }: { prefs: StylePreference[]; styles: StyleCard[] }) {
+  const imgByStyleId = useMemo(() => new Map(styles.map((st) => [st.id, st.imagePath])), [styles]);
+  const top = prefs.slice(0, 6); // already sorted by weight → loved (3) before liked (1)
+  const lead = top.slice(0, 2).map((p) => p.name);
+  const extra = top.length - lead.length;
+  const summary = lead.length
+    ? `You're drawn to ${lead.join(" & ")}${extra > 0 ? ` and ${extra} more` : ""}.`
+    : "";
+
   return (
-    <View style={s.prefRow}>
-      <Text style={s.prefName}>{pref.name}</Text>
-      <View style={s.prefTrack}>
-        <View style={[s.prefFill, { width: `${pref.percentage}%` as DimensionValue }]} />
-      </View>
-      <Text style={s.prefPct}>{pref.percentage}%</Text>
+    <View>
+      <Text style={s.title}>Your tattoo taste</Text>
+      {summary ? <Text style={s.tasteSummary}>{summary}</Text> : null}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tasteScroll} contentContainerStyle={s.tasteRow}>
+        {top.map((p, i) => {
+          const path = imgByStyleId.get(p.styleId) ?? null;
+          const uri = path ? publicStorageUrl(env.SUPABASE_URL, path) : undefined;
+          const loved = p.weight >= 3;
+          return (
+            <View key={p.styleId} style={[s.tasteTile, { backgroundColor: CARD_COLORS[i % CARD_COLORS.length] }]}>
+              {uri ? <Image source={{ uri }} style={s.tasteImg} contentFit="cover" transition={150} /> : null}
+              {loved ? <View style={s.tasteBadge}><Text style={s.tasteBadgeText}>★ Loved</Text></View> : null}
+              <View style={s.tasteOverlay}><Text style={s.tasteName} numberOfLines={1}>{p.name}</Text></View>
+            </View>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 }
@@ -455,11 +476,15 @@ const s = StyleSheet.create({
   reactText: { fontWeight: "700", fontSize: 15, color: "#18181B" },
   results: { padding: 20, paddingBottom: 40 },
   title: { fontSize: 22, fontWeight: "800", marginBottom: 12 },
-  prefRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
-  prefName: { width: 96, fontWeight: "600", fontSize: 13 },
-  prefTrack: { flex: 1, height: 10, backgroundColor: "#F4F4F5", borderRadius: 5, overflow: "hidden" },
-  prefFill: { height: 10, backgroundColor: "#E5484D", borderRadius: 5 },
-  prefPct: { width: 40, textAlign: "right", fontWeight: "700", fontSize: 13 },
+  tasteSummary: { color: "#52525B", fontSize: 15, lineHeight: 21, marginTop: -4, marginBottom: 14 },
+  tasteScroll: { flexGrow: 0, minHeight: 132 },
+  tasteRow: { flexDirection: "row", gap: 10, paddingRight: 4 },
+  tasteTile: { width: 100, height: 128, borderRadius: 16, overflow: "hidden", justifyContent: "flex-end" },
+  tasteImg: { ...StyleSheet.absoluteFillObject },
+  tasteOverlay: { padding: 8, backgroundColor: "rgba(0,0,0,0.4)" },
+  tasteName: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  tasteBadge: { position: "absolute", top: 6, right: 6, backgroundColor: "rgba(255,255,255,0.92)", borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
+  tasteBadgeText: { color: "#E5484D", fontWeight: "800", fontSize: 10 },
   artistRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#1F1B2E", alignItems: "center", justifyContent: "center" },
   avatarInitial: { color: "#fff", fontWeight: "700", fontSize: 18 },
