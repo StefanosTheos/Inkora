@@ -9,6 +9,10 @@ export interface HomeArtist {
   ratingAvg: number;
   ratingCount: number;
   styles: string[]; // slugs
+  /** Recommended-for-you only: the user's styles this artist shares (the "why"). */
+  matchedStyles?: string[];
+  /** Recommended-for-you only: distance to the artist's studio, when known. */
+  distanceKm?: number | null;
 }
 
 export interface NearbyStudio {

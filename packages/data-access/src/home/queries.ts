@@ -112,6 +112,8 @@ export async function fetchRecommendedForMe(client: InkoraClient, limit = 10): P
     ratingAvg: Number(r.rating_avg),
     ratingCount: r.rating_count,
     styles: r.styles ?? [],
+    matchedStyles: r.matched_styles ?? [],
+    distanceKm: r.distance_km ?? null,
   }));
 }
 

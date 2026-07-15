@@ -82,7 +82,9 @@ export function ArtistCard({ artist, uri, onPress }: { artist: HomeArtist; uri?:
       <Text style={s.artistName} numberOfLines={1}>{artist.displayName}</Text>
       <Text style={s.artistMeta} numberOfLines={1}>
         {artist.ratingCount > 0 ? `★ ${artist.ratingAvg.toFixed(1)}` : "New"}
-        {artist.styles[0] ? ` · ${artist.styles[0]}` : ""}
+        {/* Recommended cards carry the match "why": nearest studio + matched style. */}
+        {artist.distanceKm != null ? ` · ${artist.distanceKm < 1 ? "<1" : Math.round(artist.distanceKm)}km` : ""}
+        {(artist.matchedStyles?.[0] ?? artist.styles[0]) ? ` · ${artist.matchedStyles?.[0] ?? artist.styles[0]}` : ""}
       </Text>
     </Pressable>
   );
