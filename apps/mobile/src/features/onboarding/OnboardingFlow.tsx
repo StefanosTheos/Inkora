@@ -285,17 +285,34 @@ function Deck({
       </View>
 
       <View style={s.actions}>
-        <Pressable style={[s.reactBtn, s.skip]} onPress={() => onReact("skip")}>
-          <Text style={s.reactText}>Skip</Text>
-        </Pressable>
-        <Pressable style={[s.reactBtn, s.like]} onPress={() => onReact("like")}>
-          <Text style={s.reactText}>♥ Like</Text>
-        </Pressable>
-        <Pressable style={[s.reactBtn, s.love]} onPress={() => onReact("love")}>
-          <Text style={[s.reactText, { color: "#fff" }]}>★ Love</Text>
-        </Pressable>
+        <ReactionButton label="Skip" icon="close" variant="skip" onPress={() => onReact("skip")} />
+        <ReactionButton label="Like" icon="heart-outline" variant="like" onPress={() => onReact("like")} />
+        <ReactionButton label="Love" icon="star" variant="love" onPress={() => onReact("love")} />
       </View>
     </View>
+  );
+}
+
+/** A polished circular reaction control (Skip / Like / Love) with an icon +
+ *  caption. Love is the accent hero — larger, filled, with a soft glow. */
+function ReactionButton({
+  label, icon, variant, onPress,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  variant: "skip" | "like" | "love";
+  onPress: () => void;
+}) {
+  const love = variant === "love";
+  const color = variant === "skip" ? "#A1A1AA" : variant === "like" ? "#E5484D" : "#fff";
+  const circle = variant === "skip" ? s.circleSkip : variant === "like" ? s.circleLike : s.circleLove;
+  return (
+    <Pressable style={s.reactWrap} onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={8}>
+      <View style={[s.reactCircle, circle]}>
+        <Ionicons name={icon} size={love ? 30 : 25} color={color} />
+      </View>
+      <Text style={[s.reactLabel, love && s.reactLabelLove]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -468,10 +485,20 @@ const s = StyleSheet.create({
   cardImage: { ...StyleSheet.absoluteFillObject },
   cardLabel: { padding: 16, backgroundColor: "rgba(0,0,0,0.35)" },
   cardName: { color: "#fff", fontSize: 22, fontWeight: "800" },
-  actions: { flexDirection: "row", gap: 10, marginTop: 16 },
-  reactBtn: { flex: 1, padding: 16, borderRadius: 14, alignItems: "center" },
-  skip: { backgroundColor: "#F4F4F5" },
-  like: { backgroundColor: "#FCE7E8" },
+  // Reaction controls: centered circular icon buttons, Love as the accent hero.
+  actions: { flexDirection: "row", justifyContent: "center", alignItems: "flex-end", gap: 28, marginTop: 22 },
+  reactWrap: { alignItems: "center", gap: 9 },
+  reactCircle: { width: 62, height: 62, borderRadius: 31, alignItems: "center", justifyContent: "center" },
+  circleSkip: { backgroundColor: "#fff", borderWidth: 1.5, borderColor: "#E4E4E7" },
+  circleLike: { backgroundColor: "#FCE7E8" },
+  circleLove: {
+    width: 74, height: 74, borderRadius: 37, backgroundColor: "#E5484D",
+    shadowColor: "#E5484D", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6,
+  },
+  reactLabel: { fontSize: 12, fontWeight: "700", color: "#71717A" },
+  reactLabelLove: { color: "#E5484D", fontWeight: "800" },
+  // Flat reaction button reused by the results empty-state "Try again".
+  reactBtn: { padding: 16, borderRadius: 14, alignItems: "center" },
   love: { backgroundColor: "#E5484D" },
   reactText: { fontWeight: "700", fontSize: 15, color: "#18181B" },
   results: { padding: 20, paddingBottom: 40 },
