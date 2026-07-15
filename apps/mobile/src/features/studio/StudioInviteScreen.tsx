@@ -167,7 +167,9 @@ const s = StyleSheet.create({
   title: { fontSize: 22, fontWeight: "800" },
   searchWrap: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: "#F4F4F5" },
   searchInput: { flex: 1, fontSize: 15, color: "#18181B" },
-  chipScroll: { flexGrow: 0, marginTop: 10 },
+  // minHeight stops the horizontal scroll row's frame from collapsing and
+  // clipping the chips (same fix as the bookings tabs).
+  chipScroll: { flexGrow: 0, minHeight: 44, marginTop: 10 },
   chipRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16 },
   chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: "#F4F4F5" },
   chipActive: { backgroundColor: "#18181B" },
