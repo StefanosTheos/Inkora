@@ -6,8 +6,8 @@ import {
 } from "@inkora/data-access";
 import type { RecommendedArtist, StyleCard, StylePreference } from "@inkora/domain";
 import { Image } from "expo-image";
-import { useMemo, useState } from "react";
-import { ActivityIndicator, type DimensionValue, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Animated, type DimensionValue, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
@@ -306,11 +306,49 @@ function ReactionButton({
   const love = variant === "love";
   const color = variant === "skip" ? "#A1A1AA" : variant === "like" ? "#E5484D" : "#fff";
   const circle = variant === "skip" ? s.circleSkip : variant === "like" ? s.circleLike : s.circleLove;
+  const scale = useRef(new Animated.Value(1)).current;
+  const spin = useRef(new Animated.Value(0)).current;
+
+  function handlePress() {
+    scale.setValue(1);
+    spin.setValue(0);
+    if (variant === "skip") {
+      // dismissive little head-shake
+      Animated.sequence([
+        Animated.timing(spin, { toValue: -1, duration: 60, useNativeDriver: true }),
+        Animated.timing(spin, { toValue: 1, duration: 90, useNativeDriver: true }),
+        Animated.timing(spin, { toValue: 0, duration: 70, useNativeDriver: true }),
+      ]).start();
+    } else if (variant === "like") {
+      // eager pop
+      Animated.sequence([
+        Animated.spring(scale, { toValue: 1.22, useNativeDriver: true, speed: 50, bounciness: 14 }),
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 10 }),
+      ]).start();
+    } else {
+      // biggest, most enthusiastic pop + a little wiggle
+      Animated.parallel([
+        Animated.sequence([
+          Animated.spring(scale, { toValue: 1.4, useNativeDriver: true, speed: 50, bounciness: 18 }),
+          Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 16, bounciness: 12 }),
+        ]),
+        Animated.sequence([
+          Animated.timing(spin, { toValue: 1, duration: 90, useNativeDriver: true }),
+          Animated.timing(spin, { toValue: -1, duration: 120, useNativeDriver: true }),
+          Animated.timing(spin, { toValue: 0, duration: 90, useNativeDriver: true }),
+        ]),
+      ]).start();
+    }
+    // let the tap register visually before the deck advances
+    setTimeout(onPress, 190);
+  }
+
+  const rotate = spin.interpolate({ inputRange: [-1, 1], outputRange: ["-14deg", "14deg"] });
   return (
-    <Pressable style={s.reactWrap} onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={8}>
-      <View style={[s.reactCircle, circle]}>
-        <Ionicons name={icon} size={love ? 30 : 25} color={color} />
-      </View>
+    <Pressable style={s.reactWrap} onPress={handlePress} accessibilityRole="button" accessibilityLabel={label} hitSlop={8}>
+      <Animated.View style={[s.reactCircle, circle, { transform: [{ scale }, { rotate }] }]}>
+        <Ionicons name={icon} size={love ? 27 : 25} color={color} />
+      </Animated.View>
       <Text style={[s.reactLabel, love && s.reactLabelLove]}>{label}</Text>
     </Pressable>
   );
@@ -485,14 +523,15 @@ const s = StyleSheet.create({
   cardImage: { ...StyleSheet.absoluteFillObject },
   cardLabel: { padding: 16, backgroundColor: "rgba(0,0,0,0.35)" },
   cardName: { color: "#fff", fontSize: 22, fontWeight: "800" },
-  // Reaction controls: centered circular icon buttons, Love as the accent hero.
-  actions: { flexDirection: "row", justifyContent: "center", alignItems: "flex-end", gap: 28, marginTop: 22 },
+  // Reaction controls: centered, equal-size circular icon buttons. Love stands
+  // out by its accent fill + glow (and a bigger press animation), not size.
+  actions: { flexDirection: "row", justifyContent: "center", alignItems: "flex-start", gap: 28, marginTop: 22 },
   reactWrap: { alignItems: "center", gap: 9 },
-  reactCircle: { width: 62, height: 62, borderRadius: 31, alignItems: "center", justifyContent: "center" },
+  reactCircle: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center" },
   circleSkip: { backgroundColor: "#fff", borderWidth: 1.5, borderColor: "#E4E4E7" },
   circleLike: { backgroundColor: "#FCE7E8" },
   circleLove: {
-    width: 74, height: 74, borderRadius: 37, backgroundColor: "#E5484D",
+    backgroundColor: "#E5484D",
     shadowColor: "#E5484D", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6,
   },
   reactLabel: { fontSize: 12, fontWeight: "700", color: "#71717A" },
