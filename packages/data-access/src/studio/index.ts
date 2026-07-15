@@ -1,6 +1,6 @@
 import type {
   ArtistId, PortfolioImage, PortfolioImageId, ProfileId, ReviewId, ReviewItem, StudioApplication,
-  StudioArtistStat, StudioEditInput, StudioId, StudioOverview, StudioProfile, StudioRosterArtist,
+  StudioArtistStat, StudioEditInput, StudioId, StudioOverview, StudioProfile,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
@@ -223,31 +223,64 @@ export async function respondStudioInvite(client: InkoraClient, studioId: string
   if (error) throw toAppError(error);
 }
 
+/** A candidate artist in the studio-owner invite/scouting search. */
+export interface InviteArtist {
+  id: ArtistId;
+  displayName: string;
+  avatarPath: string | null;
+  headline: string | null;
+  city: string | null;
+  ratingAvg: number;
+  ratingCount: number;
+  styles: string[]; // style slugs
+}
+/** Filters for the invite search. All optional — an empty filter returns the
+ *  top artists (for open-ended scouting). */
+export interface InviteSearchFilters {
+  query?: string;
+  city?: string;
+  style?: string; // a single style slug
+  minRating?: number;
+}
 interface InviteArtistRow {
   id: string;
   display_name: string;
   avatar_path: string | null;
-  artists: { headline: string | null; rating_avg: number; rating_count: number } | null;
+  city: string | null;
+  artists: {
+    headline: string | null;
+    rating_avg: number;
+    rating_count: number;
+    artist_styles: { tattoo_styles: { slug: string } | null }[] | null;
+  } | null;
 }
-/** Search artists by name for the invite picker. */
-export async function searchArtistsForInvite(client: InkoraClient, query: string): Promise<StudioRosterArtist[]> {
-  const q = query.trim();
-  if (!q) return [];
-  const { data, error } = await client
+/** Search/scout artists for the invite picker. Name/city/style/min-rating filter
+ *  server-side; callers sort the result (by rating, reviews, name) client-side. */
+export async function searchArtistsForInvite(client: InkoraClient, filters: InviteSearchFilters): Promise<InviteArtist[]> {
+  const style = filters.style?.trim();
+  // When filtering by style we must inner-join the join tables; that also trims
+  // the returned styles to the matched one (acceptable — it's the filtered style).
+  const stylesEmbed = style ? "artist_styles!inner(tattoo_styles!inner(slug))" : "artist_styles(tattoo_styles(slug))";
+  let qb = client
     .from("profiles")
-    .select("id, display_name, avatar_path, artists!inner(headline, rating_avg, rating_count)")
-    .ilike("display_name", `%${q}%`)
-    .limit(20)
-    .returns<InviteArtistRow[]>();
+    .select(`id, display_name, avatar_path, city, artists!inner(headline, rating_avg, rating_count, ${stylesEmbed})`);
+  const name = filters.query?.trim();
+  if (name) qb = qb.ilike("display_name", `%${name}%`);
+  const city = filters.city?.trim();
+  if (city) qb = qb.ilike("city", `%${city}%`);
+  if (style) qb = qb.eq("artists.artist_styles.tattoo_styles.slug", style);
+  if (filters.minRating && filters.minRating > 0) qb = qb.gte("artists.rating_avg", filters.minRating);
+  const { data, error } = await qb.limit(50).returns<InviteArtistRow[]>();
   if (error) throw toAppError(error);
   return (data ?? []).map((r) => ({
     id: r.id as ArtistId,
     displayName: r.display_name,
     avatarPath: r.avatar_path,
     headline: r.artists?.headline ?? null,
+    city: r.city,
     ratingAvg: Number(r.artists?.rating_avg ?? 0),
     ratingCount: r.artists?.rating_count ?? 0,
-    styles: [],
+    styles: (r.artists?.artist_styles ?? []).map((sr) => sr.tattoo_styles?.slug).filter((x): x is string => Boolean(x)),
   }));
 }
 
