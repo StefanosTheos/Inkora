@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import {
   becomeArtist, computePreferences, createStudio, geocodeCity, publicStorageUrl, topStyleSlugs,
   updateProfileLocation, useAuth, useFinishOnboarding, useOnboardingController, useRecommendedArtists,
@@ -30,6 +31,9 @@ function RoleChoice({ onSeeker }: { onSeeker: () => void }) {
   const [studioName, setStudioName] = useState("");
   const [studioCity, setStudioCity] = useState("");
   const [studioCountry, setStudioCountry] = useState("");
+  // Accordion: only one role card's fields are open at a time so all three
+  // choices fit on screen without scrolling until the user expands one.
+  const [expanded, setExpanded] = useState<"artist" | "studio" | null>(null);
 
   async function onArtist() {
     setBusy(true);
@@ -62,10 +66,11 @@ function RoleChoice({ onSeeker }: { onSeeker: () => void }) {
     setBusy(false);
   }
 
+  const toggle = (which: "artist" | "studio") => setExpanded((cur) => (cur === which ? null : which));
+
   return (
     <ScrollView contentContainerStyle={s.roleWrap}>
-      <Text style={s.title}>How will you use Inkora?</Text>
-      <Text style={[s.muted, { marginBottom: 20 }]}>You can change this anytime in settings.</Text>
+      <Text style={[s.title, { marginBottom: 20 }]}>How will you use Inkora?</Text>
 
       <Pressable style={s.roleCard} onPress={onSeeker} disabled={busy} accessibilityRole="button" accessibilityLabel="Find a tattoo">
         <Text style={s.roleTitle}>🔍  Find a tattoo</Text>
@@ -73,53 +78,71 @@ function RoleChoice({ onSeeker }: { onSeeker: () => void }) {
       </Pressable>
 
       <View style={s.roleCard}>
-        <Text style={s.roleTitle}>🎨  I&apos;m a tattoo artist</Text>
-        <Text style={s.roleDesc}>Get an artist profile to showcase your work and take booking requests.</Text>
-        <Text style={s.roleFieldLabel}>Headline (optional)</Text>
-        <TextInput
-          style={s.headlineInput}
-          placeholder="e.g. Fine-line & botanical"
-          value={headline}
-          onChangeText={setHeadline}
-          accessibilityLabel="Artist headline"
-        />
-        <Pressable style={s.roleBtn} onPress={onArtist} disabled={busy} accessibilityRole="button" accessibilityLabel="Continue as artist">
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.roleBtnText}>Continue as artist</Text>}
+        <Pressable style={s.roleHead} onPress={() => toggle("artist")} disabled={busy} accessibilityRole="button" accessibilityState={{ expanded: expanded === "artist" }} accessibilityLabel="I'm a tattoo artist">
+          <View style={s.roleHeadText}>
+            <Text style={s.roleTitle}>🎨  I&apos;m a tattoo artist</Text>
+            <Text style={s.roleDesc}>Get an artist profile to showcase your work and take booking requests.</Text>
+          </View>
+          <Ionicons name={expanded === "artist" ? "chevron-up" : "chevron-down"} size={20} color="#A1A1AA" />
         </Pressable>
+        {expanded === "artist" ? (
+          <>
+            <Text style={s.roleFieldLabel}>Headline (optional)</Text>
+            <TextInput
+              style={s.headlineInput}
+              placeholder="e.g. Fine-line & botanical"
+              value={headline}
+              onChangeText={setHeadline}
+              accessibilityLabel="Artist headline"
+            />
+            <Pressable style={s.roleBtn} onPress={onArtist} disabled={busy} accessibilityRole="button" accessibilityLabel="Continue as artist">
+              {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.roleBtnText}>Continue as artist</Text>}
+            </Pressable>
+          </>
+        ) : null}
       </View>
 
       <View style={s.roleCard}>
-        <Text style={s.roleTitle}>🏠  I own a tattoo studio</Text>
-        <Text style={s.roleDesc}>Manage your studio page, onboard artists, and track bookings and reviews.</Text>
-        <Text style={s.roleFieldLabel}>Studio name</Text>
-        <TextInput
-          style={s.headlineInput}
-          placeholder="e.g. Iron Lotus Tattoo"
-          value={studioName}
-          onChangeText={setStudioName}
-          accessibilityLabel="Studio name"
-        />
-        <Text style={s.roleFieldLabel}>City</Text>
-        <TextInput
-          style={s.headlineInput}
-          placeholder="e.g. Berlin"
-          value={studioCity}
-          onChangeText={setStudioCity}
-          autoCapitalize="words"
-          accessibilityLabel="Studio city"
-        />
-        <Text style={s.roleFieldLabel}>Country (improves the map location)</Text>
-        <TextInput
-          style={s.headlineInput}
-          placeholder="e.g. Germany"
-          value={studioCountry}
-          onChangeText={setStudioCountry}
-          autoCapitalize="words"
-          accessibilityLabel="Studio country"
-        />
-        <Pressable style={s.roleBtn} onPress={onStudio} disabled={busy} accessibilityRole="button" accessibilityLabel="Continue as studio owner">
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.roleBtnText}>Continue as studio owner</Text>}
+        <Pressable style={s.roleHead} onPress={() => toggle("studio")} disabled={busy} accessibilityRole="button" accessibilityState={{ expanded: expanded === "studio" }} accessibilityLabel="I own a tattoo studio">
+          <View style={s.roleHeadText}>
+            <Text style={s.roleTitle}>🏠  I own a tattoo studio</Text>
+            <Text style={s.roleDesc}>Manage your studio page, onboard artists, and track bookings and reviews.</Text>
+          </View>
+          <Ionicons name={expanded === "studio" ? "chevron-up" : "chevron-down"} size={20} color="#A1A1AA" />
         </Pressable>
+        {expanded === "studio" ? (
+          <>
+            <Text style={s.roleFieldLabel}>Studio name</Text>
+            <TextInput
+              style={s.headlineInput}
+              placeholder="e.g. Iron Lotus Tattoo"
+              value={studioName}
+              onChangeText={setStudioName}
+              accessibilityLabel="Studio name"
+            />
+            <Text style={s.roleFieldLabel}>City</Text>
+            <TextInput
+              style={s.headlineInput}
+              placeholder="e.g. Berlin"
+              value={studioCity}
+              onChangeText={setStudioCity}
+              autoCapitalize="words"
+              accessibilityLabel="Studio city"
+            />
+            <Text style={s.roleFieldLabel}>Country (improves the map location)</Text>
+            <TextInput
+              style={s.headlineInput}
+              placeholder="e.g. Germany"
+              value={studioCountry}
+              onChangeText={setStudioCountry}
+              autoCapitalize="words"
+              accessibilityLabel="Studio country"
+            />
+            <Pressable style={s.roleBtn} onPress={onStudio} disabled={busy} accessibilityRole="button" accessibilityLabel="Continue as studio owner">
+              {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.roleBtnText}>Continue as studio owner</Text>}
+            </Pressable>
+          </>
+        ) : null}
       </View>
     </ScrollView>
   );
@@ -310,6 +333,8 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 8 },
   roleWrap: { padding: 20, paddingTop: 48, flexGrow: 1 },
   roleCard: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 16, padding: 18, marginBottom: 14, gap: 6 },
+  roleHead: { flexDirection: "row", alignItems: "center", gap: 10 },
+  roleHeadText: { flex: 1, gap: 6 },
   roleTitle: { fontSize: 18, fontWeight: "800", color: "#18181B" },
   roleDesc: { color: "#71717A", fontSize: 14, lineHeight: 20 },
   roleFieldLabel: { fontSize: 13, fontWeight: "600", color: "#52525B", marginTop: 10 },
