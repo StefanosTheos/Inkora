@@ -1,6 +1,7 @@
 import {
-  becomeArtist, computePreferences, publicStorageUrl, topStyleSlugs, updateProfileLocation, useAuth,
-  useFinishOnboarding, useOnboardingController, useRecommendedArtists, useStyleDeck,
+  becomeArtist, computePreferences, createStudio, geocodeCity, publicStorageUrl, topStyleSlugs,
+  updateProfileLocation, useAuth, useFinishOnboarding, useOnboardingController, useRecommendedArtists,
+  useStyleDeck,
 } from "@inkora/data-access";
 import type { RecommendedArtist, StyleCard, StylePreference } from "@inkora/domain";
 import { Image } from "expo-image";
@@ -26,6 +27,9 @@ function RoleChoice({ onSeeker }: { onSeeker: () => void }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [headline, setHeadline] = useState("");
+  const [studioName, setStudioName] = useState("");
+  const [studioCity, setStudioCity] = useState("");
+  const [studioCountry, setStudioCountry] = useState("");
 
   async function onArtist() {
     setBusy(true);
@@ -35,6 +39,26 @@ function RoleChoice({ onSeeker }: { onSeeker: () => void }) {
     const fin = await finish.mutateAsync({});
     if (!fin.ok) { setBusy(false); toast.show(fin.error.message, "error"); return; }
     await refresh(); // artist role + onboarded → root gate routes to Home
+    setBusy(false);
+  }
+
+  async function onStudio() {
+    const name = studioName.trim();
+    const city = studioCity.trim();
+    if (!name) { toast.show("Enter your studio's name", "error"); return; }
+    if (!city) { toast.show("Enter your studio's city", "error"); return; }
+    setBusy(true);
+    // Studios must be geolocated (required by create-studio) so they surface in
+    // discovery. Country disambiguates common city names (e.g. "Athens").
+    const query = studioCountry.trim() ? `${city}, ${studioCountry.trim()}` : city;
+    const coords = await geocodeCity(query);
+    if (!coords) { setBusy(false); toast.show("Couldn't locate that city — try adding the country.", "error"); return; }
+    const res = await createStudio(supabase, { name, city, latitude: coords.lat, longitude: coords.lng });
+    if (!res.ok) { setBusy(false); toast.show(res.error.message, "error"); return; }
+    // Mark onboarded (studio owners skip the style questionnaire), then re-mint.
+    const fin = await finish.mutateAsync({});
+    if (!fin.ok) { setBusy(false); toast.show(fin.error.message, "error"); return; }
+    await refresh(); // studio_admin role + onboarded → root gate routes to the studio dashboard
     setBusy(false);
   }
 
@@ -61,6 +85,40 @@ function RoleChoice({ onSeeker }: { onSeeker: () => void }) {
         />
         <Pressable style={s.roleBtn} onPress={onArtist} disabled={busy} accessibilityRole="button" accessibilityLabel="Continue as artist">
           {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.roleBtnText}>Continue as artist</Text>}
+        </Pressable>
+      </View>
+
+      <View style={s.roleCard}>
+        <Text style={s.roleTitle}>🏠  I own a tattoo studio</Text>
+        <Text style={s.roleDesc}>Manage your studio page, onboard artists, and track bookings and reviews.</Text>
+        <Text style={s.roleFieldLabel}>Studio name</Text>
+        <TextInput
+          style={s.headlineInput}
+          placeholder="e.g. Iron Lotus Tattoo"
+          value={studioName}
+          onChangeText={setStudioName}
+          accessibilityLabel="Studio name"
+        />
+        <Text style={s.roleFieldLabel}>City</Text>
+        <TextInput
+          style={s.headlineInput}
+          placeholder="e.g. Berlin"
+          value={studioCity}
+          onChangeText={setStudioCity}
+          autoCapitalize="words"
+          accessibilityLabel="Studio city"
+        />
+        <Text style={s.roleFieldLabel}>Country (improves the map location)</Text>
+        <TextInput
+          style={s.headlineInput}
+          placeholder="e.g. Germany"
+          value={studioCountry}
+          onChangeText={setStudioCountry}
+          autoCapitalize="words"
+          accessibilityLabel="Studio country"
+        />
+        <Pressable style={s.roleBtn} onPress={onStudio} disabled={busy} accessibilityRole="button" accessibilityLabel="Continue as studio owner">
+          {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.roleBtnText}>Continue as studio owner</Text>}
         </Pressable>
       </View>
     </ScrollView>
