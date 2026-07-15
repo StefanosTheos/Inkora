@@ -35,7 +35,7 @@ export function OnboardingFlow() {
   const prefs = useMemo(() => computePreferences(weights, styles), [weights, styles]);
   const topPrefs = useMemo(() => topWeightedStyles(prefs), [prefs]);
   const nameBySlug = useMemo(() => new Map(styles.map((st) => [st.slug, st.name])), [styles]);
-  const recs = useRecommendedArtists(client, topPrefs, null, phase === "results");
+  const recs = useRecommendedArtists(client, topPrefs, null, phase === "results", 5);
 
   const cycle = (id: string) =>
     setReactions((prev) => ({ ...prev, [id]: NEXT[prev[id] ?? "skip"] }));
@@ -147,11 +147,11 @@ export function OnboardingFlow() {
 
 /** A short, human "why this artist" line from the recommender's match signals. */
 function reasonFor(a: RecommendedArtist, nameBySlug: Map<string, string>): string {
+  // Rating is shown separately on the row, so keep the reason to style + distance.
   const names = a.matchedStyles.map((sl) => nameBySlug.get(sl) ?? sl).slice(0, 2);
   const parts: string[] = [];
   if (names.length) parts.push(`Matches your ${names.join(" & ")}`);
   if (a.distanceKm != null) parts.push(`${a.distanceKm < 1 ? "<1" : Math.round(a.distanceKm)} km away`);
-  if (a.ratingCount > 0) parts.push(`★ ${a.ratingAvg.toFixed(1)} (${a.ratingCount})`);
   return parts.join("  ·  ");
 }
 

@@ -316,7 +316,7 @@ function Results({
   const prefs = useMemo(() => computePreferences(weights, styles), [weights, styles]);
   const topPrefs = useMemo(() => topWeightedStyles(prefs), [prefs]);
   const nameBySlug = useMemo(() => new Map(styles.map((st) => [st.slug, st.name])), [styles]);
-  const recs = useRecommendedArtists(supabase, topPrefs, null, true);
+  const recs = useRecommendedArtists(supabase, topPrefs, null, true, 5);
 
   async function onFinish() {
     setBusy(true);
@@ -388,11 +388,11 @@ function PreferenceBar({ pref }: { pref: StylePreference }) {
 
 /** A short, human "why this artist" line from the recommender's match signals. */
 function matchReason(a: RecommendedArtist, nameBySlug: Map<string, string>): string {
+  // Rating is shown separately on the row, so keep the reason to style + distance.
   const names = a.matchedStyles.map((sl) => nameBySlug.get(sl) ?? sl).slice(0, 2);
   const parts: string[] = [];
   if (names.length) parts.push(`Matches your ${names.join(" & ")}`);
   if (a.distanceKm != null) parts.push(`${a.distanceKm < 1 ? "<1" : Math.round(a.distanceKm)} km away`);
-  if (a.ratingCount > 0) parts.push(`★ ${a.ratingAvg.toFixed(1)} (${a.ratingCount})`);
   return parts.join("  ·  ");
 }
 
@@ -404,7 +404,7 @@ function ArtistRow({ artist, reason }: { artist: RecommendedArtist; reason?: str
       </View>
       <View style={{ flex: 1 }}>
         <Text style={s.artistName}>{artist.displayName}</Text>
-        <Text style={reason ? s.why : s.muted} numberOfLines={1}>{reason || artist.headline || artist.styles.join(", ")}</Text>
+        <Text style={reason ? s.why : s.muted} numberOfLines={2}>{reason || artist.headline || artist.styles.join(", ")}</Text>
       </View>
       <Text style={s.rating}>★ {artist.ratingAvg.toFixed(1)}</Text>
     </View>

@@ -18,10 +18,11 @@ export function useRecommendedArtists(
   prefs: WeightedStyle[],
   location?: { lat: number; lng: number } | null,
   enabled = true,
+  limit = 10,
 ) {
   return useQuery({
-    queryKey: ["recommendations", prefs.map((p) => `${p.slug}:${p.weight}`), location?.lat ?? null, location?.lng ?? null],
-    queryFn: () => getRecommendedArtists(client, prefs, location),
+    queryKey: ["recommendations", prefs.map((p) => `${p.slug}:${p.weight}`), location?.lat ?? null, location?.lng ?? null, limit],
+    queryFn: () => getRecommendedArtists(client, prefs, location, limit),
     enabled: enabled && prefs.length > 0,
   });
 }
