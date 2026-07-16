@@ -38,9 +38,14 @@ export const TattooCompositor = forwardRef<CompositorHandle, {
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [t, setT] = useState<Transform>(IDENTITY);
 
-  // committed transform + gesture start, kept in refs to survive re-renders
+  // Transform lives in refs so the PanResponder can be created ONCE (a
+  // per-render responder loses the final position on release). `base` is the
+  // committed transform; `latest` mirrors what's on screen so release can commit
+  // it exactly.
   const base = useRef<Transform>(IDENTITY);
+  const latest = useRef<Transform>(IDENTITY);
   const start = useRef<{ dist: number; angle: number } | null>(null);
+  const applyT = (nt: Transform) => { latest.current = nt; setT(nt); };
 
   useImperativeHandle(ref, () => ({
     capture: () => {
@@ -63,19 +68,20 @@ export const TattooCompositor = forwardRef<CompositorHandle, {
       if (touches.length >= 2) {
         if (!start.current) start.current = { dist: touchDistance(touches), angle: touchAngle(touches) };
         const scaleFactor = start.current.dist > 0 ? touchDistance(touches) / start.current.dist : 1;
-        setT({
+        applyT({
           tx: base.current.tx + g.dx,
           ty: base.current.ty + g.dy,
           scale: Math.max(0.15, Math.min(6, base.current.scale * scaleFactor)),
           rot: base.current.rot + (touchAngle(touches) - start.current.angle),
         });
       } else {
-        setT({ ...base.current, tx: base.current.tx + g.dx, ty: base.current.ty + g.dy });
+        applyT({ ...base.current, tx: base.current.tx + g.dx, ty: base.current.ty + g.dy });
       }
     },
-    onPanResponderRelease: () => { base.current = { ...t }; start.current = null; },
-    onPanResponderTerminate: () => { base.current = { ...t }; start.current = null; },
-  }), [t]);
+    // Commit the final on-screen transform so it persists after lifting fingers.
+    onPanResponderRelease: () => { base.current = latest.current; start.current = null; },
+    onPanResponderTerminate: () => { base.current = latest.current; start.current = null; },
+  }), []);
 
   // Flash base rect: centred, ~48% of the canvas width, aspect-correct.
   const rect = useMemo(() => {
