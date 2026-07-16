@@ -86,7 +86,9 @@ Deno.serve(async (req) => {
     // Push is opt-in: only fan out to devices when the recipient has explicitly
     // enabled push (which the app only persists after OS-level consent).
     const { data: prefs } = await svc.from("notification_preferences").select("channels").eq("profile_id", notif.recipient_id).maybeSingle();
-    if (((prefs?.channels ?? {}) as Record<string, unknown>)["push"] !== true) return json({ ok: true, skipped: "push_not_enabled" });
+    if (((prefs?.channels ?? {}) as Record<string, unknown>)["push"] !== true) {
+      return json({ ok: true, skipped: "push_not_enabled" });
+    }
 
     const { data: tokens } = await svc
       .from("device_tokens")
@@ -94,10 +96,21 @@ Deno.serve(async (req) => {
       .eq("profile_id", notif.recipient_id)
       .is("disabled_at", null);
     const targets = (tokens ?? []) as { fcm_token: string }[];
-    if (targets.length === 0) return json({ ok: true, sent: 0 });
+    if (targets.length === 0) {
+      // Recipient opted into push but has no live device token (never registered,
+      // or all tokens got disabled after rotation). Logged so this shows up
+      // instead of silently reporting success.
+      console.warn(`[notify-dispatch] push enabled but no active device tokens for ${notif.recipient_id} (notif ${notificationId})`);
+      return json({ ok: true, sent: 0, skipped: "no_active_tokens" });
+    }
 
     const saRaw = Deno.env.get("FCM_SERVICE_ACCOUNT");
-    if (!saRaw) return json({ ok: true, sent: 0, note: "FCM_SERVICE_ACCOUNT not set — push skipped" });
+    if (!saRaw) {
+      // The whole push pipeline is inert without this secret — surface it loudly
+      // in the function logs rather than returning a quiet success.
+      console.error("[notify-dispatch] FCM_SERVICE_ACCOUNT is not set — no pushes will be delivered. Set it with `supabase secrets set`.");
+      return json({ ok: true, sent: 0, note: "FCM_SERVICE_ACCOUNT not set — push skipped" });
+    }
     // Accept either raw JSON or base64(JSON) so the secret is easy to set.
     const saJson = saRaw.trim().startsWith("{") ? saRaw : atob(saRaw);
     const sa = JSON.parse(saJson) as ServiceAccount;
@@ -105,19 +118,29 @@ Deno.serve(async (req) => {
 
     const data = Object.fromEntries(Object.entries(notif.data ?? {}).map(([k, v]) => [k, String(v)]));
     let sent = 0;
+    let failed = 0;
     for (const t of targets) {
       const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({ message: { token: t.fcm_token, notification: { title: notif.title, body: notif.body ?? "" }, data } }),
       });
-      if (res.ok) sent++;
-      else if (res.status === 404) {
-        // token no longer valid → stop targeting it
+      if (res.ok) {
+        sent++;
+      } else if (res.status === 404 || res.status === 400) {
+        // Unregistered / invalid token → stop targeting it (FCM returns 404
+        // UNREGISTERED for dead tokens and 400 INVALID_ARGUMENT for malformed).
         await svc.from("device_tokens").update({ disabled_at: new Date().toISOString() }).eq("fcm_token", t.fcm_token);
+        failed++;
+        console.warn(`[notify-dispatch] disabled token after FCM ${res.status} (notif ${notificationId})`);
+      } else {
+        // Transient/auth error (401/403/5xx): leave the token, log for triage.
+        failed++;
+        const errBody = await res.text().catch(() => "");
+        console.error(`[notify-dispatch] FCM send failed ${res.status} (notif ${notificationId}): ${errBody.slice(0, 300)}`);
       }
     }
-    return json({ ok: true, sent });
+    return json({ ok: true, sent, failed });
   } catch (e) {
     return json({ error: (e as Error)?.message ?? "internal" }, 500);
   }

@@ -40,6 +40,19 @@ export async function ensureNotificationPermissions(): Promise<boolean> {
   return req.granted;
 }
 
+/** Upsert the current user's device token, (re)activating it if it was disabled. */
+async function storeToken(token: string): Promise<boolean> {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return false;
+  const { error } = await supabase
+    .from("device_tokens")
+    .upsert(
+      { profile_id: data.user.id, fcm_token: token, platform: Platform.OS as "ios" | "android" | "web", disabled_at: null },
+      { onConflict: "fcm_token" },
+    );
+  return !error;
+}
+
 /**
  * Register the device's push token so the server can send remote pushes (FCM).
  * Requests OS permission if needed. Returns true only if permission was granted
@@ -50,15 +63,38 @@ export async function registerPushToken(): Promise<boolean> {
     if (!(await ensureNotificationPermissions())) return false; // denied / can't ask again
     const token = (await Notifications.getDevicePushTokenAsync()).data;
     if (!token) return false;
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) return false;
-    const { error } = await supabase
-      .from("device_tokens")
-      .upsert({ profile_id: data.user.id, fcm_token: token, platform: Platform.OS as "ios" | "android" | "web" }, { onConflict: "fcm_token" });
-    return !error;
+    return await storeToken(token);
   } catch (e) {
     console.warn("[push] token registration failed:", (e as Error)?.message ?? e);
     return false;
+  }
+}
+
+let tokenListenerBound = false;
+
+/**
+ * Keep the stored FCM token fresh without ever prompting. FCM tokens rotate
+ * (app reinstall, restore, periodic refresh); if the stored one goes stale the
+ * server 404s it, disables it, and push silently stops. Call this on every boot
+ * for a signed-in user whose push is enabled: it re-upserts the *current* token
+ * only when OS permission is already granted, and subscribes to in-session
+ * rotations so a live token is always on file.
+ */
+export async function syncPushRegistration(pushEnabled: boolean): Promise<void> {
+  try {
+    if (!pushEnabled) return;
+    const perm = await Notifications.getPermissionsAsync();
+    if (!perm.granted) return; // never prompt here — opt-in owns that
+    const token = (await Notifications.getDevicePushTokenAsync()).data;
+    if (token) await storeToken(token);
+    if (!tokenListenerBound) {
+      tokenListenerBound = true;
+      Notifications.addPushTokenListener((t) => {
+        if (t?.data) void storeToken(String(t.data));
+      });
+    }
+  } catch (e) {
+    console.warn("[push] token sync failed:", (e as Error)?.message ?? e);
   }
 }
 

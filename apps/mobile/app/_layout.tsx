@@ -4,6 +4,7 @@ import { View } from "react-native";
 
 import { AnimatedSplash } from "../src/components/AnimatedSplash";
 import { useProtectedRoute } from "../src/lib/use-protected-route";
+import { usePushSync } from "../src/lib/use-push-sync";
 import { AppProviders } from "../src/providers";
 
 // Hold the native (static) splash until JS has painted, then hand off to the
@@ -12,6 +13,7 @@ void SplashScreen.preventAutoHideAsync();
 
 function Gate() {
   useProtectedRoute();
+  usePushSync();
   const [introDone, setIntroDone] = useState(false);
 
   useEffect(() => {
