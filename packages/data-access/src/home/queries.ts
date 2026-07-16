@@ -186,11 +186,13 @@ export async function fetchMyLocation(client: InkoraClient): Promise<{ lat: numb
 export interface IdeaFeedFilters {
   q?: string;
   styleSlugs?: string[];
+  sort?: "recent" | "popular";
 }
 
-/** Infinite inspiration feed page (keyset by created_at), with optional keyword
- *  (title + description) and style filters. Style filtering resolves matching
- *  idea ids first so the created_at keyset pagination still applies. */
+/** Infinite inspiration feed page, with optional keyword (title + description),
+ *  style, and sort. Keyset paginates by created_at ("recent") or by
+ *  (save_count, created_at) ("popular"). Style filtering resolves matching idea
+ *  ids first so the keyset still applies. */
 export async function fetchIdeaFeedPage(
   client: InkoraClient,
   cursor: string | undefined,
@@ -224,8 +226,19 @@ export async function fetchIdeaFeedPage(
     const term = kw.replace(/[,()%*\\]/g, " ").trim();
     if (term) q = q.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
   }
-  q = q.order("created_at", { ascending: false }).limit(limit);
-  if (cursor) q = q.lt("created_at", cursor);
+  const popular = filters.sort === "popular";
+  if (popular) {
+    // Keyset on (save_count, id) so ties paginate stably. id (a uuid) is used as
+    // the tiebreak rather than created_at to avoid timestamp encoding issues.
+    q = q.order("save_count", { ascending: false }).order("id", { ascending: false }).limit(limit);
+    if (cursor) {
+      const [sc, lastId] = cursor.split("|");
+      q = q.or(`save_count.lt.${Number(sc)},and(save_count.eq.${Number(sc)},id.lt.${lastId})`);
+    }
+  } else {
+    q = q.order("created_at", { ascending: false }).limit(limit);
+    if (cursor) q = q.lt("created_at", cursor);
+  }
 
   const { data, error } = await q.returns<IdeaRow[]>();
   if (error) throw toAppError(error);
@@ -241,6 +254,9 @@ export async function fetchIdeaFeedPage(
     saveCount: r.save_count,
     sourceArtistId: (r.source_artist_id as ArtistId | null) ?? null,
   }));
-  const nextCursor = rows.length === limit ? (rows[rows.length - 1]?.created_at ?? null) : null;
+  const last = rows[rows.length - 1];
+  const nextCursor = rows.length === limit && last
+    ? (popular ? `${last.save_count}|${last.id}` : last.created_at)
+    : null;
   return { items, nextCursor, hasMore: nextCursor !== null };
 }

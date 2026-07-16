@@ -6,15 +6,15 @@ import type { HomeArtist, IdeaCard } from "@inkora/domain";
 import { MasonryFlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
-import { Chip } from "../discovery/components";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { CategoryPickerModal } from "./CategoryPickerModal";
 import { ArtistCard, CategoryCard, IdeaTile, PromoCard, SearchBar, SectionHeader, StudioCard } from "./components";
+import { StyleFilterSheet } from "./StyleFilterSheet";
 
 const img = imageUrl;
 
@@ -31,7 +31,9 @@ export function HomeScreen() {
   // Explore = a browse feed filtered by style chips. Typed keyword search lives
   // in Discover (the top search bar routes there) to avoid a duplicate input.
   const [exploreStyles, setExploreStyles] = useState<string[]>([]);
-  const feedFilters = useMemo(() => ({ styleSlugs: exploreStyles }), [exploreStyles]);
+  const [exploreSort, setExploreSort] = useState<"recent" | "popular">("recent");
+  const [styleSheetOpen, setStyleSheetOpen] = useState(false);
+  const feedFilters = useMemo(() => ({ styleSlugs: exploreStyles, sort: exploreSort }), [exploreStyles, exploreSort]);
   const feed = useIdeaFeed(supabase, feedFilters);
   const filtersActive = exploreStyles.length > 0;
   const toggleExploreStyle = (slug: string) =>
@@ -160,17 +162,33 @@ export function HomeScreen() {
 
       <View onLayout={(e) => setExploreY(e.nativeEvent.layout.y)}>
       <SectionHeader title="Explore" />
-      {/* Browse feed: filter by style here; typed search lives in Discover. */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.exploreChips}
-        keyboardShouldPersistTaps="handled"
-      >
-        {(categories.data ?? []).map((st) => (
-          <Chip key={st.id} label={st.name} active={exploreStyles.includes(st.slug)} onPress={() => toggleExploreStyle(st.slug)} />
-        ))}
-      </ScrollView>
+      {/* One controls row: sort toggle on the left, Filters (styles) on the right.
+          Typed search lives in Discover. */}
+      <View style={s.exploreControls}>
+        <View style={s.sortSeg}>
+          {(["recent", "popular"] as const).map((so) => (
+            <Pressable
+              key={so}
+              style={[s.sortSegBtn, exploreSort === so && s.sortSegBtnActive]}
+              onPress={() => setExploreSort(so)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: exploreSort === so }}
+            >
+              <Text style={[s.sortSegText, exploreSort === so && s.sortSegTextActive]}>{so === "recent" ? "Recent" : "Popular"}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Pressable
+          style={[s.filterBtn, exploreStyles.length > 0 && s.filterBtnActive]}
+          onPress={() => setStyleSheetOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={exploreStyles.length > 0 ? `Filters, ${exploreStyles.length} active` : "Filters"}
+        >
+          <Text style={[s.filterText, exploreStyles.length > 0 && s.filterTextActive]}>
+            Filters{exploreStyles.length > 0 ? ` (${exploreStyles.length})` : ""}
+          </Text>
+        </Pressable>
+      </View>
       </View>
     </View>
   );
@@ -212,6 +230,14 @@ export function HomeScreen() {
         onClose={() => setPickerOpen(false)}
         onApply={applyCategories}
       />
+      <StyleFilterSheet
+        visible={styleSheetOpen}
+        onClose={() => setStyleSheetOpen(false)}
+        styles={categories.data ?? []}
+        selected={exploreStyles}
+        onToggle={toggleExploreStyle}
+        onClear={() => setExploreStyles([])}
+      />
     </SafeAreaView>
   );
 }
@@ -223,5 +249,14 @@ const s = StyleSheet.create({
   rowPad: { paddingRight: 12 },
   rowLoader: { alignSelf: "flex-start", marginLeft: 24, marginVertical: 12 },
   empty: { textAlign: "center", color: "#A1A1AA", marginTop: 24, paddingHorizontal: 24 },
-  exploreChips: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 8 },
+  exploreControls: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12, paddingBottom: 10 },
+  sortSeg: { flexDirection: "row", backgroundColor: "#F4F4F5", borderRadius: 999, padding: 3 },
+  sortSegBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999 },
+  sortSegBtnActive: { backgroundColor: "#18181B" },
+  sortSegText: { fontSize: 13, fontWeight: "700", color: "#71717A" },
+  sortSegTextActive: { color: "#fff" },
+  filterBtn: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 9, borderRadius: 999, borderWidth: 1, borderColor: "#E4E4E7" },
+  filterBtnActive: { backgroundColor: "#E5484D", borderColor: "#E5484D" },
+  filterText: { fontWeight: "700", fontSize: 13, color: "#18181B" },
+  filterTextActive: { color: "#fff" },
 });

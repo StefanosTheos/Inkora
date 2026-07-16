@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { IdeaTile } from "../home/components";
+import { StyleFilterSheet } from "../home/StyleFilterSheet";
 import { ArtistResultRow, Chip, StudioResultRow } from "./components";
 import { FilterSheet } from "./FilterSheet";
 
@@ -65,9 +66,14 @@ export function DiscoverScreen() {
     [q, near, filters],
   );
 
+  const [ideaSort, setIdeaSort] = useState<"recent" | "popular">("recent");
+  const [ideaStyles, setIdeaStyles] = useState<string[]>([]);
+  const [ideaSheetOpen, setIdeaSheetOpen] = useState(false);
+  const toggleIdeaStyle = (slug: string) =>
+    setIdeaStyles((prev) => (prev.includes(slug) ? prev.filter((x) => x !== slug) : [...prev, slug]));
   const artistSearch = useArtistSearch(supabase, artistParams, !isStudios && !isIdeas);
   const studioSearch = useStudioSearch(supabase, studioParams, isStudios);
-  const ideaFeed = useIdeaFeed(supabase, { q }, isIdeas);
+  const ideaFeed = useIdeaFeed(supabase, { q, sort: ideaSort, styleSlugs: ideaStyles }, isIdeas);
   const ideas: IdeaCard[] = ideaFeed.data?.pages.flatMap((p) => p.items) ?? [];
   const search = isStudios ? studioSearch : artistSearch;
   const results: (SearchArtist | SearchStudio)[] = search.data?.pages.flat() ?? [];
@@ -147,6 +153,35 @@ export function DiscoverScreen() {
       </ScrollView>
       )}
 
+      {/* Designs: sort toggle on the left, style filter on the right. */}
+      {isIdeas && (
+        <View style={s.ideaControls}>
+          <View style={s.sortSeg}>
+            {(["recent", "popular"] as const).map((so) => (
+              <Pressable
+                key={so}
+                style={[s.sortSegBtn, ideaSort === so && s.sortSegBtnActive]}
+                onPress={() => setIdeaSort(so)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: ideaSort === so }}
+              >
+                <Text style={[s.sortSegText, ideaSort === so && s.sortSegTextActive]}>{so === "recent" ? "Recent" : "Popular"}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Pressable
+            style={[s.filterBtn, ideaStyles.length > 0 && s.filterBtnActive]}
+            onPress={() => setIdeaSheetOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={ideaStyles.length > 0 ? `Filters, ${ideaStyles.length} active` : "Filters"}
+          >
+            <Text style={[s.filterText, ideaStyles.length > 0 && { color: "#fff" }]}>
+              Filters{ideaStyles.length > 0 ? ` (${ideaStyles.length})` : ""}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Results */}
       {isIdeas ? (
         <MasonryFlashList
@@ -215,6 +250,14 @@ export function DiscoverScreen() {
         onChange={onChange}
         hasLocation={near != null}
       />
+      <StyleFilterSheet
+        visible={ideaSheetOpen}
+        onClose={() => setIdeaSheetOpen(false)}
+        styles={styleDeck.data ?? []}
+        selected={ideaStyles}
+        onToggle={toggleIdeaStyle}
+        onClear={() => setIdeaStyles([])}
+      />
     </SafeAreaView>
   );
 }
@@ -232,6 +275,12 @@ const s = StyleSheet.create({
   clearIcon: { fontSize: 16, color: "#A1A1AA" },
   controls: { flexGrow: 0, marginBottom: 8 },
   controlsContent: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12 },
+  ideaControls: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12, marginBottom: 8 },
+  sortSeg: { flexDirection: "row", backgroundColor: "#F4F4F5", borderRadius: 999, padding: 3 },
+  sortSegBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999 },
+  sortSegBtnActive: { backgroundColor: "#18181B" },
+  sortSegText: { fontSize: 13, fontWeight: "700", color: "#71717A" },
+  sortSegTextActive: { color: "#fff" },
   filterBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: "#E4E4E7" },
   filterBtnActive: { backgroundColor: "#E5484D", borderColor: "#E5484D" },
   filterText: { fontWeight: "700", fontSize: 13, color: "#18181B" },

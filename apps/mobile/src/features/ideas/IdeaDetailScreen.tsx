@@ -61,6 +61,12 @@ export function IdeaDetailScreen({ id }: { id: string }) {
 
         <View style={s.content}>
           {d.title ? <Text style={s.title}>{d.title}</Text> : null}
+          {d.saveCount > 0 ? (
+            <View style={s.savesRow}>
+              <Ionicons name="heart" size={13} color="#E5484D" />
+              <Text style={s.savesText}>{d.saveCount} {d.saveCount === 1 ? "save" : "saves"}</Text>
+            </View>
+          ) : null}
           {d.styleSlugs.length > 0 && (
             <View style={s.tags}>
               {d.styleSlugs.map((sl) => <View key={sl} style={s.tag}><Text style={s.tagText}>{sl}</Text></View>)}
@@ -160,6 +166,8 @@ const s = StyleSheet.create({
   zoomBadge: { position: "absolute", right: 12, bottom: 12, width: 32, height: 32, borderRadius: 16, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
   content: { padding: 16, gap: 12 },
   title: { fontSize: 22, fontWeight: "800" },
+  savesRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: -4 },
+  savesText: { color: "#71717A", fontSize: 13, fontWeight: "600" },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   tag: { backgroundColor: "#F4F4F5", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   tagText: { fontSize: 12, fontWeight: "600", color: "#18181B" },

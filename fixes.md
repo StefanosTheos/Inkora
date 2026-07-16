@@ -56,8 +56,7 @@ studio statistics, and discovery/messaging/rewards.
 - [x] **8b. Ideas aren't searchable in Discover.** ✅ Added a **"Designs"** scope to Discover — a 2-col masonry grid backed by the (now title+description) idea feed with infinite scroll. `SearchScope` extended; `useIdeaFeed` gained an `enabled` flag. Removed the redundant keyword box from Home's Explore section (now browse + style chips only; typed search lives in Discover) — top search bar still routes there.
 - [ ] **9. No boards/collections** — saves are a flat, unorganizable list; can't share a collection with an artist.
   - Files: `UserDashboardScreen.tsx` (~:198), `favorites` table.
-- [ ] **10. `save_count` is fully wired but never displayed** — free social proof unused.
-  - Files: `IdeaTile`, `IdeaDetailScreen.tsx`.
+- [x] **10. `save_count` is fully wired but never displayed.** ✅ Idea tiles now show a compact `♥ N` badge (only when >0); idea detail shows a "N saves" line. Plus a **Recent / Popular** sort (popularity = save_count, keyset on (save_count, id)) on both Home Explore and Discover → Designs.
 - [ ] **11. No Share and no "Message artist" from ideas/portfolio** — missing organic-growth + contact shortcuts (Share exists only for referral code).
   - Files: `IdeaDetailScreen.tsx`, `PortfolioDesignScreen.tsx`.
 - [ ] **12. Style-filtered feed silently truncates at ~500 ideas** → popular styles hide most content behind a false "you've seen everything."

@@ -33,7 +33,7 @@ export function useNearbyStudios(client: InkoraClient, coords: { lat: number; ln
 /** Infinite inspiration feed, optionally filtered by keyword + styles. */
 export function useIdeaFeed(client: InkoraClient, filters: IdeaFeedFilters = {}, enabled = true) {
   return useInfiniteQuery({
-    queryKey: ["idea-feed", filters.q ?? "", filters.styleSlugs ?? []],
+    queryKey: ["idea-feed", filters.q ?? "", filters.styleSlugs ?? [], filters.sort ?? "recent"],
     queryFn: ({ pageParam }: { pageParam?: string }) => fetchIdeaFeedPage(client, pageParam, filters),
     enabled,
     initialPageParam: undefined as string | undefined,

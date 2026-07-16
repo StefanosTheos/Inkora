@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import type { HomeArtist, IdeaCard, NearbyStudio, Promotion, StyleCard } from "@inkora/domain";
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -110,15 +111,28 @@ export function StudioCard({ studio, uri, onPress }: { studio: NearbyStudio; uri
 }
 
 // -------------------------------------------------------- Feed idea tile
+/** Compact count for social-proof badges: 0–999, then 1.2k / 12k. */
+function compactCount(n: number): string {
+  return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
+}
+
 export function IdeaTile({ idea, uri, onPress }: { idea: IdeaCard; uri?: string; onPress: () => void }) {
   const ratio = idea.width && idea.height ? idea.width / idea.height : 0.8;
   return (
     <Pressable style={s.tile} onPress={onPress}>
-      {uri ? (
-        <Image source={{ uri }} style={[s.tileImg, { aspectRatio: ratio }]} contentFit="cover" transition={150} />
-      ) : (
-        <View style={[s.tileImg, s.tileFallback, { aspectRatio: ratio }]} />
-      )}
+      <View>
+        {uri ? (
+          <Image source={{ uri }} style={[s.tileImg, { aspectRatio: ratio }]} contentFit="cover" transition={150} />
+        ) : (
+          <View style={[s.tileImg, s.tileFallback, { aspectRatio: ratio }]} />
+        )}
+        {idea.saveCount > 0 ? (
+          <View style={s.tileSaves}>
+            <Ionicons name="heart" size={11} color="#fff" />
+            <Text style={s.tileSavesText}>{compactCount(idea.saveCount)}</Text>
+          </View>
+        ) : null}
+      </View>
       {idea.title ? <Text style={s.tileTitle} numberOfLines={1}>{idea.title}</Text> : null}
     </Pressable>
   );
@@ -154,5 +168,7 @@ const s = StyleSheet.create({
   tile: { flex: 1, margin: 4 },
   tileImg: { width: "100%", borderRadius: 12, backgroundColor: "#E4E4E7" },
   tileFallback: { backgroundColor: "#E4E4E7" },
+  tileSaves: { position: "absolute", left: 6, bottom: 6, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
+  tileSavesText: { color: "#fff", fontSize: 11, fontWeight: "700" },
   tileTitle: { fontSize: 12, fontWeight: "600", marginTop: 4 },
 });
