@@ -68,8 +68,6 @@ export function AiPreviewResultScreen({ id }: { id: string }) {
             </Pressable>
           </View>
 
-          {p.placement ? <Detail label="Placement" value={p.placement} /> : null}
-
           <View style={s.note}>
             <Ionicons name="information-circle-outline" size={16} color="#92400E" />
             <Text style={s.noteText}>{AI_PREVIEW_DISCLAIMER}</Text>
@@ -80,7 +78,7 @@ export function AiPreviewResultScreen({ id }: { id: string }) {
             <Pressable
               style={[s.book, !artist.isAccepting && s.bookOff]}
               disabled={!artist.isAccepting}
-              onPress={() => router.push({ pathname: "/booking-request", params: { artistId: artist.id, refPath: flash?.imagePath ?? "", placement: p.placement ?? "" } })}
+              onPress={() => router.push({ pathname: "/booking-request", params: { artistId: artist.id, refPath: flash?.imagePath ?? "" } })}
               accessibilityRole="button"
               accessibilityLabel={artist.isAccepting ? `Book this design with ${artist.displayName}` : "Artist not accepting bookings"}
             >
@@ -107,15 +105,6 @@ export function AiPreviewResultScreen({ id }: { id: string }) {
   );
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={s.detail}>
-      <Text style={s.detailLabel}>{label}</Text>
-      <Text style={s.detailValue}>{value}</Text>
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
@@ -129,9 +118,6 @@ const s = StyleSheet.create({
   exportBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 44, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 14 },
   exportText: { fontWeight: "700", color: "#18181B", fontSize: 14 },
   disabled: { opacity: 0.5 },
-  detail: { marginTop: 14 },
-  detailLabel: { color: "#71717A", fontWeight: "700", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
-  detailValue: { fontSize: 15, color: "#18181B", marginTop: 4 },
   note: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF3C7", borderRadius: 12, padding: 12, marginTop: 16 },
   noteText: { flex: 1, color: "#92400E", fontSize: 12, fontWeight: "600" },
   book: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#E5484D", borderRadius: 16, paddingVertical: 16, marginTop: 18 },

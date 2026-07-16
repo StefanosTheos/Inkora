@@ -173,6 +173,15 @@ export async function getAiPreview(client: InkoraClient, id: string): Promise<Ai
   return data ? mapPreview(data) : null;
 }
 
+/** Delete a saved try-on: remove its composite file (best-effort) then the row. */
+export async function deleteAiPreview(client: InkoraClient, id: string, resultImagePath?: string | null): Promise<void> {
+  if (resultImagePath) {
+    await client.storage.from(BUCKET).remove([resultImagePath]); // best-effort; ignore storage errors
+  }
+  const { error } = await client.from("ai_previews").delete().eq("id", id);
+  if (error) throw toAppError(error);
+}
+
 export const aiKeys = {
   list: ["ai-previews"] as const,
   one: (id: string) => ["ai-preview", id] as const,

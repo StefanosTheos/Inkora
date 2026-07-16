@@ -28,7 +28,7 @@ const PLACEMENTS = ["Forearm", "Upper arm", "Leg", "Back", "Chest", "Ribs", "Han
 const SIZES = ["XS (< 5cm)", "S (5–10cm)", "M (10–20cm)", "L (20cm+)"];
 const daysLabel = (days: number[]) => (days.length ? days.map((d) => DAY_LABELS[d]).join(" · ") : "By appointment");
 
-export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRefPath, presetPlacement }: { artistId?: string; studioSlug?: string; presetTitle?: string; presetRefPath?: string; presetPlacement?: string }) {
+export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRefPath }: { artistId?: string; studioSlug?: string; presetTitle?: string; presetRefPath?: string }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
@@ -64,13 +64,8 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRe
   const [submitting, setSubmitting] = useState(false);
   const [title, setTitle] = useState(presetTitle ?? "");
   const [description, setDescription] = useState("");
-  // A placement passed in from the AI try-on prefills this. If it's not one of
-  // the chip options (e.g. "Calf"/"Ankle"), fall back to "Other" + free text.
-  const presetKnown = !!presetPlacement && PLACEMENTS.includes(presetPlacement);
-  const [placement, setPlacement] = useState<string | null>(
-    presetPlacement ? (presetKnown ? presetPlacement : "Other") : null,
-  );
-  const [placementOther, setPlacementOther] = useState(presetPlacement && !presetKnown ? presetPlacement : ""); // free text when "Other" is picked
+  const [placement, setPlacement] = useState<string | null>(null);
+  const [placementOther, setPlacementOther] = useState(""); // free text when "Other" is picked
   const [size, setSize] = useState<string | null>(null);
   const [isColor, setIsColor] = useState<boolean | null>(null);
   const [preferredDate, setPreferredDate] = useState<string | null>(null);

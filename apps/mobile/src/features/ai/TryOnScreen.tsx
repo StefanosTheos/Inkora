@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { aiKeys, type FlashListItem, saveTattooTryOn, uploadTryOnResult, useFlashes } from "@inkora/data-access";
-import { AI_PLACEMENTS, AI_PREVIEW_DISCLAIMER, type PortfolioImageId } from "@inkora/domain";
+import { AI_PREVIEW_DISCLAIMER, type PortfolioImageId } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -31,7 +31,6 @@ export function TryOnScreen() {
   const [flash, setFlash] = useState<Flash | null>(initialFlash);
   const [bodyUri, setBodyUri] = useState<string | null>(null);
   const [opacity, setOpacity] = useState(0.9);
-  const [placement, setPlacement] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const compRef = useRef<CompositorHandle>(null);
 
@@ -55,7 +54,6 @@ export function TryOnScreen() {
       const preview = await saveTattooTryOn(supabase, {
         resultImagePath: resultPath,
         sourceFlashId: flash?.id ? (flash.id as PortfolioImageId) : undefined,
-        placement: placement ?? undefined,
         note: flash?.caption ?? flash?.artistName,
       });
       await qc.invalidateQueries({ queryKey: aiKeys.list });
@@ -119,15 +117,6 @@ export function TryOnScreen() {
           <Ionicons name="contrast-outline" size={16} color="#71717A" />
           <Slider value={opacity} min={0.3} max={1} onChange={setOpacity} />
           <Text style={s.sliderVal}>{Math.round(opacity * 100)}%</Text>
-        </View>
-        <Text style={s.placeLabel}>Where would it go? (optional)</Text>
-        <Text style={s.placeHint}>Tag the body area and we’ll pre-fill it on your booking request if you book this design.</Text>
-        <View style={s.chipWrap}>
-          {AI_PLACEMENTS.map((pl) => (
-            <Pressable key={pl} style={[s.chip, placement === pl && s.chipActive]} onPress={() => setPlacement(placement === pl ? null : pl)}>
-              <Text style={[s.chipText, placement === pl && s.chipTextActive]}>{pl}</Text>
-            </Pressable>
-          ))}
         </View>
         <View style={s.note}>
           <Ionicons name="information-circle-outline" size={15} color="#92400E" />
@@ -232,13 +221,6 @@ const s = StyleSheet.create({
   sliderFill: { position: "absolute", left: 0, height: 6, borderRadius: 3, backgroundColor: "#E5484D" },
   sliderThumb: { position: "absolute", width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff", borderWidth: 2, borderColor: "#E5484D", marginLeft: -10, top: 4 },
   sliderVal: { width: 40, textAlign: "right", fontWeight: "700", color: "#18181B", fontSize: 13 },
-  placeLabel: { fontSize: 13, fontWeight: "700", color: "#52525B" },
-  placeHint: { fontSize: 12, color: "#A1A1AA", lineHeight: 16, marginTop: -6 },
-  chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
-  chipActive: { backgroundColor: "#18181B", borderColor: "#18181B" },
-  chipText: { fontWeight: "600", color: "#18181B", fontSize: 12 },
-  chipTextActive: { color: "#fff" },
   note: { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "#FEF3C7", borderRadius: 12, padding: 12 },
   noteText: { flex: 1, color: "#92400E", fontSize: 12, fontWeight: "600", lineHeight: 17 },
   footer: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16, borderTopWidth: 1, borderTopColor: "#F4F4F5" },
