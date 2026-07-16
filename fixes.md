@@ -16,7 +16,7 @@ studio statistics, and discovery/messaging/rewards.
 
 ## Tier 1 — Broken loops & dead-ends (do first)
 
-- [ ] **1. Bookings never auto-complete; only the artist can complete.**
+- [x] **1. Bookings never auto-complete; only the artist can complete.** ✅ Auto-complete cron (`20260716120000_auto_complete_appointments.sql`) + seeker can mark completed + completion card nudges both to review.
   - Problem: if the artist never taps "Mark completed," the appointment stays `scheduled` forever — it never leaves the seeker's *Upcoming* tab and the **seeker can never review** (review UI gated on `status==="completed"`). Strangles the whole ratings system.
   - Fix: date-based auto-complete (daily cron past end time), allow the **seeker** to confirm completion, prompt both sides to review.
   - Files: `apps/mobile/src/features/booking/BookingDetailScreen.tsx` (~:248), `packages/data-access/src/booking/index.ts` (`completeAppointment` ~:518), new migration/cron.

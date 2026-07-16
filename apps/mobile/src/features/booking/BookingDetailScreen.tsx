@@ -118,6 +118,10 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
   }, [appt.id]);
 
   const active = appt.status === "scheduled" || appt.status === "rescheduled";
+  // Either party can mark the session done once it has started, so the seeker
+  // isn't blocked from reviewing when the artist forgets. (Past-due bookings
+  // also auto-complete server-side.)
+  const sessionStarted = Date.now() >= new Date(appt.scheduledStart).getTime();
 
   // Pending reschedule negotiation. Either party can propose; the other approves.
   const reschedPending = appt.rescheduleStatus !== "none";
@@ -245,7 +249,7 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
       ) : active ? (
         <View style={s.actions}>
           <SecondaryBtn label="Reschedule" onPress={onReschedulePress} disabled={busy} />
-          {isArtist && <SecondaryBtn label="Mark completed" onPress={() => run(() => completeAppointment(supabase, appt.id))} disabled={busy} />}
+          {sessionStarted && <SecondaryBtn label="Mark completed" onPress={() => run(() => completeAppointment(supabase, appt.id))} disabled={busy} />}
           <DangerBtn
             label="Cancel appointment"
             disabled={busy}

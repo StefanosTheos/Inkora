@@ -560,19 +560,19 @@ function BookingApptCard({ message, mine }: { message: Message; mine: boolean })
   );
 }
 
-/** Sent when the artist marks the appointment completed — visible to both. */
+/** Sent when either party marks the appointment completed — visible to both. */
 function BookingCompletedCard({ message, mine }: { message: Message; mine: boolean }) {
   const router = useRouter();
   const md = (message.metadata ?? {}) as ApptMeta;
   const color = mine ? "#fff" : "#18181B";
   const sub = mine ? "rgba(255,255,255,0.85)" : "#52525B";
   return (
-    <Pressable style={s.reqCard} onPress={() => { if (md.appointmentId) router.push(`/booking/${md.appointmentId}`); }} accessibilityRole="button" accessibilityLabel="View appointment">
+    <Pressable style={s.reqCard} onPress={() => { if (md.appointmentId) router.push(`/booking/${md.appointmentId}`); }} accessibilityRole="button" accessibilityLabel="View appointment and leave a review">
       <Text style={[s.reqTitle, { color }]}>🎉 Appointment completed</Text>
       {md.proposedStart ? <Text style={[s.reqDetail, { color: sub }]}>{fmtDateTime(md.proposedStart)}</Text> : null}
-      {/* The completion card is sent by the artist, so `mine` here means the
-          artist's device — nudge them to leave a client review. */}
-      {mine ? <Text style={[s.reqDetail, { color: sub, marginTop: 4, fontWeight: "700" }]}>Tap to review your client →</Text> : null}
+      {/* Either party (or the auto-complete job) can complete now, and the
+          booking screen shows the right review form per role — so nudge both. */}
+      <Text style={[s.reqDetail, { color: sub, marginTop: 4, fontWeight: "700" }]}>Tap to leave a review →</Text>
     </Pressable>
   );
 }
