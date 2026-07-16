@@ -20,6 +20,12 @@ function touchAngle(a: GestureResponderEvent["nativeEvent"]["touches"]): number 
   const [p, q] = a;
   return p && q ? Math.atan2(q.pageY - p.pageY, q.pageX - p.pageX) : 0;
 }
+function touchCentroid(a: GestureResponderEvent["nativeEvent"]["touches"]): { x: number; y: number } {
+  let x = 0, y = 0;
+  for (const p of a) { x += p.pageX; y += p.pageY; }
+  const n = a.length || 1;
+  return { x: x / n, y: y / n };
+}
 
 /**
  * On-device tattoo try-on: draws the body photo and multiply-blends the flash
@@ -38,14 +44,12 @@ export const TattooCompositor = forwardRef<CompositorHandle, {
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [t, setT] = useState<Transform>(IDENTITY);
 
-  // Transform lives in refs so the PanResponder can be created ONCE (a
-  // per-render responder loses the final position on release). `base` is the
-  // committed transform; `latest` mirrors what's on screen so release can commit
-  // it exactly.
-  const base = useRef<Transform>(IDENTITY);
-  const latest = useRef<Transform>(IDENTITY);
-  const start = useRef<{ dist: number; angle: number } | null>(null);
-  const applyT = (nt: Transform) => { latest.current = nt; setT(nt); };
+  // `cur` is the single source of truth — it persists across gestures and is
+  // never reset. Each move applies the delta since the PREVIOUS frame (`prev`),
+  // so lifting one finger of a pinch re-baselines instead of discarding the
+  // scale/rotation. State just mirrors `cur` for rendering.
+  const cur = useRef<Transform>(IDENTITY);
+  const prev = useRef<{ cx: number; cy: number; dist: number; angle: number; count: number } | null>(null);
 
   useImperativeHandle(ref, () => ({
     capture: () => {
@@ -57,30 +61,30 @@ export const TattooCompositor = forwardRef<CompositorHandle, {
   const pan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: (e) => {
+    onPanResponderGrant: () => { prev.current = null; },
+    onPanResponderMove: (e) => {
       const touches = e.nativeEvent.touches;
-      start.current = touches.length >= 2
-        ? { dist: touchDistance(touches), angle: touchAngle(touches) }
-        : null;
-    },
-    onPanResponderMove: (e, g) => {
-      const touches = e.nativeEvent.touches;
-      if (touches.length >= 2) {
-        if (!start.current) start.current = { dist: touchDistance(touches), angle: touchAngle(touches) };
-        const scaleFactor = start.current.dist > 0 ? touchDistance(touches) / start.current.dist : 1;
-        applyT({
-          tx: base.current.tx + g.dx,
-          ty: base.current.ty + g.dy,
-          scale: Math.max(0.15, Math.min(6, base.current.scale * scaleFactor)),
-          rot: base.current.rot + (touchAngle(touches) - start.current.angle),
-        });
-      } else {
-        applyT({ ...base.current, tx: base.current.tx + g.dx, ty: base.current.ty + g.dy });
+      if (touches.length === 0) return;
+      const c = touchCentroid(touches);
+      const two = touches.length >= 2;
+      const dist = two ? touchDistance(touches) : 0;
+      const angle = two ? touchAngle(touches) : 0;
+      const p = prev.current;
+      // Only apply a delta when the finger count is unchanged; on grant or a
+      // finger add/remove we just re-baseline this frame (no jump, no reset).
+      if (p && p.count === touches.length) {
+        const next: Transform = { ...cur.current, tx: cur.current.tx + (c.x - p.cx), ty: cur.current.ty + (c.y - p.cy) };
+        if (two && p.dist > 0) {
+          next.scale = Math.max(0.15, Math.min(6, next.scale * (dist / p.dist)));
+          next.rot += angle - p.angle;
+        }
+        cur.current = next;
+        setT(next);
       }
+      prev.current = { cx: c.x, cy: c.y, dist, angle, count: touches.length };
     },
-    // Commit the final on-screen transform so it persists after lifting fingers.
-    onPanResponderRelease: () => { base.current = latest.current; start.current = null; },
-    onPanResponderTerminate: () => { base.current = latest.current; start.current = null; },
+    onPanResponderRelease: () => { prev.current = null; },
+    onPanResponderTerminate: () => { prev.current = null; },
   }), []);
 
   // Flash base rect: centred, ~48% of the canvas width, aspect-correct.
