@@ -68,7 +68,18 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: isStudio ? "Studio" : "Home", tabBarIcon: (p) => <HomeTabIcon {...p} /> }} />
       <Tabs.Screen name="discover" options={{ title: "Discover", tabBarIcon: tabIcon("search", "search-outline"), href: isStudio ? null : undefined }} />
-      <Tabs.Screen name="create" options={{ title: "Create", tabBarIcon: tabIcon("add-circle", "add-circle-outline"), href: isStudio ? null : undefined }} />
+      <Tabs.Screen
+        name="create"
+        options={{ title: "Create", tabBarIcon: tabIcon("add-circle", "add-circle-outline"), href: isStudio ? null : undefined }}
+        listeners={{
+          // Always land on the try-on home, even if a try-on (deep-linked from a
+          // flash) is still on top of the Create stack from a previous visit.
+          tabPress: (e) => {
+            e.preventDefault();
+            router.navigate("/create");
+          },
+        }}
+      />
       <Tabs.Screen
         name="chats"
         options={{ title: "Chats", tabBarIcon: (p) => <ChatsTabIcon {...p} /> }}
