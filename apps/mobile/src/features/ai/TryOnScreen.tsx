@@ -105,6 +105,8 @@ export function TryOnScreen() {
             <Text style={s.flashArtist} numberOfLines={1}>by {flash.artistName}</Text>
           </View>
 
+          <View style={s.separator} />
+
           <View style={s.photoActions}>
             <Text style={s.q}>Photograph the spot</Text>
             <Text style={s.hint}>Take or choose a clear, well-lit photo of the body area. Your photo stays on your device — only the mockup you save is stored.</Text>
@@ -258,6 +260,7 @@ const s = StyleSheet.create({
   changeChipText: { fontSize: 12, fontWeight: "700", color: "#18181B" },
   flashCaption: { alignSelf: "center", fontSize: 15, fontWeight: "800", color: "#18181B", marginTop: 4 },
   flashArtist: { alignSelf: "center", fontSize: 13, color: "#71717A", marginTop: -2 },
+  separator: { height: 1, backgroundColor: "#EEEEF0", marginTop: 18, marginBottom: 18 },
   bigBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#18181B", borderRadius: 14, paddingVertical: 15 },
   bigBtnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   bigBtnAlt: { backgroundColor: "#F4F4F5" },
