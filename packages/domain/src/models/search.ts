@@ -3,7 +3,7 @@ import type { ArtistId, StudioId } from "../ids";
 export type ArtistSort = "relevance" | "distance" | "rating";
 
 /** What the Discover tab is searching. */
-export type SearchScope = "artists" | "studios";
+export type SearchScope = "artists" | "studios" | "ideas";
 
 export interface ArtistSearchParams {
   q: string;

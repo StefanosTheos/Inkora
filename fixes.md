@@ -6,6 +6,7 @@ studio statistics, and discovery/messaging/rewards.
 
 > Point-in-time findings from a code audit — a few items may be intentional product choices.
 > Tackle section by section; check items off as you go. File pointers are starting points, not exhaustive.
+> Legend: `[x]` done · `[~]` deferred (intended behavior) · `[ ]` open.
 
 ## Role scope (reference)
 - **Seeker** — consumer: discover artists/ideas, collect inspiration, book, chat, review, earn rewards, AI try-on.
@@ -26,7 +27,7 @@ studio statistics, and discovery/messaging/rewards.
   - Fix: decline should reject only the proposal and retain the existing time.
   - Files: `BookingDetailScreen.tsx` (~:134-140, :237-243).
 
-- [ ] **3. Deposits are threatened but never collected.**
+- [~] **3. Deposits are threatened but never collected.** ⏸ Deferred — intended behavior.
   - Problem: reschedule UX warns "requires a new deposit," but there's no payment step anywhere; `deposit_paid` always false. Nagging about a fee that can't be charged.
   - Fix: remove deposit language until payments exist, or wire payments.
   - Files: `BookingRequestFlow.tsx` (~:283-288), `BookingDetailScreen.tsx` (~:154-160, :265-277).
@@ -36,14 +37,14 @@ studio statistics, and discovery/messaging/rewards.
   - Fix: base historical aggregates on who performed the work at the time, not current membership status.
   - Files: `supabase/migrations/20260714180000_studio_stats_ext.sql` (~:27, :73).
 
-- [ ] **5. No post-onboarding role elevation.**
+- [~] **5. No post-onboarding role elevation.** ⏸ Deferred — intended behavior.
   - Problem: `becomeArtist`/`createStudio` only reachable during onboarding; a "Find a tattoo" user can never become an artist/studio later. `SELF_GRANTABLE` defined but unused.
   - Fix: add "Become an artist / Register a studio" entry in Account Settings.
   - Files: `packages/data-access/src/auth/profile.ts` (:52-72), `packages/data-access/src/auth/roles.ts` (:54), `AccountSettingsScreen.tsx`.
 
 - [x] **6. Rewards are stranded for artists & studios.** ✅ Decision: rewards are **seeker-only**. `20260716150000_rewards_seeker_only.sql` gates `award_points` (earn) + `redeem_voucher`/`redeem_referral` (spend) to accounts holding the `seeker` role, so non-seekers never accrue (no stranding). UI is already seeker-only. Welcome points unaffected (seeded at signup while seeker).
 
-- [ ] **7. Delete account is buried in Help center, not Account Settings** (GDPR / App-Store risk).
+- [~] **7. Delete account is buried in Help center, not Account Settings** (GDPR / App-Store risk). ⏸ Deferred — intended behavior.
   - Files: `DeleteAccountScreen` reached via `LegalScreen.tsx:113`; add to `AccountSettingsScreen.tsx`.
 
 ---
@@ -51,9 +52,8 @@ studio statistics, and discovery/messaging/rewards.
 ## Tier 2 — High-value functionality & engagement
 
 ### Discovery → collection loop
-- [ ] **8. Idea search is title-only** (many ideas have null titles → feels broken); **ideas aren't searchable in Discover** (Artists/Studios only), yet the home search bar implies styles/designs.
-  - Fix: full-text search over title/description/style/artist; add an Ideas scope to Discover.
-  - Files: `home/queries.ts` (`fetchIdeaFeedPage` ~:221), `DiscoverScreen.tsx` (`SCOPES` :25).
+- [x] **8a. Idea search is title-only.** ✅ Explore keyword search now matches **title AND description** (`fetchIdeaFeedPage` OR-ilike), so null-title ideas are reachable; style is covered by the style chips. No migration.
+- [x] **8b. Ideas aren't searchable in Discover.** ✅ Added a **"Designs"** scope to Discover — a 2-col masonry grid backed by the (now title+description) idea feed with infinite scroll. `SearchScope` extended; `useIdeaFeed` gained an `enabled` flag. Removed the redundant keyword box from Home's Explore section (now browse + style chips only; typed search lives in Discover) — top search bar still routes there.
 - [ ] **9. No boards/collections** — saves are a flat, unorganizable list; can't share a collection with an artist.
   - Files: `UserDashboardScreen.tsx` (~:198), `favorites` table.
 - [ ] **10. `save_count` is fully wired but never displayed** — free social proof unused.

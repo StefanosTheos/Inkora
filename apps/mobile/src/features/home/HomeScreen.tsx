@@ -1,12 +1,12 @@
 import {
-  useDebouncedValue, useFeaturedArtists, useIdeaFeed, useMyLocation, useNearbyStudios,
+  useFeaturedArtists, useIdeaFeed, useMyLocation, useNearbyStudios,
   usePromotions, useRecommendedForMe, useStyleDeck, useTrendingArtists,
 } from "@inkora/data-access";
 import type { HomeArtist, IdeaCard } from "@inkora/domain";
 import { MasonryFlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { imageUrl } from "../../lib/images";
@@ -28,13 +28,12 @@ export function HomeScreen() {
   const location = useMyLocation(supabase);
   const nearby = useNearbyStudios(supabase, location.data);
 
-  // Explore filters (keyword + styles) applied to the inspiration feed.
-  const [exploreQ, setExploreQ] = useState("");
+  // Explore = a browse feed filtered by style chips. Typed keyword search lives
+  // in Discover (the top search bar routes there) to avoid a duplicate input.
   const [exploreStyles, setExploreStyles] = useState<string[]>([]);
-  const debouncedQ = useDebouncedValue(exploreQ.trim(), 300);
-  const feedFilters = useMemo(() => ({ q: debouncedQ, styleSlugs: exploreStyles }), [debouncedQ, exploreStyles]);
+  const feedFilters = useMemo(() => ({ styleSlugs: exploreStyles }), [exploreStyles]);
   const feed = useIdeaFeed(supabase, feedFilters);
-  const filtersActive = debouncedQ.length > 0 || exploreStyles.length > 0;
+  const filtersActive = exploreStyles.length > 0;
   const toggleExploreStyle = (slug: string) =>
     setExploreStyles((prev) => (prev.includes(slug) ? prev.filter((x) => x !== slug) : [...prev, slug]));
 
@@ -161,23 +160,7 @@ export function HomeScreen() {
 
       <View onLayout={(e) => setExploreY(e.nativeEvent.layout.y)}>
       <SectionHeader title="Explore" />
-      <View style={s.exploreSearch}>
-        <Text style={s.exploreSearchIcon}>⌕</Text>
-        <TextInput
-          style={s.exploreSearchInput}
-          placeholder="Search ideas (e.g. rose, mandala)"
-          value={exploreQ}
-          onChangeText={setExploreQ}
-          autoCapitalize="none"
-          returnKeyType="search"
-          accessibilityLabel="Search tattoo ideas"
-        />
-        {exploreQ.length > 0 && (
-          <Pressable onPress={() => setExploreQ("")} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear idea search">
-            <Text style={s.exploreClear}>✕</Text>
-          </Pressable>
-        )}
-      </View>
+      {/* Browse feed: filter by style here; typed search lives in Discover. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -240,9 +223,5 @@ const s = StyleSheet.create({
   rowPad: { paddingRight: 12 },
   rowLoader: { alignSelf: "flex-start", marginLeft: 24, marginVertical: 12 },
   empty: { textAlign: "center", color: "#A1A1AA", marginTop: 24, paddingHorizontal: 24 },
-  exploreSearch: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginHorizontal: 12, marginBottom: 8 },
-  exploreSearchIcon: { fontSize: 18, color: "#71717A" },
-  exploreSearchInput: { flex: 1, fontSize: 15 },
-  exploreClear: { fontSize: 16, color: "#A1A1AA" },
   exploreChips: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingBottom: 8 },
 });

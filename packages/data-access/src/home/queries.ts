@@ -189,8 +189,8 @@ export interface IdeaFeedFilters {
 }
 
 /** Infinite inspiration feed page (keyset by created_at), with optional keyword
- *  (title) and style filters. Style filtering resolves matching idea ids first
- *  so the created_at keyset pagination still applies to the filtered set. */
+ *  (title + description) and style filters. Style filtering resolves matching
+ *  idea ids first so the created_at keyset pagination still applies. */
 export async function fetchIdeaFeedPage(
   client: InkoraClient,
   cursor: string | undefined,
@@ -218,7 +218,12 @@ export async function fetchIdeaFeedPage(
     .is("deleted_at", null);
   if (ideaIds) q = q.in("id", ideaIds);
   const kw = filters.q?.trim();
-  if (kw) q = q.ilike("title", `%${kw}%`);
+  if (kw) {
+    // Search title AND description (many ideas have no title). Strip characters
+    // that would break the PostgREST or() filter grammar before interpolating.
+    const term = kw.replace(/[,()%*\\]/g, " ").trim();
+    if (term) q = q.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
+  }
   q = q.order("created_at", { ascending: false }).limit(limit);
   if (cursor) q = q.lt("created_at", cursor);
 

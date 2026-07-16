@@ -1,11 +1,11 @@
 import {
-  useArtistSearch, useDebouncedValue, useMyLocation, useStudioSearch, useStyleDeck,
+  useArtistSearch, useDebouncedValue, useIdeaFeed, useMyLocation, useStudioSearch, useStyleDeck,
 } from "@inkora/data-access";
 import {
   activeFilterCount, activeStudioFilterCount, type ArtistSearchParams, type ArtistSort,
-  type SearchArtist, type SearchScope, type SearchStudio, type StudioSearchParams,
+  type IdeaCard, type SearchArtist, type SearchScope, type SearchStudio, type StudioSearchParams,
 } from "@inkora/domain";
-import { FlashList } from "@shopify/flash-list";
+import { FlashList, MasonryFlashList } from "@shopify/flash-list";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
+import { IdeaTile } from "../home/components";
 import { ArtistResultRow, Chip, StudioResultRow } from "./components";
 import { FilterSheet } from "./FilterSheet";
 
@@ -25,6 +26,7 @@ const SORTS: { key: ArtistSort; label: string; needsLocation?: boolean }[] = [
 const SCOPES: { key: SearchScope; label: string }[] = [
   { key: "artists", label: "Artists" },
   { key: "studios", label: "Studios" },
+  { key: "ideas", label: "Designs" },
 ];
 
 type Filters = Pick<ArtistSearchParams, "styleSlugs" | "radiusKm" | "minRating" | "acceptingOnly" | "sort">;
@@ -55,6 +57,7 @@ export function DiscoverScreen() {
   }, [paramSort, paramMinRating]);
 
   const isStudios = scope === "studios";
+  const isIdeas = scope === "ideas";
   const q = useDebouncedValue(text.trim(), 300);
   const artistParams: ArtistSearchParams = useMemo(() => ({ q, near, ...filters }), [q, near, filters]);
   const studioParams: StudioSearchParams = useMemo(
@@ -62,8 +65,10 @@ export function DiscoverScreen() {
     [q, near, filters],
   );
 
-  const artistSearch = useArtistSearch(supabase, artistParams, !isStudios);
+  const artistSearch = useArtistSearch(supabase, artistParams, !isStudios && !isIdeas);
   const studioSearch = useStudioSearch(supabase, studioParams, isStudios);
+  const ideaFeed = useIdeaFeed(supabase, { q }, isIdeas);
+  const ideas: IdeaCard[] = ideaFeed.data?.pages.flatMap((p) => p.items) ?? [];
   const search = isStudios ? studioSearch : artistSearch;
   const results: (SearchArtist | SearchStudio)[] = search.data?.pages.flat() ?? [];
   const filterCount = isStudios ? activeStudioFilterCount(studioParams) : activeFilterCount(artistParams);
@@ -96,7 +101,7 @@ export function DiscoverScreen() {
         <Text style={s.searchIcon}>⌕</Text>
         <TextInput
           style={s.searchInput}
-          placeholder={isStudios ? "Search studios" : "Search artists, styles"}
+          placeholder={isIdeas ? "Search designs" : isStudios ? "Search studios" : "Search artists, styles"}
           value={text}
           onChangeText={setText}
           autoCapitalize="none"
@@ -110,7 +115,9 @@ export function DiscoverScreen() {
       </View>
 
       {/* Sort + Filters row — horizontally scrollable so the Filters button
-          stays reachable even when its active-count badge widens it. */}
+          stays reachable even when its active-count badge widens it. Ideas have
+          no rating/distance/accepting filters, so the row is hidden for them. */}
+      {!isIdeas && (
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -138,41 +145,67 @@ export function DiscoverScreen() {
           </Text>
         </Pressable>
       </ScrollView>
+      )}
 
       {/* Results */}
-      <FlashList
-        data={results}
-        estimatedItemSize={80}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) =>
-          isStudios ? (
-            <StudioResultRow
-              studio={item as SearchStudio}
-              uri={img((item as SearchStudio).logoPath, 72)}
-              onPress={() => router.push(`/studio/${(item as SearchStudio).slug}`)}
-            />
-          ) : (
-            <ArtistResultRow
-              artist={item as SearchArtist}
-              uri={img((item as SearchArtist).avatarPath, 72)}
-              onPress={() => router.push(`/artist/${(item as SearchArtist).id}`)}
-            />
-          )
-        }
-        onEndReached={() => {
-          if (search.hasNextPage && !search.isFetchingNextPage) void search.fetchNextPage();
-        }}
-        onEndReachedThreshold={0.6}
-        keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={
-          search.isLoading ? (
-            <ActivityIndicator style={{ marginTop: 32 }} />
-          ) : (
-            <Text style={s.empty}>{isStudios ? "No studios match your search." : "No artists match your search."}</Text>
-          )
-        }
-        ListFooterComponent={search.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
-      />
+      {isIdeas ? (
+        <MasonryFlashList
+          data={ideas}
+          numColumns={2}
+          estimatedItemSize={220}
+          keyExtractor={(item) => (item as IdeaCard).id}
+          contentContainerStyle={{ paddingHorizontal: 8, paddingTop: 4 }}
+          renderItem={({ item }) => {
+            const idea = item as IdeaCard;
+            return <IdeaTile idea={idea} uri={img(idea.imagePath, 300)} onPress={() => router.push(`/idea/${idea.id}`)} />;
+          }}
+          onEndReached={() => {
+            if (ideaFeed.hasNextPage && !ideaFeed.isFetchingNextPage) void ideaFeed.fetchNextPage();
+          }}
+          onEndReachedThreshold={0.6}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={
+            ideaFeed.isLoading
+              ? <ActivityIndicator style={{ marginTop: 32 }} />
+              : <Text style={s.empty}>No designs match your search.</Text>
+          }
+          ListFooterComponent={ideaFeed.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
+        />
+      ) : (
+        <FlashList
+          data={results}
+          estimatedItemSize={80}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) =>
+            isStudios ? (
+              <StudioResultRow
+                studio={item as SearchStudio}
+                uri={img((item as SearchStudio).logoPath, 72)}
+                onPress={() => router.push(`/studio/${(item as SearchStudio).slug}`)}
+              />
+            ) : (
+              <ArtistResultRow
+                artist={item as SearchArtist}
+                uri={img((item as SearchArtist).avatarPath, 72)}
+                onPress={() => router.push(`/artist/${(item as SearchArtist).id}`)}
+              />
+            )
+          }
+          onEndReached={() => {
+            if (search.hasNextPage && !search.isFetchingNextPage) void search.fetchNextPage();
+          }}
+          onEndReachedThreshold={0.6}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={
+            search.isLoading ? (
+              <ActivityIndicator style={{ marginTop: 32 }} />
+            ) : (
+              <Text style={s.empty}>{isStudios ? "No studios match your search." : "No artists match your search."}</Text>
+            )
+          }
+          ListFooterComponent={search.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
+        />
+      )}
 
       <FilterSheet
         visible={sheetOpen}

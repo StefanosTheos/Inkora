@@ -31,10 +31,11 @@ export function useNearbyStudios(client: InkoraClient, coords: { lat: number; ln
 }
 
 /** Infinite inspiration feed, optionally filtered by keyword + styles. */
-export function useIdeaFeed(client: InkoraClient, filters: IdeaFeedFilters = {}) {
+export function useIdeaFeed(client: InkoraClient, filters: IdeaFeedFilters = {}, enabled = true) {
   return useInfiniteQuery({
     queryKey: ["idea-feed", filters.q ?? "", filters.styleSlugs ?? []],
     queryFn: ({ pageParam }: { pageParam?: string }) => fetchIdeaFeedPage(client, pageParam, filters),
+    enabled,
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last: Page<IdeaCard>) => last.nextCursor ?? undefined,
     // Keep the current ideas visible while a new filter loads so the list height
