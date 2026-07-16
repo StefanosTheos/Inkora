@@ -241,6 +241,16 @@ export async function cancelRequest(client: InkoraClient, id: string): Promise<v
 }
 
 // ------------------------------------------------------------------ offers
+const OFFER_VALID_DAYS = 7;
+/** An offer stays acceptable for a week, but never past the slot it proposes
+ *  (you can't accept a time that has already passed). Server-side cron sweeps
+ *  pending offers to 'expired' once this lapses; this keeps the client honest. */
+function defaultOfferExpiry(proposedStart: string): string {
+  const week = Date.now() + OFFER_VALID_DAYS * 24 * 3600_000;
+  const start = new Date(proposedStart).getTime();
+  return new Date(Number.isFinite(start) ? Math.min(week, start) : week).toISOString();
+}
+
 export async function createOffer(client: InkoraClient, input: OfferInput): Promise<void> {
   const me = await meId(client);
   const { data: offerRow, error } = await client.from("offers").insert({
@@ -252,7 +262,7 @@ export async function createOffer(client: InkoraClient, input: OfferInput): Prom
     deposit_amount: input.depositAmount ?? null,
     currency_code: input.currencyCode ?? "EUR",
     message: input.message ?? null,
-    expires_at: input.expiresAt ?? null,
+    expires_at: input.expiresAt ?? defaultOfferExpiry(input.proposedStart),
   }).select("id").single();
   if (error) throw toAppError(error);
   // move the request into "offered" so the client sees it's answered

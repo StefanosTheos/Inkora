@@ -643,19 +643,35 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
   );
 }
 
+/** "Expires in 3 days" / "Expires in 5 hours" / "Expires soon". */
+function offerExpiryLabel(iso: string): string {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return "Expired";
+  const hours = Math.floor(ms / 3600_000);
+  if (hours >= 48) return `Expires in ${Math.round(hours / 24)} days`;
+  if (hours >= 1) return `Expires in ${hours} ${hours === 1 ? "hour" : "hours"}`;
+  return "Expires soon";
+}
+
 function OfferCard({ offer, isArtist, busy, onAccept, onDecline }: {
   offer: OfferView; isArtist: boolean; busy: boolean;
   onAccept: () => void; onDecline: () => void;
 }) {
-  const pending = offer.status === "pending";
+  // Treat a still-"pending" offer whose clock has run out as expired, so the
+  // client never sees a live Accept button on a dead offer (the cron may not
+  // have swept it yet; respond_offer refuses it server-side regardless).
+  const timeExpired = offer.expiresAt != null && new Date(offer.expiresAt).getTime() <= Date.now();
+  const effectiveStatus = offer.status === "pending" && timeExpired ? "expired" : offer.status;
+  const pending = effectiveStatus === "pending";
   return (
     <View style={s.offerCard}>
       <View style={s.offerHead}>
         <Text style={s.offerPrice}>{money(offer.priceAmount, offer.currencyCode)}</Text>
-        {!pending && <StatusChip status={offer.status} label={offer.status[0]!.toUpperCase() + offer.status.slice(1)} />}
+        {!pending && <StatusChip status={effectiveStatus} label={effectiveStatus[0]!.toUpperCase() + effectiveStatus.slice(1)} />}
       </View>
       {offer.proposedStart ? <Text style={s.offerLine}>🗓 {fmtDateTime(offer.proposedStart)}</Text> : null}
       {offer.message ? <Text style={s.offerMsg}>{offer.message}</Text> : null}
+      {pending && offer.expiresAt ? <Text style={s.offerExpiry}>⏳ {offerExpiryLabel(offer.expiresAt)}</Text> : null}
       {pending && !isArtist && (
         <View style={s.actions}>
           <PrimaryBtn label="Accept" onPress={onAccept} disabled={busy} />
@@ -853,6 +869,7 @@ const s = StyleSheet.create({
   offerPrice: { fontSize: 20, fontWeight: "800", color: "#18181B" },
   offerLine: { fontSize: 14, color: "#3F3F46" },
   offerMsg: { fontSize: 14, color: "#3F3F46", fontStyle: "italic", marginTop: 4 },
+  offerExpiry: { fontSize: 13, color: "#92400E", fontWeight: "700", marginTop: 2 },
   composer: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 16, padding: 14, gap: 8 },
   label: { fontWeight: "700", fontSize: 13, color: "#52525B", marginTop: 8 },
   priceNote: { color: "#A1A1AA", fontSize: 12, marginTop: 4 },
