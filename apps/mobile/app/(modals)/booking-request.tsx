@@ -6,9 +6,9 @@ import { Text,View } from "react-native";
 import { BookingRequestFlow } from "../../src/features/booking/BookingRequestFlow";
 
 export default function BookingRequestModal() {
-  const { artistId, studioSlug, title, refPath } = useLocalSearchParams<{ artistId?: string; studioSlug?: string; title?: string; refPath?: string }>();
+  const { artistId, studioSlug, title, refPath, placement } = useLocalSearchParams<{ artistId?: string; studioSlug?: string; title?: string; refPath?: string; placement?: string }>();
   if (!artistId && !studioSlug) {
     return <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}><Text>Missing artist or studio.</Text></View>;
   }
-  return <BookingRequestFlow artistId={artistId} studioSlug={studioSlug} presetTitle={title} presetRefPath={refPath} />;
+  return <BookingRequestFlow artistId={artistId} studioSlug={studioSlug} presetTitle={title} presetRefPath={refPath} presetPlacement={placement} />;
 }

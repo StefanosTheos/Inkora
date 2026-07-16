@@ -120,7 +120,8 @@ export function TryOnScreen() {
           <Slider value={opacity} min={0.3} max={1} onChange={setOpacity} />
           <Text style={s.sliderVal}>{Math.round(opacity * 100)}%</Text>
         </View>
-        <Text style={s.placeLabel}>Placement (optional)</Text>
+        <Text style={s.placeLabel}>Where would it go? (optional)</Text>
+        <Text style={s.placeHint}>Tag the body area and we’ll pre-fill it on your booking request if you book this design.</Text>
         <View style={s.chipWrap}>
           {AI_PLACEMENTS.map((pl) => (
             <Pressable key={pl} style={[s.chip, placement === pl && s.chipActive]} onPress={() => setPlacement(placement === pl ? null : pl)}>
@@ -232,6 +233,7 @@ const s = StyleSheet.create({
   sliderThumb: { position: "absolute", width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff", borderWidth: 2, borderColor: "#E5484D", marginLeft: -10, top: 4 },
   sliderVal: { width: 40, textAlign: "right", fontWeight: "700", color: "#18181B", fontSize: 13 },
   placeLabel: { fontSize: 13, fontWeight: "700", color: "#52525B" },
+  placeHint: { fontSize: 12, color: "#A1A1AA", lineHeight: 16, marginTop: -6 },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 999, paddingHorizontal: 13, paddingVertical: 7 },
   chipActive: { backgroundColor: "#18181B", borderColor: "#18181B" },

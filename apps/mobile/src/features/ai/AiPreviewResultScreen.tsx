@@ -79,7 +79,7 @@ export function AiPreviewResultScreen({ id }: { id: string }) {
             <Pressable
               style={[s.book, !artist.isAccepting && s.bookOff]}
               disabled={!artist.isAccepting}
-              onPress={() => router.push({ pathname: "/booking-request", params: { artistId: artist.id, refPath: flash?.imagePath ?? "" } })}
+              onPress={() => router.push({ pathname: "/booking-request", params: { artistId: artist.id, refPath: flash?.imagePath ?? "", placement: p.placement ?? "" } })}
               accessibilityRole="button"
               accessibilityLabel={artist.isAccepting ? `Book this design with ${artist.displayName}` : "Artist not accepting bookings"}
             >
