@@ -75,6 +75,7 @@ export function AiPreviewResultScreen({ id }: { id: string }) {
             <Text style={s.noteText}>{AI_PREVIEW_DISCLAIMER}</Text>
           </View>
 
+          {/* Primary CTA: book the design. Secondary actions share a compact row. */}
           {artist ? (
             <Pressable
               style={[s.book, !artist.isAccepting && s.bookOff]}
@@ -84,19 +85,22 @@ export function AiPreviewResultScreen({ id }: { id: string }) {
               accessibilityLabel={artist.isAccepting ? `Book this design with ${artist.displayName}` : "Artist not accepting bookings"}
             >
               <Ionicons name="calendar-outline" size={18} color="#fff" />
-              <Text style={s.bookText}>{artist.isAccepting ? `Book this with ${artist.displayName}` : "Artist not accepting bookings"}</Text>
+              <Text style={s.bookText} numberOfLines={1}>{artist.isAccepting ? `Book this with ${artist.displayName}` : "Not accepting bookings"}</Text>
             </Pressable>
           ) : null}
 
-          {flash ? (
-            <Pressable style={s.secondary} onPress={() => router.push(`/artist/${flash.artist?.id}`)} accessibilityRole="button" accessibilityLabel="View the artist">
-              <Text style={s.secondaryText}>View {artist?.displayName ?? "artist"}’s profile</Text>
+          <View style={s.secondaryRow}>
+            {flash?.artist ? (
+              <Pressable style={s.secondaryBtn} onPress={() => router.push(`/artist/${flash.artist?.id}`)} accessibilityRole="button" accessibilityLabel={`View ${artist?.displayName ?? "artist"}'s profile`}>
+                <Ionicons name="person-circle-outline" size={18} color="#18181B" />
+                <Text style={s.secondaryText}>View profile</Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={s.secondaryBtn} onPress={() => router.replace("/create/new")} accessibilityRole="button" accessibilityLabel="Try another design">
+              <Ionicons name="sparkles-outline" size={18} color="#18181B" />
+              <Text style={s.secondaryText}>Try another</Text>
             </Pressable>
-          ) : null}
-
-          <Pressable style={s.secondary} onPress={() => router.replace("/create/new")} accessibilityRole="button" accessibilityLabel="Try another design">
-            <Text style={s.secondaryText}>Try another design</Text>
-          </Pressable>
+          </View>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -130,9 +134,10 @@ const s = StyleSheet.create({
   detailValue: { fontSize: 15, color: "#18181B", marginTop: 4 },
   note: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF3C7", borderRadius: 12, padding: 12, marginTop: 16 },
   noteText: { flex: 1, color: "#92400E", fontSize: 12, fontWeight: "600" },
-  book: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#E5484D", borderRadius: 14, paddingVertical: 15, marginTop: 18 },
+  book: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#E5484D", borderRadius: 16, paddingVertical: 16, marginTop: 18 },
   bookOff: { backgroundColor: "#D4D4D8" },
-  bookText: { color: "#fff", fontWeight: "800", fontSize: 15 },
-  secondary: { marginTop: 10, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
-  secondaryText: { fontWeight: "700", color: "#18181B" },
+  bookText: { color: "#fff", fontWeight: "800", fontSize: 15, flexShrink: 1 },
+  secondaryRow: { flexDirection: "row", gap: 10, marginTop: 10 },
+  secondaryBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 46, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 14, backgroundColor: "#FAFAFA" },
+  secondaryText: { fontWeight: "700", color: "#18181B", fontSize: 14 },
 });
