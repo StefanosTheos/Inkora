@@ -1,61 +1,67 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useAiPreview } from "@inkora/data-access";
-import { AI_PREVIEW_DISCLAIMER, isPreviewPending } from "@inkora/domain";
+import { useAiPreview, usePortfolioDesign } from "@inkora/data-access";
+import { AI_PREVIEW_DISCLAIMER } from "@inkora/domain";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { supabase } from "../../lib/supabase";
-import { AiStatusChip, SignedPreviewImage } from "./components";
+import { SignedPreviewImage } from "./components";
 
 export function AiPreviewResultScreen({ id }: { id: string }) {
   const router = useRouter();
   const q = useAiPreview(supabase, id);
   const p = q.data;
+  const flashQ = usePortfolioDesign(supabase, p?.sourceFlashId ?? "");
+  const flash = flashQ.data;
+  const artist = flash?.artist;
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <View style={s.header}>
         <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
-        <Text style={s.headerTitle}>Your preview</Text>
+        <Text style={s.headerTitle}>Your try-on</Text>
         <View style={{ width: 26 }} />
       </View>
 
       {q.isLoading ? (
         <View style={s.center}><ActivityIndicator /></View>
       ) : !p ? (
-        <View style={s.center}><Text style={s.muted}>Preview not found.</Text></View>
+        <View style={s.center}><Text style={s.muted}>Try-on not found.</Text></View>
       ) : (
         <ScrollView contentContainerStyle={s.body}>
           <View style={s.stage}>
-            <SignedPreviewImage path={p.sourceImagePath} style={s.stageImg} />
-            {/* Result overlay — always the pending placeholder in the MVP. */}
-            {isPreviewPending(p) && (
-              <View style={s.overlay}>
-                <View style={s.overlayInner}>
-                  <Ionicons name="sparkles" size={30} color="#fff" />
-                  <Text style={s.overlayTitle}>Preview is being prepared</Text>
-                  <Text style={s.overlaySub}>AI rendering isn’t live yet — you’ll see the tattoo mapped onto your photo here.</Text>
-                </View>
-              </View>
-            )}
-          </View>
-
-          <View style={s.statusRow}>
-            <AiStatusChip status={p.status} />
-            <Text style={s.muted}>Requested just now</Text>
+            <SignedPreviewImage path={p.resultImagePath} style={s.stageImg} />
           </View>
 
           {p.placement ? <Detail label="Placement" value={p.placement} /> : null}
-          {p.prompt ? <Detail label="Idea" value={p.prompt} /> : null}
 
           <View style={s.note}>
             <Ionicons name="information-circle-outline" size={16} color="#92400E" />
             <Text style={s.noteText}>{AI_PREVIEW_DISCLAIMER}</Text>
           </View>
 
-          <Pressable style={s.secondary} onPress={() => router.replace("/create/new")}>
-            <Text style={s.secondaryText}>Try another photo</Text>
+          {artist ? (
+            <Pressable
+              style={[s.book, !artist.isAccepting && s.bookOff]}
+              disabled={!artist.isAccepting}
+              onPress={() => router.push({ pathname: "/booking-request", params: { artistId: artist.id, refPath: flash?.imagePath ?? "" } })}
+              accessibilityRole="button"
+              accessibilityLabel={artist.isAccepting ? `Book this design with ${artist.displayName}` : "Artist not accepting bookings"}
+            >
+              <Ionicons name="calendar-outline" size={18} color="#fff" />
+              <Text style={s.bookText}>{artist.isAccepting ? `Book this with ${artist.displayName}` : "Artist not accepting bookings"}</Text>
+            </Pressable>
+          ) : null}
+
+          {flash ? (
+            <Pressable style={s.secondary} onPress={() => router.push(`/artist/${flash.artist?.id}`)} accessibilityRole="button" accessibilityLabel="View the artist">
+              <Text style={s.secondaryText}>View {artist?.displayName ?? "artist"}’s profile</Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable style={s.secondary} onPress={() => router.replace("/create/new")} accessibilityRole="button" accessibilityLabel="Try another design">
+            <Text style={s.secondaryText}>Try another design</Text>
           </Pressable>
         </ScrollView>
       )}
@@ -79,18 +85,16 @@ const s = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   muted: { color: "#A1A1AA", fontSize: 13 },
   body: { padding: 16, paddingBottom: 40 },
-  stage: { borderRadius: 20, overflow: "hidden", backgroundColor: "#18181B", aspectRatio: 3 / 4 },
+  stage: { borderRadius: 20, overflow: "hidden", backgroundColor: "#0B0B0F", aspectRatio: 3 / 4 },
   stageImg: { width: "100%", height: "100%" },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 24 },
-  overlayInner: { alignItems: "center", gap: 8 },
-  overlayTitle: { color: "#fff", fontSize: 18, fontWeight: "800", textAlign: "center" },
-  overlaySub: { color: "#E4E4E7", fontSize: 13, textAlign: "center", lineHeight: 19 },
-  statusRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 14 },
   detail: { marginTop: 14 },
   detailLabel: { color: "#71717A", fontWeight: "700", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
   detailValue: { fontSize: 15, color: "#18181B", marginTop: 4 },
-  note: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF3C7", borderRadius: 12, padding: 12, marginTop: 20 },
+  note: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF3C7", borderRadius: 12, padding: 12, marginTop: 16 },
   noteText: { flex: 1, color: "#92400E", fontSize: 12, fontWeight: "600" },
-  secondary: { marginTop: 20, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
+  book: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#E5484D", borderRadius: 14, paddingVertical: 15, marginTop: 18 },
+  bookOff: { backgroundColor: "#D4D4D8" },
+  bookText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  secondary: { marginTop: 10, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   secondaryText: { fontWeight: "700", color: "#18181B" },
 });

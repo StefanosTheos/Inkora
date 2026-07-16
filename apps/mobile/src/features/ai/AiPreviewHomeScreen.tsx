@@ -1,76 +1,77 @@
 import { Ionicons } from "@expo/vector-icons";
-import { MOCK_PREVIEW_EXAMPLES } from "@inkora/ai";
-import { publicStorageUrl, useAiPreviews } from "@inkora/data-access";
-import { AI_PREVIEW_DISCLAIMER } from "@inkora/domain";
+import { useAiPreviews, useFlashes } from "@inkora/data-access";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { env } from "../../lib/env";
+import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
-import { AiStatusChip, SignedPreviewImage } from "./components";
-
-const img = (p: string) => publicStorageUrl(env.SUPABASE_URL, p);
+import { SignedPreviewImage } from "./components";
 
 export function AiPreviewHomeScreen() {
   const router = useRouter();
   const previews = useAiPreviews(supabase);
-  const recent = previews.data ?? [];
+  const flashes = useFlashes(supabase);
+  const recent = (previews.data ?? []).filter((p) => p.resultImagePath);
+  const flashList = flashes.data ?? [];
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={s.body}>
-        <Text style={s.title}>AI Preview</Text>
-        <Text style={s.subtitle}>See how a design could look on your skin.</Text>
-
-        {/* Placeholder disclaimer */}
-        <View style={s.banner}>
-          <Ionicons name="sparkles-outline" size={16} color="#92400E" />
-          <Text style={s.bannerText}>{AI_PREVIEW_DISCLAIMER}</Text>
-        </View>
+        <Text style={s.title}>Try it on</Text>
+        <Text style={s.subtitle}>See how a design looks on your skin before you book.</Text>
 
         {/* Start CTA */}
-        <Pressable style={s.cta} onPress={() => router.push("/create/new")}>
-          <View style={s.ctaIcon}><Ionicons name="camera" size={26} color="#fff" /></View>
+        <Pressable style={s.cta} onPress={() => router.push("/create/new")} accessibilityRole="button" accessibilityLabel="Start a new try-on">
+          <View style={s.ctaIcon}><Ionicons name="sparkles" size={24} color="#fff" /></View>
           <View style={{ flex: 1 }}>
-            <Text style={s.ctaTitle}>Try a tattoo on your skin</Text>
-            <Text style={s.ctaSub}>Upload a photo, pick a design, preview the placement.</Text>
+            <Text style={s.ctaTitle}>New try-on</Text>
+            <Text style={s.ctaSub}>Pick a flash, add a photo, place it on you.</Text>
           </View>
           <Ionicons name="chevron-forward" size={22} color="#fff" />
         </Pressable>
 
-        {/* Recent previews */}
+        {/* Your try-ons */}
         {previews.isLoading ? (
           <ActivityIndicator style={{ marginTop: 24 }} />
         ) : recent.length > 0 ? (
           <>
-            <Text style={s.sectionTitle}>Your previews</Text>
+            <Text style={s.sectionTitle}>Your try-ons</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.hRow}>
               {recent.map((p) => (
-                <Pressable key={p.id} style={s.previewCard} onPress={() => router.push(`/create/${p.id}`)}>
-                  <SignedPreviewImage path={p.sourceImagePath} style={s.previewImg} />
-                  <View style={s.previewMeta}>
-                    <AiStatusChip status={p.status} />
-                    <Text style={s.previewLabel} numberOfLines={1}>{p.placement ?? p.prompt ?? "Preview"}</Text>
-                  </View>
+                <Pressable key={p.id} style={s.previewCard} onPress={() => router.push(`/create/${p.id}`)} accessibilityRole="button" accessibilityLabel="Open try-on">
+                  <SignedPreviewImage path={p.resultImagePath} style={s.previewImg} />
+                  {p.placement ? <Text style={s.previewLabel} numberOfLines={1}>{p.placement}</Text> : null}
                 </Pressable>
               ))}
             </ScrollView>
           </>
         ) : null}
 
-        {/* Example styles (mock gallery) */}
-        <Text style={s.sectionTitle}>Example styles</Text>
-        <Text style={s.muted}>A taste of the styles you’ll be able to preview.</Text>
-        <View style={s.grid}>
-          {MOCK_PREVIEW_EXAMPLES.map((ex) => (
-            <View key={ex.id} style={s.exampleCard}>
-              <Image source={{ uri: img(ex.imagePath) }} style={s.exampleImg} contentFit="cover" />
-              <Text style={s.exampleLabel} numberOfLines={1}>{ex.label}</Text>
-            </View>
-          ))}
-        </View>
+        {/* Flashes to try on */}
+        <Text style={s.sectionTitle}>Flashes to try on</Text>
+        <Text style={s.muted}>Ready-to-tattoo designs from artists — tap one to see it on you.</Text>
+        {flashes.isLoading ? (
+          <ActivityIndicator style={{ marginTop: 16 }} />
+        ) : flashList.length === 0 ? (
+          <Text style={s.muted}>No flash designs available yet.</Text>
+        ) : (
+          <View style={s.grid}>
+            {flashList.map((f) => (
+              <Pressable
+                key={f.id}
+                style={s.exampleCard}
+                onPress={() => router.push({ pathname: "/create/new", params: { flashPath: f.imagePath, flashId: f.id, artistName: f.artistName, caption: f.caption ?? "" } })}
+                accessibilityRole="button"
+                accessibilityLabel={f.caption ?? `Flash by ${f.artistName}`}
+              >
+                <Image source={{ uri: imageUrl(f.imagePath, 300) ?? undefined }} style={s.exampleImg} contentFit="cover" />
+                <Text style={s.exampleLabel} numberOfLines={1}>{f.caption ?? f.artistName}</Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -82,8 +83,6 @@ const s = StyleSheet.create({
   title: { fontSize: 28, fontWeight: "800" },
   subtitle: { color: "#71717A", marginTop: 2 },
   muted: { color: "#A1A1AA", fontSize: 13, marginBottom: 8 },
-  banner: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF3C7", borderRadius: 12, padding: 12, marginTop: 14 },
-  bannerText: { flex: 1, color: "#92400E", fontSize: 12, fontWeight: "600" },
   cta: { flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: "#18181B", borderRadius: 20, padding: 18, marginTop: 16 },
   ctaIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#E5484D", alignItems: "center", justifyContent: "center" },
   ctaTitle: { color: "#fff", fontSize: 16, fontWeight: "800" },
@@ -91,9 +90,8 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: "800", marginTop: 24, marginBottom: 4 },
   hRow: { gap: 12, paddingVertical: 8 },
   previewCard: { width: 150 },
-  previewImg: { width: 150, height: 190, borderRadius: 16 },
-  previewMeta: { marginTop: 6, gap: 4 },
-  previewLabel: { fontWeight: "600", fontSize: 13 },
+  previewImg: { width: 150, height: 190, borderRadius: 16, backgroundColor: "#E4E4E7" },
+  previewLabel: { fontWeight: "600", fontSize: 13, marginTop: 6 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 4 },
   exampleCard: { width: "47%" },
   exampleImg: { width: "100%", aspectRatio: 1, borderRadius: 14, backgroundColor: "#E4E4E7" },
