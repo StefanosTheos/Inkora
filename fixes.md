@@ -31,7 +31,7 @@ studio statistics, and discovery/messaging/rewards.
   - Fix: remove deposit language until payments exist, or wire payments.
   - Files: `BookingRequestFlow.tsx` (~:283-288), `BookingDetailScreen.tsx` (~:154-160, :265-277).
 
-- [ ] **4. Studio stats mutate retroactively when the roster changes.**
+- [x] **4. Studio stats mutate retroactively when the roster changes.** ✅ `20260716140000_studio_stats_by_studio_id.sql` attributes bookings/revenue by `appointments.studio_id` (stable across roster changes) + scopes per-artist metrics to the studio; also fixes mis-attribution of an artist's non-studio work. Signatures unchanged (no client edits).
   - Problem: `studio_overview` / `studio_artist_stats` only count `active` members, so suspending/removing an artist instantly erases their historical revenue/bookings/visits from studio totals.
   - Fix: base historical aggregates on who performed the work at the time, not current membership status.
   - Files: `supabase/migrations/20260714180000_studio_stats_ext.sql` (~:27, :73).
