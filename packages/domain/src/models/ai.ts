@@ -1,21 +1,24 @@
 import type { AiPreviewStatus } from "../enums";
-import type { AiPreviewId, IdeaId, ProfileId, StyleId } from "../ids";
+import type { AiPreviewId, IdeaId, PortfolioImageId, ProfileId, StyleId } from "../ids";
 
 /**
- * AI tattoo-preview model. PLACEHOLDER ONLY in the MVP — captures the full input
- * contract so the real model later just fills `resultImagePath` and flips status.
- * No inference happens anywhere. See the `ai/` package for the mock service.
+ * AI tattoo-preview model. The MVP implements the "try-on" flow: a flash design
+ * is composited onto the user's body photo ON-DEVICE and the resulting mockup is
+ * saved here (status 'completed', resultImagePath set, sourceFlashId recorded).
+ * `sourceImagePath` (the raw body photo) is intentionally NOT stored for try-ons
+ * — only the composite the user chooses to keep.
  */
 export interface AiPreview {
   id: AiPreviewId;
   profileId: ProfileId;
   sourceImagePath: string | null;
   sourceIdeaId: IdeaId | null;
+  sourceFlashId: PortfolioImageId | null;
   prompt: string | null;
   styleId: StyleId | null;
   placement: string | null;
   status: AiPreviewStatus;
-  resultImagePath: string | null;   // always null in MVP
+  resultImagePath: string | null;
   createdAt: string;
 }
 
@@ -25,6 +28,17 @@ export interface AiPreviewInput {
   prompt?: string;
   styleId?: StyleId;
   placement?: string;
+}
+
+/** Persisting a finished on-device try-on composite. */
+export interface TattooTryOnInput {
+  /** Storage path of the already-uploaded composite mockup. */
+  resultImagePath: string;
+  /** The flash the design came from (enables "Book this design"). */
+  sourceFlashId?: PortfolioImageId;
+  placement?: string;
+  /** Short label kept with the try-on (e.g. the flash caption / artist name). */
+  note?: string;
 }
 
 // ---------------------------------------------------------------- placeholder UX helpers
@@ -39,11 +53,11 @@ export const AI_PREVIEW_STATUS_LABEL: Record<AiPreviewStatus, string> = {
 /** Body areas offered in the AI-preview composer. */
 export const AI_PLACEMENTS = ["Forearm", "Upper arm", "Hand", "Leg", "Calf", "Back", "Chest", "Ribs", "Neck", "Ankle"];
 
-/** Shown wherever a result would appear — the MVP never generates an image. */
+/** Shown with every try-on so expectations are set honestly. */
 export const AI_PREVIEW_DISCLAIMER =
-  "AI tattoo preview is coming soon. This is a placeholder — no image is generated yet.";
+  "This is a visual mockup to help you picture the design on you. The real tattoo's look depends on your artist, skin and placement.";
 
-/** True while the preview has no result to show (always true in the MVP). */
+/** True while the preview has no result to show. */
 export function isPreviewPending(p: Pick<AiPreview, "status" | "resultImagePath">): boolean {
   return p.resultImagePath == null && p.status !== "failed";
 }

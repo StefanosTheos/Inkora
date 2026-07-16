@@ -1,4 +1,7 @@
-import type { AiPreview, AiPreviewId, AiPreviewInput, AiPreviewStatus, IdeaId, ProfileId, StyleId } from "@inkora/domain";
+import type {
+  AiPreview, AiPreviewId, AiPreviewInput, AiPreviewStatus, ArtistId, IdeaId, PortfolioImageId,
+  ProfileId, StyleId, TattooTryOnInput,
+} from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
@@ -10,13 +13,14 @@ import { toAppError } from "../errors";
 // (behind @inkora/ai's AiPreviewService) fills them in.
 const BUCKET = "ai-previews"; // private bucket → signed URLs
 
-const COLS = "id, profile_id, source_image_path, source_idea_id, prompt, style_id, placement, status, result_image_path, created_at";
+const COLS = "id, profile_id, source_image_path, source_idea_id, source_flash_id, prompt, style_id, placement, status, result_image_path, created_at";
 
 interface PreviewRow {
   id: string;
   profile_id: string;
   source_image_path: string | null;
   source_idea_id: string | null;
+  source_flash_id: string | null;
   prompt: string | null;
   style_id: string | null;
   placement: string | null;
@@ -30,11 +34,12 @@ function mapPreview(r: PreviewRow): AiPreview {
     profileId: r.profile_id as ProfileId,
     sourceImagePath: r.source_image_path,
     sourceIdeaId: (r.source_idea_id as IdeaId | null) ?? null,
+    sourceFlashId: (r.source_flash_id as PortfolioImageId | null) ?? null,
     prompt: r.prompt,
     styleId: (r.style_id as StyleId | null) ?? null,
     placement: r.placement,
     status: r.status as AiPreviewStatus,
-    resultImagePath: r.result_image_path, // always null in the MVP
+    resultImagePath: r.result_image_path,
     createdAt: r.created_at,
   };
 }
@@ -58,6 +63,77 @@ export async function uploadPreviewSource(client: InkoraClient, body: ArrayBuffe
 export async function getPreviewSignedUrl(client: InkoraClient, path: string, ttlSeconds = 3600): Promise<string | null> {
   const { data } = await client.storage.from(BUCKET).createSignedUrl(path, ttlSeconds);
   return data?.signedUrl ?? null;
+}
+
+/** Upload a finished try-on composite (PNG) to the private ai-previews bucket. */
+export async function uploadTryOnResult(
+  client: InkoraClient,
+  bytes: ArrayBuffer | Blob | Uint8Array,
+  ext = "png",
+  contentType = "image/png",
+): Promise<string> {
+  const uid = await meId(client);
+  const path = `${uid}/tryon-${Date.now()}.${ext}`; // folder must be the uid (RLS)
+  const { error } = await client.storage.from(BUCKET).upload(path, bytes, { contentType, upsert: false });
+  if (error) throw toAppError(error);
+  return path;
+}
+
+/** Persist a finished on-device try-on as a completed preview (no body photo stored). */
+export async function saveTattooTryOn(client: InkoraClient, input: TattooTryOnInput): Promise<AiPreview> {
+  const me = await meId(client);
+  const { data, error } = await client
+    .from("ai_previews")
+    .insert({
+      profile_id: me,
+      source_image_path: null, // privacy: the raw body photo is never uploaded
+      source_flash_id: input.sourceFlashId ?? null,
+      prompt: input.note ?? null,
+      placement: input.placement ?? null,
+      status: "completed",
+      result_image_path: input.resultImagePath,
+    })
+    .select(COLS)
+    .single<PreviewRow>();
+  if (error) throw toAppError(error);
+  return mapPreview(data);
+}
+
+/** A flash design in the try-on picker (with its artist, for the booking CTA). */
+export interface FlashListItem {
+  id: PortfolioImageId;
+  imagePath: string;
+  caption: string | null;
+  artistId: ArtistId;
+  artistName: string;
+  artistAvatarPath: string | null;
+}
+interface FlashRow {
+  id: string;
+  image_path: string;
+  caption: string | null;
+  artist_id: string;
+  artists: { profiles: { display_name: string; avatar_path: string | null } | null } | null;
+}
+/** Recent flash designs across artists — the catalog for "try one on". */
+export async function listFlashes(client: InkoraClient, limit = 40): Promise<FlashListItem[]> {
+  const { data, error } = await client
+    .from("portfolio_images")
+    .select("id, image_path, caption, artist_id, artists!inner(profiles!inner(display_name, avatar_path))")
+    .eq("kind", "flash")
+    .neq("moderation_status", "rejected")
+    .order("created_at", { ascending: false })
+    .limit(limit)
+    .returns<FlashRow[]>();
+  if (error) throw toAppError(error);
+  return (data ?? []).map((r) => ({
+    id: r.id as PortfolioImageId,
+    imagePath: r.image_path,
+    caption: r.caption,
+    artistId: r.artist_id as ArtistId,
+    artistName: r.artists?.profiles?.display_name ?? "Artist",
+    artistAvatarPath: r.artists?.profiles?.avatar_path ?? null,
+  }));
 }
 
 /**
@@ -100,10 +176,14 @@ export async function getAiPreview(client: InkoraClient, id: string): Promise<Ai
 export const aiKeys = {
   list: ["ai-previews"] as const,
   one: (id: string) => ["ai-preview", id] as const,
+  flashes: ["ai-flashes"] as const,
 };
 export function useAiPreviews(client: InkoraClient) {
   return useQuery({ queryKey: aiKeys.list, queryFn: () => listAiPreviews(client) });
 }
 export function useAiPreview(client: InkoraClient, id: string) {
   return useQuery({ queryKey: aiKeys.one(id), queryFn: () => getAiPreview(client, id), enabled: !!id });
+}
+export function useFlashes(client: InkoraClient) {
+  return useQuery({ queryKey: aiKeys.flashes, queryFn: () => listFlashes(client) });
 }

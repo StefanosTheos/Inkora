@@ -24,6 +24,7 @@ export type Database = {
           profile_id: string
           prompt: string | null
           result_image_path: string | null
+          source_flash_id: string | null
           source_idea_id: string | null
           source_image_path: string | null
           status: Database["public"]["Enums"]["ai_preview_status"]
@@ -38,6 +39,7 @@ export type Database = {
           profile_id: string
           prompt?: string | null
           result_image_path?: string | null
+          source_flash_id?: string | null
           source_idea_id?: string | null
           source_image_path?: string | null
           status?: Database["public"]["Enums"]["ai_preview_status"]
@@ -52,6 +54,7 @@ export type Database = {
           profile_id?: string
           prompt?: string | null
           result_image_path?: string | null
+          source_flash_id?: string | null
           source_idea_id?: string | null
           source_image_path?: string | null
           status?: Database["public"]["Enums"]["ai_preview_status"]
@@ -63,6 +66,13 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_previews_source_flash_id_fkey"
+            columns: ["source_flash_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_images"
             referencedColumns: ["id"]
           },
           {
