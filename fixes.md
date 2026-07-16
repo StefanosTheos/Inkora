@@ -41,10 +41,7 @@ studio statistics, and discovery/messaging/rewards.
   - Fix: add "Become an artist / Register a studio" entry in Account Settings.
   - Files: `packages/data-access/src/auth/profile.ts` (:52-72), `packages/data-access/src/auth/roles.ts` (:54), `AccountSettingsScreen.tsx`.
 
-- [ ] **6. Rewards are stranded for artists & studios.**
-  - Problem: every signup gets 100 welcome points and artists keep the seeker grant, but rewards UI lives only on the seeker dashboard → artists/studios can never see/spend points.
-  - Fix: surface rewards for all roles, or stop granting where unreachable.
-  - Files: `handle_new_user()` (`20260629121500_auth_integration.sql:20-25`), `UserDashboardScreen.tsx`, `RewardsScreen.tsx`.
+- [x] **6. Rewards are stranded for artists & studios.** ✅ Decision: rewards are **seeker-only**. `20260716150000_rewards_seeker_only.sql` gates `award_points` (earn) + `redeem_voucher`/`redeem_referral` (spend) to accounts holding the `seeker` role, so non-seekers never accrue (no stranding). UI is already seeker-only. Welcome points unaffected (seeded at signup while seeker).
 
 - [ ] **7. Delete account is buried in Help center, not Account Settings** (GDPR / App-Store risk).
   - Files: `DeleteAccountScreen` reached via `LegalScreen.tsx:113`; add to `AccountSettingsScreen.tsx`.
