@@ -59,8 +59,7 @@ studio statistics, and discovery/messaging/rewards.
 - [x] **10. `save_count` is fully wired but never displayed.** ✅ Idea tiles now show a compact `♥ N` badge (only when >0); idea detail shows a "N saves" line. Plus a **Recent / Popular** sort (popularity = save_count, keyset on (save_count, id)) on both Home Explore and Discover → Designs.
 - [ ] **11. No Share and no "Message artist" from ideas/portfolio** — missing organic-growth + contact shortcuts (Share exists only for referral code).
   - Files: `IdeaDetailScreen.tsx`, `PortfolioDesignScreen.tsx`.
-- [ ] **12. Style-filtered feed silently truncates at ~500 ideas** → popular styles hide most content behind a false "you've seen everything."
-  - Files: `home/queries.ts` (~:207-209).
+- [x] **12. Style-filtered feed silently truncates at ~500 ideas.** ✅ Replaced client-side id materialization (1000-link/500-id caps) with a server-side `idea_styles!inner` join filter — whole style corpus reachable, keyset applies to the full set, no parent duplication (verified). Less code, no migration.
 
 ### Reliability & re-engagement
 - [ ] **13. Push may be silently inactive.** Uses raw FCM `getDevicePushTokenAsync`; `notify-dispatch` no-ops without `FCM_SERVICE_ACCOUNT`. Offers/messages/bookings may generate no push at all.

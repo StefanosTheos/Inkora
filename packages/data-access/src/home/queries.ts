@@ -191,34 +191,32 @@ export interface IdeaFeedFilters {
 
 /** Infinite inspiration feed page, with optional keyword (title + description),
  *  style, and sort. Keyset paginates by created_at ("recent") or by
- *  (save_count, created_at) ("popular"). Style filtering resolves matching idea
- *  ids first so the keyset still applies. */
+ *  (save_count, id) ("popular"). Style filtering is a server-side inner join on
+ *  idea_styles, so the whole style corpus is reachable (no client-side id cap). */
 export async function fetchIdeaFeedPage(
   client: InkoraClient,
   cursor: string | undefined,
   filters: IdeaFeedFilters = {},
   limit = 12,
 ): Promise<Page<IdeaCard>> {
-  let ideaIds: string[] | null = null;
+  let styleIds: string[] | null = null;
   if (filters.styleSlugs && filters.styleSlugs.length > 0) {
     const { data: styleRows, error: sErr } = await client.from("tattoo_styles").select("id").in("slug", filters.styleSlugs);
     if (sErr) throw toAppError(sErr);
-    const styleIds = (styleRows ?? []).map((r) => r.id);
+    styleIds = (styleRows ?? []).map((r) => r.id);
     if (styleIds.length === 0) return { items: [], nextCursor: null, hasMore: false };
-    const { data: linkRows, error: lErr } = await client
-      .from("idea_styles").select("idea_id").in("style_id", styleIds).limit(1000);
-    if (lErr) throw toAppError(lErr);
-    ideaIds = [...new Set((linkRows ?? []).map((r) => r.idea_id))].slice(0, 500);
-    if (ideaIds.length === 0) return { items: [], nextCursor: null, hasMore: false };
   }
 
+  // Inner-join idea_styles only when filtering (so parents are restricted to
+  // matching styles); otherwise a plain embed to return each idea's styles.
+  const styleEmbed = styleIds ? "idea_styles!inner(tattoo_styles(slug))" : "idea_styles(tattoo_styles(slug))";
   let q = client
     .from("tattoo_ideas")
-    .select("id, title, image_path, width, height, save_count, source_artist_id, created_at, idea_styles(tattoo_styles(slug))")
+    .select(`id, title, image_path, width, height, save_count, source_artist_id, created_at, ${styleEmbed}`)
     .eq("is_public", true)
     .eq("moderation_status", "approved")
     .is("deleted_at", null);
-  if (ideaIds) q = q.in("id", ideaIds);
+  if (styleIds) q = q.in("idea_styles.style_id", styleIds);
   const kw = filters.q?.trim();
   if (kw) {
     // Search title AND description (many ideas have no title). Strip characters
