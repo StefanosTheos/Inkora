@@ -27,6 +27,14 @@ const config: ExpoConfig = {
     "expo-secure-store",
     ["expo-av", { microphonePermission: "Allow Inkora to record voice messages." }],
     ["expo-notifications", { color: "#E5484D" }],
+    ["expo-image-picker", {
+      photosPermission: "Allow Inkora to access your photos to try a design on your body.",
+      cameraPermission: "Allow Inkora to use the camera to photograph where you'd like a tattoo.",
+    }],
+    ["expo-media-library", {
+      savePhotosPermission: "Allow Inkora to save your tattoo try-on to your photos.",
+      isAccessMediaLocationEnabled: false,
+    }],
     // Native splash: same logo + size as the animated intro so the handoff
     // is seamless (imageWidth matches AnimatedSplash's 240px logo).
     ["expo-splash-screen", { image: LOGO, imageWidth: 240, resizeMode: "contain", backgroundColor: "#000000" }],
