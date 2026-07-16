@@ -2,9 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { getPreviewSignedUrl, useAiPreview, usePortfolioDesign } from "@inkora/data-access";
 import { AI_PREVIEW_DISCLAIMER } from "@inkora/domain";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "../../components/Toast";
@@ -28,6 +28,14 @@ export function AiPreviewResultScreen({ id }: { id: string }) {
     return () => { ok = false; };
   }, [p?.resultImagePath]);
 
+  // Back always returns to the "Try it on" home, not wherever the flow was
+  // entered from (e.g. an artist's profile). Covers the arrow + Android back.
+  const goToTryOnHome = useCallback(() => router.navigate("/create"), [router]);
+  useFocusEffect(useCallback(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => { goToTryOnHome(); return true; });
+    return () => sub.remove();
+  }, [goToTryOnHome]));
+
   async function run(kind: "share" | "save") {
     if (!url) return;
     setBusy(kind);
@@ -44,7 +52,7 @@ export function AiPreviewResultScreen({ id }: { id: string }) {
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <View style={s.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
+        <Pressable onPress={goToTryOnHome} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="chevron-back" size={26} color="#18181B" /></Pressable>
         <Text style={s.headerTitle}>Your try-on</Text>
         <View style={{ width: 26 }} />
       </View>
