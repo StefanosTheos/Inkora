@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   acceptReschedule, bookingKeys, cancelAppointment, cancelRequest, completeAppointment, createOffer,
-  declineRequest, getChatSignedUrl, markEntityNotificationsRead, proposeReschedule, respondToOffer,
+  declineRequest, declineReschedule, getChatSignedUrl, markEntityNotificationsRead, proposeReschedule, respondToOffer,
   startDirectConversation, submitClientReview, submitReview,
   useAppointment, useAppointmentClientReview, useAppointmentReview, useArtistAvailability,
   useArtistDaySlots, useAuth, useBookingRequest, withdrawOffer,
@@ -135,12 +135,19 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
     setRescheduling(false);
     toast.show("Reschedule requested");
   });
-  const declineFully = () => {
+  // Reject the proposed new time but KEEP the original booking (decline if it's
+  // your turn to answer, withdraw if you're the one who proposed).
+  const keepOriginalTime = () => run(async () => {
+    await declineReschedule(supabase, appt.id);
+    toast.show(iMustAnswer ? "Kept your original time" : "Reschedule request withdrawn");
+  });
+  // Cancel the whole appointment — a distinct, clearly-labelled destructive action.
+  const cancelEntirely = () => {
     void confirm({
-      title: "Decline this appointment?",
+      title: "Cancel appointment?",
       message: `${appt.counterparty.name} will be notified and the appointment will be cancelled.`,
-      confirmLabel: "Decline", cancelLabel: "Keep", destructive: true,
-    }).then((ok) => { if (ok) void run(() => cancelAppointment(supabase, appt.id, "Declined reschedule")); });
+      confirmLabel: "Cancel it", cancelLabel: "Keep", destructive: true,
+    }).then((ok) => { if (ok) void run(() => cancelAppointment(supabase, appt.id)); });
   };
 
   // Free reschedule/cancel up to 4 days before the appointment.
@@ -235,16 +242,19 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
           </Text>
           <Text style={s.reschedHint}>
             {iMustAnswer
-              ? `${appt.counterparty.name} proposed this new time. Accept it, propose another, or decline the appointment.`
+              ? `${appt.counterparty.name} proposed this new time. Accept it, propose another, or keep your original time.`
               : `Waiting for ${appt.counterparty.name} to confirm the new time.`}
           </Text>
           {iMustAnswer ? (
             <>
               <PrimaryBtn label="Accept new time" onPress={() => run(async () => { await acceptReschedule(supabase, appt.id); toast.show("Reschedule confirmed"); })} disabled={busy} />
               <SecondaryBtn label="Propose a different time" onPress={onReschedulePress} disabled={busy} />
+              <SecondaryBtn label="Keep original time" onPress={keepOriginalTime} disabled={busy} />
             </>
-          ) : null}
-          <DangerBtn label={iMustAnswer ? "Decline appointment" : "Cancel appointment"} onPress={declineFully} disabled={busy} />
+          ) : (
+            <SecondaryBtn label="Withdraw request" onPress={keepOriginalTime} disabled={busy} />
+          )}
+          <DangerBtn label="Cancel appointment" onPress={cancelEntirely} disabled={busy} />
         </View>
       ) : active ? (
         <View style={s.actions}>

@@ -21,7 +21,7 @@ studio statistics, and discovery/messaging/rewards.
   - Fix: date-based auto-complete (daily cron past end time), allow the **seeker** to confirm completion, prompt both sides to review.
   - Files: `apps/mobile/src/features/booking/BookingDetailScreen.tsx` (~:248), `packages/data-access/src/booking/index.ts` (`completeAppointment` ~:518), new migration/cron.
 
-- [ ] **2. Declining a proposed reschedule cancels the entire appointment.**
+- [x] **2. Declining a proposed reschedule cancels the entire appointment.** ✅ New `decline_reschedule` RPC (`20260716130000_decline_reschedule.sql`) keeps the original time; UI now has "Keep original time" / "Withdraw request" separate from "Cancel appointment".
   - Problem: `declineFully → cancelAppointment` — rejecting the *new* time kills the *original* booking; no "keep the original" option. High foot-gun; label reads "Decline appointment" but users read it as "decline the new time."
   - Fix: decline should reject only the proposal and retain the existing time.
   - Files: `BookingDetailScreen.tsx` (~:134-140, :237-243).

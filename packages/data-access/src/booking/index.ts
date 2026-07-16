@@ -490,6 +490,12 @@ export async function proposeReschedule(client: InkoraClient, id: string, start:
   } catch { /* the reschedule card is best-effort; never fail the proposal */ }
 }
 
+/** Decline/withdraw the pending reschedule — clears it and KEEPS the original time. */
+export async function declineReschedule(client: InkoraClient, id: string): Promise<void> {
+  const { error } = await client.rpc("decline_reschedule", { p_appointment_id: id });
+  if (error) throw toAppError(error);
+}
+
 /** Accept the pending reschedule proposal (moves the appointment to the new time). */
 export async function acceptReschedule(client: InkoraClient, id: string): Promise<void> {
   const { error } = await client.rpc("accept_reschedule", { p_appointment_id: id });

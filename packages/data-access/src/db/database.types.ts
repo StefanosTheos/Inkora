@@ -2505,6 +2505,10 @@ export type Database = {
         Args: { p_appointment_id: string }
         Returns: undefined
       }
+      decline_reschedule: {
+        Args: { p_appointment_id: string }
+        Returns: undefined
+      }
       client_reviews_for: {
         Args: { p_client_id: string }
         Returns: {
