@@ -98,15 +98,18 @@ export function PortfolioDesignScreen({ id }: { id: string }) {
                   <Text style={[s.actionText, save.saved && { color: "#E5484D" }]}>{save.saved ? "Saved" : "Save"}</Text>
                 </Pressable>
 
-                <Pressable
-                  style={s.actionBtn}
-                  onPress={() => router.push({ pathname: "/create/new", params: { imagePath: d.imagePath } })}
-                  accessibilityRole="button"
-                  accessibilityLabel="Try this design on you with AI preview"
-                >
-                  <Ionicons name="sparkles-outline" size={20} color="#18181B" />
-                  <Text style={s.actionText}>Try on you</Text>
-                </Pressable>
+                {/* Try-on is a flash-only feature (clean line art composites cleanly). */}
+                {d.kind === "flash" ? (
+                  <Pressable
+                    style={s.actionBtn}
+                    onPress={() => router.push({ pathname: "/create/new", params: { flashPath: d.imagePath, flashId: d.id, artistName: artist?.displayName ?? "", caption: d.caption ?? "" } })}
+                    accessibilityRole="button"
+                    accessibilityLabel="Try this design on you"
+                  >
+                    <Ionicons name="sparkles-outline" size={20} color="#18181B" />
+                    <Text style={s.actionText}>Try on you</Text>
+                  </Pressable>
+                ) : null}
               </View>
 
               {artist ? (

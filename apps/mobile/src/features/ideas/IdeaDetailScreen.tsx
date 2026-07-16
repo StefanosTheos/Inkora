@@ -91,16 +91,6 @@ export function IdeaDetailScreen({ id }: { id: string }) {
               <Ionicons name={save.saved ? "heart" : "heart-outline"} size={20} color={save.saved ? "#E5484D" : "#18181B"} />
               <Text style={[s.actionText, save.saved && { color: "#E5484D" }]}>{save.saved ? "Saved" : "Save"}</Text>
             </Pressable>
-
-            <Pressable
-              style={s.actionBtn}
-              onPress={() => router.push({ pathname: "/create/new", params: { ideaId: d.id, imagePath: d.imagePath } })}
-              accessibilityRole="button"
-              accessibilityLabel="Try this design on you with AI preview"
-            >
-              <Ionicons name="sparkles-outline" size={20} color="#18181B" />
-              <Text style={s.actionText}>Try on you</Text>
-            </Pressable>
           </View>
 
           {artist ? (

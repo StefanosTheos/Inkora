@@ -10,6 +10,7 @@ export interface PortfolioDesignDetail {
   imagePath: string;
   caption: string | null;
   placement: string | null;
+  kind: "portfolio" | "flash";
   artist: {
     id: ArtistId;
     displayName: string;
@@ -30,6 +31,7 @@ interface DetailRow {
   image_path: string;
   caption: string | null;
   placement: string | null;
+  kind: string;
   artists: {
     id: string;
     headline: string | null;
@@ -41,7 +43,7 @@ interface DetailRow {
 export async function getPortfolioDesign(client: InkoraClient, id: string): Promise<PortfolioDesignDetail | null> {
   const { data, error } = await client
     .from("portfolio_images")
-    .select("id, image_path, caption, placement, artists(id, headline, is_accepting, profiles(display_name, avatar_path))")
+    .select("id, image_path, caption, placement, kind, artists(id, headline, is_accepting, profiles(display_name, avatar_path))")
     .eq("id", id)
     .neq("moderation_status", "rejected")
     .maybeSingle<DetailRow>();
@@ -52,6 +54,7 @@ export async function getPortfolioDesign(client: InkoraClient, id: string): Prom
     imagePath: data.image_path,
     caption: data.caption,
     placement: data.placement,
+    kind: data.kind === "flash" ? "flash" : "portfolio",
     artist: data.artists
       ? {
           id: data.artists.id as ArtistId,

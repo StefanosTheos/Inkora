@@ -1,6 +1,6 @@
-// Route: /create/new — AI preview composer (upload photo + idea; no inference).
-import { AiPreviewComposer } from "../../../src/features/ai/AiPreviewComposer";
+// Route: /create/new — AI tattoo try-on (composite a flash onto a body photo, on-device).
+import { TryOnScreen } from "../../../src/features/ai/TryOnScreen";
 
 export default function NewPreviewRoute() {
-  return <AiPreviewComposer />;
+  return <TryOnScreen />;
 }

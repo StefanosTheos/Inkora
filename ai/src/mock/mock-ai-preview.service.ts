@@ -21,6 +21,7 @@ export const MockAiPreviewService: AiPreviewService = {
       profileId: "mock" as ProfileId,
       sourceImagePath: input.sourceImagePath ?? null,
       sourceIdeaId: input.sourceIdeaId ?? null,
+      sourceFlashId: null,
       prompt: input.prompt ?? null,
       styleId: input.styleId ?? null,
       placement: input.placement ?? null,
