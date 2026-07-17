@@ -68,9 +68,8 @@ studio statistics, and discovery/messaging/rewards.
   - Files: `packages/data-access/src/booking/index.ts`, `apps/mobile/src/features/booking/BookingDetailScreen.tsx` (`OfferCard`), `supabase/migrations/20260716160000_expire_offers_requests.sql`.
 
 ### Notifications & navigation intent
-- [ ] **15. Several notifications dead-end at `/notifications`** (application-expired, invite accepted/declined, new-artist-joined, suspend/reactivate) — payloads lack slug/id.
-  - Fix: include deep-link targets (roster/studio/booking).
-  - Files: `packages/domain/src/models/notification.ts` (`notificationHref` ~:45-64), studio RPC notification payloads (`20260714190000_studio_roster_mgmt.sql`).
+- [x] **15. Several notifications dead-end at `/notifications`** (application-expired, invite accepted/declined, new-artist-joined, suspend/reactivate). ✅ `notificationHref` now routes every `membership_request` by payload: artist invite → `/studio/{slug}`; owner new-application (`artistId`) → `/studio-applications`; owner roster change (`audience:'owner'`) → `/studio-dashboard/roster`; all remaining artist-facing status changes (application accepted/declined/expired, suspended/removed/reactivated) → `/artist-dashboard` (shows their studio affiliation) instead of the inbox. Migration `20260716170000_notification_deeplinks.sql` tags `respond_studio_invite`'s owner notification with `audience:'owner'` (it was previously indistinguishable from an artist status change — both only had `studioId`); artist-facing RPCs need no DB change since they fall through to the dashboard. **Migration must be applied in SQL Editor.**
+  - Files: `packages/domain/src/models/notification.ts` (`notificationHref`), `supabase/migrations/20260716170000_notification_deeplinks.sql`.
 - [ ] **16. "See all" throws away rail intent**; **Recommended silently == Featured** when user has no style prefs.
   - Fix: carry the rail's sort/filter through; add a "take the style quiz" CTA for empty recs.
   - Files: `HomeScreen.tsx` (~:81, :148), `home/queries.ts` (~:104).

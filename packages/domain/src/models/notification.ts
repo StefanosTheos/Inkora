@@ -59,11 +59,19 @@ export function notificationHref(n: Pick<Notification, "type" | "data" | "entity
     case "reward":
       return "/rewards";
     case "membership_request":
+      // Artist's invitation -> the studio page to accept/decline.
+      if (d["invite"] === "true" && d["studioSlug"]) return `/studio/${d["studioSlug"]}`;
       // Owner's "new application" (has artistId) -> Applications inbox.
-      // Artist's invitation (has studioSlug) -> the studio page to accept.
       if (d["artistId"]) return "/studio-applications";
+      // Owner-facing roster changes (invite accepted/declined, artist joined/
+      // left) -> the studio roster.
+      if (d["audience"] === "owner") return "/studio-dashboard/roster";
+      // Fall back to the studio page when we have a slug…
       if (d["studioSlug"]) return `/studio/${d["studioSlug"]}`;
-      return "/notifications";
+      // …otherwise this is an artist-facing status change (application
+      // accepted/declined/expired, suspended/removed/reactivated) -> their
+      // dashboard, which shows their current studio affiliation.
+      return "/artist-dashboard";
     default:
       return "/notifications";
   }
