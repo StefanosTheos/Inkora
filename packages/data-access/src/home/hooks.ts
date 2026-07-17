@@ -3,7 +3,7 @@ import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-qu
 
 import type { InkoraClient } from "../client/types";
 import {
-  fetchFeaturedArtists, fetchIdeaFeedPage, fetchMyLocation, fetchNearbyStudios,
+  fetchFeaturedArtists, fetchIdeaFeedPage, fetchMyLocation, fetchMyStyleSlugs, fetchNearbyStudios,
   fetchPromotions, fetchRecommendedForMe, fetchTrendingArtists,
 type IdeaFeedFilters, } from "./queries";
 
@@ -21,6 +21,9 @@ export function useTrendingArtists(client: InkoraClient) {
 }
 export function useMyLocation(client: InkoraClient) {
   return useQuery({ queryKey: ["my-location"], queryFn: () => fetchMyLocation(client) });
+}
+export function useMyStyleSlugs(client: InkoraClient) {
+  return useQuery({ queryKey: ["my-style-slugs"], queryFn: () => fetchMyStyleSlugs(client) });
 }
 export function useNearbyStudios(client: InkoraClient, coords: { lat: number; lng: number } | null | undefined) {
   return useQuery({

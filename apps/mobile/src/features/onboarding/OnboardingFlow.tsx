@@ -220,7 +220,10 @@ function RoleChoice({ onSeeker, onComplete }: { onSeeker: () => void; onComplete
 }
 
 // ---------------------------------------------------------------- seeker flow
-function SeekerOnboarding({ onComplete }: { onComplete: () => void }) {
+// Exported so the style quiz can be re-taken standalone (/style-quiz) after
+// onboarding — same deck + taste board, but `onComplete` returns to Home
+// instead of advancing to the comms-consent step.
+export function SeekerOnboarding({ onComplete }: { onComplete: () => void }) {
   const deck = useStyleDeck(supabase);
   const styles = deck.data ?? [];
   const c = useOnboardingController(styles);

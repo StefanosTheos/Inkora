@@ -138,6 +138,20 @@ export async function fetchRecommendedForMe(client: InkoraClient, limit = 10): P
   }));
 }
 
+/** The user's top style-preference slugs (highest weight first). Empty when
+ *  they haven't taken the style quiz — used both to detect that (Home shows a
+ *  quiz CTA instead of a Recommended rail that would just mirror Featured) and
+ *  to seed the Recommended rail's "See all" filter in Discover. */
+export async function fetchMyStyleSlugs(client: InkoraClient, limit = 6): Promise<string[]> {
+  const { data } = await client
+    .from("user_style_preferences")
+    .select("weight, tattoo_styles(slug)")
+    .order("weight", { ascending: false })
+    .limit(limit)
+    .returns<{ weight: number; tattoo_styles: { slug: string } | null }[]>();
+  return (data ?? []).map((p) => p.tattoo_styles?.slug).filter((x): x is string => Boolean(x));
+}
+
 export async function fetchNearbyStudios(
   client: InkoraClient,
   lat: number,

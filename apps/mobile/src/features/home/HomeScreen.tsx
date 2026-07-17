@@ -1,5 +1,6 @@
+import { Ionicons } from "@expo/vector-icons";
 import {
-  useFeaturedArtists, useIdeaFeed, useMyLocation, useNearbyStudios,
+  useFeaturedArtists, useIdeaFeed, useMyLocation, useMyStyleSlugs, useNearbyStudios,
   usePromotions, useRecommendedForMe, useStyleDeck, useTrendingArtists,
 } from "@inkora/data-access";
 import type { HomeArtist, IdeaCard } from "@inkora/domain";
@@ -27,6 +28,10 @@ export function HomeScreen() {
   const trending = useTrendingArtists(supabase);
   const location = useMyLocation(supabase);
   const nearby = useNearbyStudios(supabase, location.data);
+  // Drives the Recommended rail vs. the "take the style quiz" CTA. Empty =
+  // no preferences yet, so Recommended would just mirror Featured.
+  const myStyles = useMyStyleSlugs(supabase);
+  const hasStylePrefs = (myStyles.data ?? []).length > 0;
 
   // Explore = a browse feed filtered by style chips. Typed keyword search lives
   // in Discover (the top search bar routes there) to avoid a duplicate input.
@@ -73,13 +78,25 @@ export function HomeScreen() {
     void recommended.refetch();
     void trending.refetch();
     void promotions.refetch();
-  }, [feed, featured, recommended, trending, promotions]);
+    void myStyles.refetch();
+  }, [feed, featured, recommended, trending, promotions, myStyles]);
 
-  const artistSection = (title: string, q: { data?: HomeArtist[]; isLoading: boolean }) => {
+  // "See all" carries the rail's intent into Discover instead of dumping the
+  // user on the default search (relevance, all styles).
+  const goDiscover = useCallback(
+    (params?: Record<string, string>) => router.push({ pathname: "/discover", params }),
+    [router],
+  );
+
+  const artistSection = (
+    title: string,
+    q: { data?: HomeArtist[]; isLoading: boolean },
+    seeAllParams?: Record<string, string>,
+  ) => {
     if (!q.isLoading && (q.data ?? []).length === 0) return null;
     return (
       <View>
-        <SectionHeader title={title} onSeeAll={() => router.push("/discover")} />
+        <SectionHeader title={title} onSeeAll={() => goDiscover(seeAllParams)} />
         {q.isLoading ? (
           <ActivityIndicator style={s.rowLoader} />
         ) : (
@@ -140,13 +157,24 @@ export function HomeScreen() {
         </View>
       )}
 
-      {artistSection("Featured artists", featured)}
-      {artistSection("Recommended for you", recommended)}
-      {artistSection("Trending", trending)}
+      {artistSection("Featured artists", featured, { sort: "rating", acceptingOnly: "1" })}
+      {hasStylePrefs
+        ? artistSection("Recommended for you", recommended, { styleSlugs: (myStyles.data ?? []).join(","), sort: "relevance" })
+        : !myStyles.isLoading && (
+          <Pressable style={s.quizCta} onPress={() => router.push("/style-quiz")} accessibilityRole="button" accessibilityLabel="Take the style quiz">
+            <View style={s.quizIcon}><Ionicons name="sparkles" size={22} color="#E5484D" /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.quizTitle}>Get tailored recommendations</Text>
+              <Text style={s.quizSub}>Take the 60-second style quiz and we&apos;ll match you with artists.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#C4C4C8" />
+          </Pressable>
+        )}
+      {artistSection("Trending", trending, { sort: "rating" })}
 
       {!nearby.isLoading && (nearby.data ?? []).length > 0 && (
         <View>
-          <SectionHeader title="Nearby studios" onSeeAll={() => router.push("/discover")} />
+          <SectionHeader title="Nearby studios" onSeeAll={() => goDiscover({ scope: "studios", sort: "distance" })} />
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -259,4 +287,8 @@ const s = StyleSheet.create({
   filterBtnActive: { backgroundColor: "#E5484D", borderColor: "#E5484D" },
   filterText: { fontWeight: "700", fontSize: 13, color: "#18181B" },
   filterTextActive: { color: "#fff" },
+  quizCta: { flexDirection: "row", alignItems: "center", gap: 12, marginHorizontal: 16, marginBottom: 8, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: "#F1D6D7", backgroundColor: "#FFF5F5" },
+  quizIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#FDECEC", alignItems: "center", justifyContent: "center" },
+  quizTitle: { fontSize: 15, fontWeight: "800", color: "#18181B" },
+  quizSub: { fontSize: 12.5, color: "#71717A", marginTop: 2 },
 });

@@ -35,7 +35,7 @@ const INITIAL: Filters = { styleSlugs: [], radiusKm: null, minRating: 0, accepti
 
 export function DiscoverScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ sort?: string; minRating?: string }>();
+  const params = useLocalSearchParams<{ sort?: string; minRating?: string; scope?: string; styleSlugs?: string; acceptingOnly?: string }>();
   const near = useMyLocation(supabase).data ?? null;
   const styleDeck = useStyleDeck(supabase);
   const [scope, setScope] = useState<SearchScope>("artists");
@@ -45,17 +45,26 @@ export function DiscoverScreen() {
   const [filters, setFilters] = useState<Filters>(INITIAL);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  // Apply filters passed via navigation (e.g. the home "Find your artist" promo).
+  // Apply filters/scope passed via navigation — the home promos and each rail's
+  // "See all" carry their intent through (sort, styles, accepting, scope).
   const paramSort = params.sort;
   const paramMinRating = params.minRating;
+  const paramStyleSlugs = params.styleSlugs;
+  const paramAccepting = params.acceptingOnly;
+  const paramScope = params.scope;
   useEffect(() => {
-    if (!paramSort && !paramMinRating) return;
+    if (paramScope === "artists" || paramScope === "studios" || paramScope === "ideas") setScope(paramScope);
+  }, [paramScope]);
+  useEffect(() => {
+    if (!paramSort && !paramMinRating && !paramStyleSlugs && !paramAccepting) return;
     setFilters((f) => ({
       ...f,
       ...(paramSort ? { sort: paramSort as ArtistSort } : {}),
       ...(paramMinRating ? { minRating: Number(paramMinRating) } : {}),
+      ...(paramStyleSlugs ? { styleSlugs: paramStyleSlugs.split(",").filter(Boolean) } : {}),
+      ...(paramAccepting ? { acceptingOnly: paramAccepting === "1" } : {}),
     }));
-  }, [paramSort, paramMinRating]);
+  }, [paramSort, paramMinRating, paramStyleSlugs, paramAccepting]);
 
   const isStudios = scope === "studios";
   const isIdeas = scope === "ideas";
