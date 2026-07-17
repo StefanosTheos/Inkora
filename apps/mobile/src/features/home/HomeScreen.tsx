@@ -10,6 +10,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { SetLocationSheet } from "../../components/SetLocationSheet";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { NotificationBell } from "../notifications/NotificationBell";
@@ -38,6 +39,7 @@ export function HomeScreen() {
   const [exploreStyles, setExploreStyles] = useState<string[]>([]);
   const [exploreSort, setExploreSort] = useState<"recent" | "popular">("recent");
   const [styleSheetOpen, setStyleSheetOpen] = useState(false);
+  const [locSheetOpen, setLocSheetOpen] = useState(false);
   const feedFilters = useMemo(() => ({ styleSlugs: exploreStyles, sort: exploreSort }), [exploreStyles, exploreSort]);
   const feed = useIdeaFeed(supabase, feedFilters);
   const filtersActive = exploreStyles.length > 0;
@@ -188,6 +190,19 @@ export function HomeScreen() {
         </View>
       )}
 
+      {/* No saved location → the nearby rail can't render. Offer to set a city
+          inline instead of silently hiding it. */}
+      {!location.isLoading && location.data == null && (
+        <Pressable style={s.quizCta} onPress={() => setLocSheetOpen(true)} accessibilityRole="button" accessibilityLabel="Set your city">
+          <View style={s.quizIcon}><Ionicons name="location-outline" size={22} color="#E5484D" /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.quizTitle}>See studios & artists near you</Text>
+            <Text style={s.quizSub}>Set your city to sort by distance and find nearby studios.</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#C4C4C8" />
+        </Pressable>
+      )}
+
       <View onLayout={(e) => setExploreY(e.nativeEvent.layout.y)}>
       <SectionHeader title="Explore" />
       {/* One controls row: sort toggle on the left, Filters (styles) on the right.
@@ -265,6 +280,11 @@ export function HomeScreen() {
         selected={exploreStyles}
         onToggle={toggleExploreStyle}
         onClear={() => setExploreStyles([])}
+      />
+      <SetLocationSheet
+        visible={locSheetOpen}
+        onClose={() => setLocSheetOpen(false)}
+        onSaved={() => { void location.refetch(); void nearby.refetch(); }}
       />
     </SafeAreaView>
   );

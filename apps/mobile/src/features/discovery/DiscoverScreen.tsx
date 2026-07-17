@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { SetLocationSheet } from "../../components/SetLocationSheet";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { IdeaTile } from "../home/components";
@@ -44,6 +45,7 @@ export function DiscoverScreen() {
   // the filter chips.
   const [filters, setFilters] = useState<Filters>(INITIAL);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [locSheetOpen, setLocSheetOpen] = useState(false);
 
   // Apply filters/scope passed via navigation — the home promos and each rail's
   // "See all" carry their intent through (sort, styles, accepting, scope).
@@ -140,15 +142,19 @@ export function DiscoverScreen() {
         contentContainerStyle={s.controlsContent}
         keyboardShouldPersistTaps="handled"
       >
-        {SORTS.map((so) => (
-          <Chip
-            key={so.key}
-            label={so.label}
-            active={filters.sort === so.key}
-            disabled={so.needsLocation && !near}
-            onPress={() => onChange({ sort: so.key })}
-          />
-        ))}
+        {SORTS.map((so) => {
+          const needsLoc = so.needsLocation && !near;
+          return (
+            <Chip
+              key={so.key}
+              // Location-gated sort stays tappable — tapping opens the "set your
+              // city" sheet instead of dead-ending as a greyed-out chip.
+              label={needsLoc ? `${so.label} 📍` : so.label}
+              active={filters.sort === so.key}
+              onPress={() => (needsLoc ? setLocSheetOpen(true) : onChange({ sort: so.key }))}
+            />
+          );
+        })}
         <Pressable
           style={[s.filterBtn, filterCount > 0 && s.filterBtnActive]}
           onPress={() => setSheetOpen(true)}
@@ -258,6 +264,12 @@ export function DiscoverScreen() {
         params={artistParams}
         onChange={onChange}
         hasLocation={near != null}
+        onSetLocation={() => { setSheetOpen(false); setLocSheetOpen(true); }}
+      />
+      <SetLocationSheet
+        visible={locSheetOpen}
+        onClose={() => setLocSheetOpen(false)}
+        onSaved={() => onChange({ sort: "distance" })}
       />
       <StyleFilterSheet
         visible={ideaSheetOpen}

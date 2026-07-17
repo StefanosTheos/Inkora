@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import type { ArtistSearchParams, StyleCard } from "@inkora/domain";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -6,13 +7,14 @@ import { Chip } from "./components";
 const DISTANCES = [5, 10, 25, 50];
 const RATINGS = [4.0, 4.5];
 
-export function FilterSheet({ visible, onClose, styles, params, onChange, hasLocation }: {
+export function FilterSheet({ visible, onClose, styles, params, onChange, hasLocation, onSetLocation }: {
   visible: boolean;
   onClose: () => void;
   styles: StyleCard[];
   params: ArtistSearchParams;
   onChange: (patch: Partial<ArtistSearchParams>) => void;
   hasLocation: boolean;
+  onSetLocation: () => void;
 }) {
   const toggleStyle = (slug: string) => {
     const has = params.styleSlugs.includes(slug);
@@ -39,13 +41,21 @@ export function FilterSheet({ visible, onClose, styles, params, onChange, hasLoc
             ))}
           </View>
 
-          <Text style={s.section}>Distance {hasLocation ? "" : "(set your city to enable)"}</Text>
-          <View style={s.wrap}>
-            <Chip label="Any" active={!params.radiusKm} disabled={!hasLocation} onPress={() => onChange({ radiusKm: null })} />
-            {DISTANCES.map((d) => (
-              <Chip key={d} label={`${d} km`} active={params.radiusKm === d} disabled={!hasLocation} onPress={() => onChange({ radiusKm: d })} />
-            ))}
-          </View>
+          <Text style={s.section}>Distance</Text>
+          {hasLocation ? (
+            <View style={s.wrap}>
+              <Chip label="Any" active={!params.radiusKm} onPress={() => onChange({ radiusKm: null })} />
+              {DISTANCES.map((d) => (
+                <Chip key={d} label={`${d} km`} active={params.radiusKm === d} onPress={() => onChange({ radiusKm: d })} />
+              ))}
+            </View>
+          ) : (
+            <Pressable style={s.setCity} onPress={onSetLocation} accessibilityRole="button" accessibilityLabel="Set your city to filter by distance">
+              <Ionicons name="location-outline" size={18} color="#E5484D" />
+              <Text style={s.setCityText}>Set your city to filter by distance</Text>
+              <Ionicons name="chevron-forward" size={16} color="#C4C4C8" />
+            </Pressable>
+          )}
 
           <Text style={s.section}>Minimum rating</Text>
           <View style={s.wrap}>
@@ -73,6 +83,8 @@ const s = StyleSheet.create({
   clear: { color: "#E5484D", fontWeight: "600" },
   section: { fontSize: 14, fontWeight: "700", marginTop: 16, marginBottom: 8 },
   wrap: { flexDirection: "row", flexWrap: "wrap", rowGap: 8 },
+  setCity: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1, borderColor: "#F1D6D7", backgroundColor: "#FFF5F5" },
+  setCityText: { flex: 1, color: "#18181B", fontWeight: "700", fontSize: 14 },
   doneBtn: { backgroundColor: "#E5484D", padding: 16, borderRadius: 14, alignItems: "center", marginTop: 20 },
   doneText: { color: "#fff", fontWeight: "700", fontSize: 16 },
 });
