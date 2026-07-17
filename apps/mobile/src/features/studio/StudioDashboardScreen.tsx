@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   startDirectConversation, studioSetMembership, useAuth, useMyStudio, useNotifications,
-  useStudioArtistStats, useStudioOverview, useStudioReviews,
+  useStudioArtistStats, useStudioOverview, useStudioOverviewPeriod, useStudioReviews,
 } from "@inkora/data-access";
-import type { ReviewItem, StudioArtistStat, StudioRosterArtist } from "@inkora/domain";
+import type { ReviewItem, StatsPeriod, StudioArtistStat, StudioRosterArtist } from "@inkora/domain";
+import { STATS_PERIOD_LABEL } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -60,14 +62,17 @@ export function StudioDashboardScreen() {
   const [menuArtist, setMenuArtist] = useState<{ id: string; name: string } | null>(null);
   const [rosterPage, setRosterPage] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
+  const [period, setPeriod] = useState<StatsPeriod>("30d");
   const studioQ = useMyStudio(supabase, meId);
   const st = studioQ.data;
   const overviewQ = useStudioOverview(supabase, st?.id ?? "");
+  const periodQ = useStudioOverviewPeriod(supabase, st?.id ?? "", period);
   const statsQ = useStudioArtistStats(supabase, st?.id ?? "");
   const reviewsQ = useStudioReviews(supabase, st?.id ?? "");
   const { notifications } = useNotifications(supabase);
   const unread = notifications.filter((n) => !n.readAt).length;
   const ov = overviewQ.data;
+  const pv = periodQ.data;
   const statsById = new Map((statsQ.data ?? []).map((x) => [x.artistId, x]));
   const roster = [...(st?.roster ?? [])].sort(
     (a, b) => sortValue(sortKey, b, statsById.get(b.id)) - sortValue(sortKey, a, statsById.get(a.id)),
@@ -159,24 +164,45 @@ export function StudioDashboardScreen() {
 
         {/* Overview */}
         <Text style={s.section} accessibilityRole="header">Overview</Text>
+        {/* Period selector — scopes the activity metrics (revenue, completed,
+            cancelled, visits); current-state metrics stay all-time. */}
+        <View style={s.periodSeg}>
+          {(["30d", "mtd", "ytd"] as const).map((p) => (
+            <Pressable
+              key={p}
+              style={[s.periodBtn, period === p && s.periodBtnActive]}
+              onPress={() => setPeriod(p)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: period === p }}
+              accessibilityLabel={STATS_PERIOD_LABEL[p]}
+            >
+              <Text style={[s.periodText, period === p && s.periodTextActive]}>{STATS_PERIOD_LABEL[p]}</Text>
+            </Pressable>
+          ))}
+        </View>
         <View style={s.hero}>
           <View style={s.heroBloom} />
           <HeroStat text={String(ov?.activeArtists ?? 0)} label="Artists" />
           <View style={s.heroDivider} />
-          <HeroStat text={compactMoney(ov?.revenue ?? 0)} label="Revenue" />
+          <HeroStat
+            text={compactMoney(pv?.revenue ?? 0)}
+            label="Revenue"
+            trend={<TrendBadge cur={pv?.revenue ?? 0} prev={pv?.prevRevenue ?? 0} onDark />}
+          />
           <View style={s.heroDivider} />
           <HeroStat text={ov && ov.ratingCount > 0 ? `★${ov.ratingAvg.toFixed(1)}` : "—"} label="Rating" />
         </View>
+        <Text style={s.periodNote}>Revenue, completed, cancelled &amp; visits shown for {STATS_PERIOD_LABEL[period].toLowerCase()}</Text>
         <View style={s.gridRow}>
-          <BigTile label="Completed" value={ov?.completedBookings ?? 0} icon="checkmark-done-outline" />
+          <BigTile label="Completed" value={pv?.completed ?? 0} icon="checkmark-done-outline" trend={<TrendBadge cur={pv?.completed ?? 0} prev={pv?.prevCompleted ?? 0} />} />
           <BigTile label="Scheduled" value={ov?.scheduledBookings ?? 0} icon="calendar-outline" />
         </View>
         <View style={s.gridRow}>
-          <BigTile label="Cancelled" value={ov?.cancelledBookings ?? 0} icon="close-circle-outline" />
+          <BigTile label="Cancelled" value={pv?.cancelled ?? 0} icon="close-circle-outline" trend={<TrendBadge cur={pv?.cancelled ?? 0} prev={pv?.prevCancelled ?? 0} higherIsBetter={false} />} />
           <BigTile label="Applications" value={ov?.pendingApplications ?? 0} icon="mail-unread-outline" alert={!!ov?.pendingApplications} onPress={() => router.push("/studio-applications")} />
         </View>
         <View style={s.gridRow}>
-          <BigTile label="Profile visits" value={ov?.profileVisits ?? 0} icon="eye-outline" />
+          <BigTile label="Profile visits" value={pv?.profileVisits ?? 0} icon="eye-outline" trend={<TrendBadge cur={pv?.profileVisits ?? 0} prev={pv?.prevProfileVisits ?? 0} />} />
           <BigTile label="Saved by" value={ov?.studioSaves ?? 0} icon="heart-outline" />
         </View>
 
@@ -308,21 +334,49 @@ export function StudioDashboardScreen() {
   );
 }
 
-function HeroStat({ text, label }: { text: string; label: string }) {
+function HeroStat({ text, label, trend }: { text: string; label: string; trend?: ReactNode }) {
   return (
     <View style={s.heroStat} accessible accessibilityLabel={`${text} ${label}`}>
       <Text style={s.heroValue}>{text}</Text>
       <Text style={s.heroLabel}>{label}</Text>
+      {trend ? <View style={{ marginTop: 3 }}>{trend}</View> : null}
     </View>
   );
 }
 
-function BigTile({ label, value, icon, alert, onPress }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; alert?: boolean; onPress?: () => void }) {
+/** Percentage change vs. the previous window. null when there's no baseline. */
+function trendPct(cur: number, prev: number): number | null {
+  if (prev === 0) return cur > 0 ? 100 : null;
+  return Math.round(((cur - prev) / prev) * 100);
+}
+
+/** Arrow + % vs. the previous equal-length window. Colour reflects whether the
+ *  move is good — inverted for metrics where up is bad (e.g. cancellations). */
+function TrendBadge({ cur, prev, higherIsBetter = true, onDark = false }: { cur: number; prev: number; higherIsBetter?: boolean; onDark?: boolean }) {
+  const pct = trendPct(cur, prev);
+  if (pct === null || pct === 0) {
+    return <Text style={[s.trendFlat, onDark && { color: "rgba(255,255,255,0.55)" }]}>{pct === 0 ? "no change" : "new"}</Text>;
+  }
+  const up = pct > 0;
+  const good = higherIsBetter ? up : !up;
+  const color = good ? "#16A34A" : "#DC2626";
+  return (
+    <View style={s.trendRow} accessible accessibilityLabel={`${up ? "up" : "down"} ${Math.abs(pct)} percent vs previous period`}>
+      <Ionicons name={up ? "arrow-up" : "arrow-down"} size={11} color={color} />
+      <Text style={[s.trendText, { color }]}>{Math.abs(pct)}%</Text>
+    </View>
+  );
+}
+
+function BigTile({ label, value, icon, alert, onPress, trend }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; alert?: boolean; onPress?: () => void; trend?: ReactNode }) {
   const inner = (
     <>
       <Ionicons name={onPress ? "chevron-forward" : icon} size={16} color="#D4D4D8" style={s.bigIcon} />
       <Text style={[s.bigValue, alert && { color: "#E5484D" }]}>{value}</Text>
-      <Text style={s.bigLabel}>{label}</Text>
+      <View style={s.bigLabelRow}>
+        <Text style={s.bigLabel}>{label}</Text>
+        {trend}
+      </View>
     </>
   );
   if (onPress) {
@@ -417,11 +471,21 @@ const s = StyleSheet.create({
   heroValue: { color: "#fff", fontSize: 28, fontWeight: "900" },
   heroLabel: { color: "#A1A1AA", fontSize: 12, fontWeight: "600", marginTop: 5, letterSpacing: 0.2 },
   heroDivider: { width: 1, height: 36, backgroundColor: "rgba(255,255,255,0.12)" },
+  periodSeg: { flexDirection: "row", backgroundColor: "#F4F4F5", borderRadius: 999, padding: 3, marginBottom: 12 },
+  periodBtn: { flex: 1, paddingVertical: 7, borderRadius: 999, alignItems: "center" },
+  periodBtnActive: { backgroundColor: "#18181B" },
+  periodText: { fontSize: 13, fontWeight: "700", color: "#71717A" },
+  periodTextActive: { color: "#fff" },
+  periodNote: { color: "#A1A1AA", fontSize: 11.5, fontWeight: "600", marginBottom: 12, marginTop: -2 },
+  trendRow: { flexDirection: "row", alignItems: "center", gap: 1 },
+  trendText: { fontSize: 11, fontWeight: "800" },
+  trendFlat: { fontSize: 10.5, fontWeight: "600", color: "#A1A1AA" },
   gridRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
   bigTile: { flex: 1, borderRadius: 18, padding: 16, backgroundColor: "#fff", borderWidth: 1, borderColor: "#EEEEF0" },
   bigIcon: { position: "absolute", top: 15, right: 15 },
   bigValue: { fontSize: 28, fontWeight: "900", color: "#18181B", marginTop: 4 },
-  bigLabel: { color: "#A1A1AA", fontSize: 11, fontWeight: "700", marginTop: 4, textTransform: "uppercase", letterSpacing: 0.7 },
+  bigLabelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
+  bigLabel: { color: "#A1A1AA", fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.7 },
   card: { borderWidth: 1, borderColor: "#F0F0F2", borderRadius: 16, padding: 12, marginBottom: 10 },
   cardHead: { flexDirection: "row", alignItems: "center", gap: 12 },
   cardName: { fontWeight: "800", fontSize: 15, color: "#18181B" },

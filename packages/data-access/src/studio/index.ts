@@ -1,6 +1,6 @@
 import type {
-  ArtistId, PortfolioImage, PortfolioImageId, ProfileId, ReviewId, ReviewItem, StudioApplication,
-  StudioArtistStat, StudioEditInput, StudioId, StudioOverview, StudioProfile,
+  ArtistId, PortfolioImage, PortfolioImageId, ProfileId, ReviewId, ReviewItem, StatsPeriod, StudioApplication,
+  StudioArtistStat, StudioEditInput, StudioId, StudioOverview, StudioPeriodStat, StudioProfile,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
@@ -380,6 +380,72 @@ export async function getStudioArtistStats(client: InkoraClient, studioId: strin
     profileVisits: r.profile_visits,
     revenue: Number(r.revenue),
   }));
+}
+
+/** Current + previous window bounds for a stats period. Previous is the same
+ *  elapsed length immediately before the current window, so MTD/YTD compare
+ *  like-for-like (e.g. "this month so far" vs "same span of last month"). */
+function periodRanges(period: StatsPeriod): { curStart: string; curEnd: string; prevStart: string; prevEnd: string } {
+  const now = new Date();
+  const curEnd = now;
+  let curStart: Date;
+  let prevStart: Date;
+  let prevEnd: Date;
+  if (period === "30d") {
+    curStart = new Date(now.getTime() - 30 * 86_400_000);
+    prevEnd = curStart;
+    prevStart = new Date(curStart.getTime() - 30 * 86_400_000);
+  } else if (period === "mtd") {
+    curStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const elapsed = now.getTime() - curStart.getTime();
+    prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    prevEnd = new Date(prevStart.getTime() + elapsed);
+  } else {
+    curStart = new Date(now.getFullYear(), 0, 1);
+    const elapsed = now.getTime() - curStart.getTime();
+    prevStart = new Date(now.getFullYear() - 1, 0, 1);
+    prevEnd = new Date(prevStart.getTime() + elapsed);
+  }
+  return { curStart: curStart.toISOString(), curEnd: curEnd.toISOString(), prevStart: prevStart.toISOString(), prevEnd: prevEnd.toISOString() };
+}
+
+export async function getStudioOverviewPeriod(
+  client: InkoraClient,
+  studioId: string,
+  period: StatsPeriod,
+): Promise<StudioPeriodStat | null> {
+  const { curStart, curEnd, prevStart, prevEnd } = periodRanges(period);
+  const { data, error } = await client.rpc("studio_overview_period", {
+    p_studio_id: studioId,
+    p_cur_start: curStart,
+    p_cur_end: curEnd,
+    p_prev_start: prevStart,
+    p_prev_end: prevEnd,
+  }).returns<{
+    completed: number; cancelled: number; revenue: number; profile_visits: number;
+    prev_completed: number; prev_cancelled: number; prev_revenue: number; prev_profile_visits: number;
+  }[]>();
+  if (error) throw toAppError(error);
+  const r = data?.[0];
+  if (!r) return null;
+  return {
+    completed: r.completed,
+    cancelled: r.cancelled,
+    revenue: Number(r.revenue),
+    profileVisits: r.profile_visits,
+    prevCompleted: r.prev_completed,
+    prevCancelled: r.prev_cancelled,
+    prevRevenue: Number(r.prev_revenue),
+    prevProfileVisits: r.prev_profile_visits,
+  };
+}
+
+export function useStudioOverviewPeriod(client: InkoraClient, studioId: string, period: StatsPeriod) {
+  return useQuery({
+    queryKey: ["studio-overview-period", studioId, period],
+    queryFn: () => getStudioOverviewPeriod(client, studioId, period),
+    enabled: !!studioId,
+  });
 }
 
 /** Update the owner's studio (name, about, contact, city/address, hours). */

@@ -2448,6 +2448,25 @@ export type Database = {
           rating_count: number
         }[]
       }
+      studio_overview_period: {
+        Args: {
+          p_studio_id: string
+          p_cur_start: string
+          p_cur_end: string
+          p_prev_start: string
+          p_prev_end: string
+        }
+        Returns: {
+          completed: number
+          cancelled: number
+          revenue: number
+          profile_visits: number
+          prev_completed: number
+          prev_cancelled: number
+          prev_revenue: number
+          prev_profile_visits: number
+        }[]
+      }
       studio_set_membership: {
         Args: { p_studio_id: string; p_artist_id: string; p_status: string }
         Returns: undefined

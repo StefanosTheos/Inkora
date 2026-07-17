@@ -79,7 +79,8 @@ studio statistics, and discovery/messaging/rewards.
 
 ## Tier 3 — Studio dashboard depth
 
-- [ ] **18. No time ranges anywhere** — every number is all-time; can't answer "how did we do this month?" Add period selector (30d/MTD/YTD) + trend arrows.
+- [x] **18. No time ranges anywhere** — every number is all-time; can't answer "how did we do this month?" ✅ Added a **30 days / This month / This year** period selector on the studio dashboard Overview. New RPC `studio_overview_period` (migration `20260716180000`) aggregates the activity metrics — revenue, completed, cancelled, profile visits — for the chosen window **and** the prior equal-length window (MTD/YTD compare same-elapsed spans), so each renders a coloured **trend arrow** (↑/↓ %) vs. the previous period (cancellations invert good/bad colouring). Current-state metrics (artists, rating, scheduled, applications, saved-by) stay all-time; a caption clarifies which numbers are period-scoped. Bookings attributed by `studio_id` (consistent with #4). **Migration must be applied in SQL Editor.**
+  - Files: `supabase/migrations/20260716180000_studio_overview_period.sql`, `packages/domain/src/models/studio-profile.ts` (`StatsPeriod`, `StudioPeriodStat`), `packages/data-access/src/studio/index.ts` (`useStudioOverviewPeriod`), `packages/data-access/src/db/database.types.ts`, `apps/mobile/src/features/studio/StudioDashboardScreen.tsx`.
 - [ ] **19. `no_show` is invisible** in every stat (and never set anywhere in the app) — real revenue-loss signal counted nowhere. Implement no-show and surface it.
 - [ ] **20. Per-artist `cancelled` is fetched but never rendered** — cancellation rate dropped from `ArtistStatCard`.
   - Files: `studio/index.ts` (~:378), `StudioDashboardScreen.tsx` (~:359-364).

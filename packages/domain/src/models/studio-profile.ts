@@ -61,6 +61,27 @@ export interface StudioOverview {
   ratingCount: number;
 }
 
+/** Time window for the studio dashboard's activity metrics. */
+export type StatsPeriod = "30d" | "mtd" | "ytd";
+
+export const STATS_PERIOD_LABEL: Record<StatsPeriod, string> = {
+  "30d": "30 days",
+  mtd: "This month",
+  ytd: "This year",
+};
+
+/** Period-scoped studio activity, with the prior equal-length window for trends. */
+export interface StudioPeriodStat {
+  completed: number;
+  cancelled: number;
+  revenue: number;
+  profileVisits: number;
+  prevCompleted: number;
+  prevCancelled: number;
+  prevRevenue: number;
+  prevProfileVisits: number;
+}
+
 /** A pending artist application to join a studio (owner's inbox). */
 export interface StudioApplication {
   artistId: ArtistId;
