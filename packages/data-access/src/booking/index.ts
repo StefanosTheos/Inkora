@@ -531,6 +531,17 @@ export async function acceptReschedule(client: InkoraClient, id: string): Promis
   } catch { /* the confirmation card is best-effort; never fail the acceptance */ }
 }
 
+/** Artist marks a scheduled session as a client no-show (a real revenue-loss
+ *  signal, surfaced in studio stats). The appt-update trigger notifies the
+ *  client ("Marked as no-show"). */
+export async function markNoShow(client: InkoraClient, id: string): Promise<void> {
+  const { error } = await client
+    .from("appointments")
+    .update({ status: "no_show", cancelled_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw toAppError(error);
+}
+
 export async function completeAppointment(client: InkoraClient, id: string): Promise<void> {
   const { error } = await client
     .from("appointments")

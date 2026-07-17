@@ -342,7 +342,7 @@ export function useStudioReviews(client: InkoraClient, studioId: string) {
 export async function getStudioOverview(client: InkoraClient, studioId: string): Promise<StudioOverview | null> {
   const { data, error } = await client.rpc("studio_overview", { p_studio_id: studioId }).returns<{
     active_artists: number; pending_applications: number; profile_visits: number;
-    completed_bookings: number; scheduled_bookings: number; cancelled_bookings: number;
+    completed_bookings: number; scheduled_bookings: number; cancelled_bookings: number; no_show_bookings: number;
     revenue: number; studio_saves: number; rating_avg: number; rating_count: number;
   }[]>();
   if (error) throw toAppError(error);
@@ -355,6 +355,7 @@ export async function getStudioOverview(client: InkoraClient, studioId: string):
     completedBookings: r.completed_bookings,
     scheduledBookings: r.scheduled_bookings,
     cancelledBookings: r.cancelled_bookings,
+    noShowBookings: r.no_show_bookings,
     revenue: Number(r.revenue),
     studioSaves: r.studio_saves,
     ratingAvg: Number(r.rating_avg),
@@ -365,7 +366,7 @@ export async function getStudioOverview(client: InkoraClient, studioId: string):
 export async function getStudioArtistStats(client: InkoraClient, studioId: string): Promise<StudioArtistStat[]> {
   const { data, error } = await client.rpc("studio_artist_stats", { p_studio_id: studioId }).returns<{
     artist_id: string; rating_avg: number; rating_count: number; saved_by: number; work_saves: number;
-    completed: number; scheduled: number; cancelled: number; profile_visits: number; revenue: number;
+    completed: number; scheduled: number; cancelled: number; no_show: number; profile_visits: number; revenue: number;
   }[]>();
   if (error) throw toAppError(error);
   return (data ?? []).map((r) => ({
@@ -377,6 +378,7 @@ export async function getStudioArtistStats(client: InkoraClient, studioId: strin
     completed: r.completed,
     scheduled: r.scheduled,
     cancelled: r.cancelled,
+    noShow: r.no_show,
     profileVisits: r.profile_visits,
     revenue: Number(r.revenue),
   }));
@@ -422,8 +424,8 @@ export async function getStudioOverviewPeriod(
     p_prev_start: prevStart,
     p_prev_end: prevEnd,
   }).returns<{
-    completed: number; cancelled: number; revenue: number; profile_visits: number;
-    prev_completed: number; prev_cancelled: number; prev_revenue: number; prev_profile_visits: number;
+    completed: number; cancelled: number; no_show: number; revenue: number; profile_visits: number;
+    prev_completed: number; prev_cancelled: number; prev_no_show: number; prev_revenue: number; prev_profile_visits: number;
   }[]>();
   if (error) throw toAppError(error);
   const r = data?.[0];
@@ -431,10 +433,12 @@ export async function getStudioOverviewPeriod(
   return {
     completed: r.completed,
     cancelled: r.cancelled,
+    noShow: r.no_show,
     revenue: Number(r.revenue),
     profileVisits: r.profile_visits,
     prevCompleted: r.prev_completed,
     prevCancelled: r.prev_cancelled,
+    prevNoShow: r.prev_no_show,
     prevRevenue: Number(r.prev_revenue),
     prevProfileVisits: r.prev_profile_visits,
   };

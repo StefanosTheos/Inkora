@@ -199,11 +199,14 @@ export function StudioDashboardScreen() {
         </View>
         <View style={s.gridRow}>
           <BigTile label="Cancelled" value={pv?.cancelled ?? 0} icon="close-circle-outline" trend={<TrendBadge cur={pv?.cancelled ?? 0} prev={pv?.prevCancelled ?? 0} higherIsBetter={false} />} />
-          <BigTile label="Applications" value={ov?.pendingApplications ?? 0} icon="mail-unread-outline" alert={!!ov?.pendingApplications} onPress={() => router.push("/studio-applications")} />
+          <BigTile label="No-shows" value={pv?.noShow ?? 0} icon="person-remove-outline" alert={!!pv?.noShow} trend={<TrendBadge cur={pv?.noShow ?? 0} prev={pv?.prevNoShow ?? 0} higherIsBetter={false} />} />
         </View>
         <View style={s.gridRow}>
           <BigTile label="Profile visits" value={pv?.profileVisits ?? 0} icon="eye-outline" trend={<TrendBadge cur={pv?.profileVisits ?? 0} prev={pv?.prevProfileVisits ?? 0} />} />
           <BigTile label="Saved by" value={ov?.studioSaves ?? 0} icon="heart-outline" />
+        </View>
+        <View style={s.gridRow}>
+          <BigTile label="Applications" value={ov?.pendingApplications ?? 0} icon="mail-unread-outline" alert={!!ov?.pendingApplications} onPress={() => router.push("/studio-applications")} />
         </View>
 
         {/* Roster */}
@@ -413,6 +416,8 @@ function ArtistStatCard({ artist, stat, onOpen, onMessage, onMenu }: { artist: S
         <Metric label="Revenue" value={compactMoney(stat?.revenue ?? 0)} />
         <Metric label="Done" value={stat?.completed ?? 0} />
         <Metric label="Upcoming" value={stat?.scheduled ?? 0} />
+        <Metric label="Cancel" value={cancelRateLabel(stat)} alert={cancelRateValue(stat) >= 20} />
+        <Metric label="No-show" value={stat?.noShow ?? 0} alert={(stat?.noShow ?? 0) > 0} />
         <Metric label="Reviews" value={stat?.ratingCount ?? 0} />
         <Metric label="Saves" value={(stat?.savedBy ?? 0) + (stat?.workSaves ?? 0)} />
         <Metric label="Visits" value={stat?.profileVisits ?? 0} />
@@ -421,10 +426,20 @@ function ArtistStatCard({ artist, stat, onOpen, onMessage, onMenu }: { artist: S
   );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+/** Cancellation rate = cancelled / (completed + cancelled). "—" with no history. */
+function cancelRateValue(stat?: StudioArtistStat): number {
+  const total = (stat?.completed ?? 0) + (stat?.cancelled ?? 0);
+  return total > 0 ? Math.round(((stat?.cancelled ?? 0) / total) * 100) : 0;
+}
+function cancelRateLabel(stat?: StudioArtistStat): string {
+  const total = (stat?.completed ?? 0) + (stat?.cancelled ?? 0);
+  return total > 0 ? `${cancelRateValue(stat)}%` : "—";
+}
+
+function Metric({ label, value, alert }: { label: string; value: string | number; alert?: boolean }) {
   return (
     <View style={s.metric} accessible accessibilityLabel={`${value} ${label}`}>
-      <Text style={s.metricValue} numberOfLines={1}>{value}</Text>
+      <Text style={[s.metricValue, alert && { color: "#DC2626" }]} numberOfLines={1}>{value}</Text>
       <Text style={s.metricLabel}>{label}</Text>
     </View>
   );
@@ -493,8 +508,8 @@ const s = StyleSheet.create({
   rating: { flexDirection: "row", alignItems: "center", gap: 3 },
   ratingText: { fontWeight: "800", color: "#18181B", fontSize: 13 },
   msgBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F4F4F5", alignItems: "center", justifyContent: "center" },
-  metrics: { flexDirection: "row", justifyContent: "space-between", marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#F4F4F5" },
-  metric: { alignItems: "center", flex: 1 },
+  metrics: { flexDirection: "row", flexWrap: "wrap", rowGap: 12, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#F4F4F5" },
+  metric: { alignItems: "center", width: "25%" },
   metricValue: { fontWeight: "800", fontSize: 15, color: "#18181B" },
   metricLabel: { color: "#A1A1AA", fontSize: 10, fontWeight: "600", marginTop: 2 },
   suspendedChip: { backgroundColor: "#FFF7ED", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },

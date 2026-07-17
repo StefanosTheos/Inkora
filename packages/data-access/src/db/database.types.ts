@@ -2442,6 +2442,7 @@ export type Database = {
           completed_bookings: number
           scheduled_bookings: number
           cancelled_bookings: number
+          no_show_bookings: number
           revenue: number
           studio_saves: number
           rating_avg: number
@@ -2459,10 +2460,12 @@ export type Database = {
         Returns: {
           completed: number
           cancelled: number
+          no_show: number
           revenue: number
           profile_visits: number
           prev_completed: number
           prev_cancelled: number
+          prev_no_show: number
           prev_revenue: number
           prev_profile_visits: number
         }[]
@@ -2516,6 +2519,7 @@ export type Database = {
           completed: number
           scheduled: number
           cancelled: number
+          no_show: number
           profile_visits: number
           revenue: number
         }[]

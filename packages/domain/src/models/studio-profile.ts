@@ -55,6 +55,7 @@ export interface StudioOverview {
   completedBookings: number;
   scheduledBookings: number;
   cancelledBookings: number;
+  noShowBookings: number;
   revenue: number; // sum of completed-booking prices across the roster
   studioSaves: number; // people who saved the studio
   ratingAvg: number; // the studio's own review rating
@@ -74,10 +75,12 @@ export const STATS_PERIOD_LABEL: Record<StatsPeriod, string> = {
 export interface StudioPeriodStat {
   completed: number;
   cancelled: number;
+  noShow: number;
   revenue: number;
   profileVisits: number;
   prevCompleted: number;
   prevCancelled: number;
+  prevNoShow: number;
   prevRevenue: number;
   prevProfileVisits: number;
 }
@@ -103,6 +106,7 @@ export interface StudioArtistStat {
   completed: number;
   scheduled: number;
   cancelled: number;
+  noShow: number;
   profileVisits: number;
   revenue: number; // sum of the artist's completed-booking prices
 }

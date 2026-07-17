@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   acceptReschedule, bookingKeys, cancelAppointment, cancelRequest, completeAppointment, createOffer,
-  declineRequest, declineReschedule, getChatSignedUrl, markEntityNotificationsRead, proposeReschedule, respondToOffer,
+  declineRequest, declineReschedule, getChatSignedUrl, markEntityNotificationsRead, markNoShow, proposeReschedule, respondToOffer,
   startDirectConversation, submitClientReview, submitReview,
   useAppointment, useAppointmentClientReview, useAppointmentReview, useArtistAvailability,
   useArtistDaySlots, useAuth, useBookingRequest, withdrawOffer,
@@ -260,6 +260,21 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
         <View style={s.actions}>
           <SecondaryBtn label="Reschedule" onPress={onReschedulePress} disabled={busy} />
           {sessionStarted && <SecondaryBtn label="Mark completed" onPress={() => run(() => completeAppointment(supabase, appt.id))} disabled={busy} />}
+          {sessionStarted && isArtist && (
+            <SecondaryBtn
+              label="Mark as no-show"
+              disabled={busy}
+              onPress={() => {
+                void confirm({
+                  title: "Mark as no-show?",
+                  message: "Use this when the client didn't show up. They'll be notified and it's recorded in your studio stats.",
+                  confirmLabel: "Mark no-show",
+                  cancelLabel: "Back",
+                  destructive: true,
+                }).then((ok) => { if (ok) void run(() => markNoShow(supabase, appt.id)); });
+              }}
+            />
+          )}
           <DangerBtn
             label="Cancel appointment"
             disabled={busy}
