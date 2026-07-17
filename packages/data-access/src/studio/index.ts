@@ -183,6 +183,24 @@ export async function getMyMembership(client: InkoraClient, artistId: string): P
   return data ? { studioId: data.studio_id, status: data.status } : null;
 }
 
+/** The caller's membership status for ONE studio, including terminal states
+ *  ('removed'), so an applicant can see whether their application was accepted,
+ *  declined/expired, or still pending. RLS lets an artist read their own row. */
+export async function getMyStudioMembershipStatus(client: InkoraClient, studioId: string): Promise<string | null> {
+  if (!studioId) return null;
+  const { data: u } = await client.auth.getUser();
+  const uid = u.user?.id;
+  if (!uid) return null;
+  const { data, error } = await client
+    .from("studio_memberships")
+    .select("status")
+    .eq("studio_id", studioId)
+    .eq("artist_id", uid)
+    .maybeSingle<{ status: string }>();
+  if (error) throw toAppError(error);
+  return data?.status ?? null;
+}
+
 /** Artist applies to work at a studio. Returns the resulting status ('requested'). */
 export async function applyToStudio(client: InkoraClient, studioId: string): Promise<string> {
   const { data, error } = await client.rpc("apply_to_studio", { p_studio_id: studioId });
@@ -317,6 +335,14 @@ export function useMyMembership(client: InkoraClient, artistId: string) {
     queryKey: ["my-membership", artistId],
     queryFn: () => getMyMembership(client, artistId),
     enabled: !!artistId,
+  });
+}
+
+export function useMyStudioMembershipStatus(client: InkoraClient, studioId: string) {
+  return useQuery({
+    queryKey: ["my-studio-membership-status", studioId],
+    queryFn: () => getMyStudioMembershipStatus(client, studioId),
+    enabled: !!studioId,
   });
 }
 

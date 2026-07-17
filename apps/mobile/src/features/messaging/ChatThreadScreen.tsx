@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   bookingKeys, declineRequest, getChatSignedUrl, markEntityNotificationsRead, publicStorageUrl,
   respondStudioApplication, respondToOffer, uploadChatFile, useAuth, useBookingRequest, useChat,
-  useConversations, useMyStudio, useOfferStatus, useStudioApplications,
+  useConversations, useMyStudio, useMyStudioMembershipStatus, useOfferStatus, useStudioApplications,
 } from "@inkora/data-access";
 import { type ArtistId, type ConversationId, type Message, messageKind, TIME_OF_DAY_LABEL, type TimeOfDay } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
@@ -630,6 +630,15 @@ function StudioApplicationCard({ message, mine }: { message: Message; mine: bool
   const onRoster = (studioQ.data?.roster ?? []).some((r) => r.id === applicantId);
   const ownerState: "pending" | "accepted" | "declined" = pending ? "pending" : onRoster ? "accepted" : "declined";
 
+  // Applicant side: derive the real outcome from their own membership row so the
+  // card resolves instead of sitting on "Pending" forever. RLS lets them read it.
+  const myMembershipQ = useMyStudioMembershipStatus(supabase, mine ? studioId : "");
+  const myStatus = myMembershipQ.data;
+  const applicantState: "pending" | "accepted" | "closed" =
+    myStatus === "active" || myStatus === "suspended" ? "accepted"
+      : myStatus === "removed" ? "closed"
+        : "pending";
+
   async function respond(accept: boolean) {
     if (!studioId || !applicantId) return;
     setBusy(true);
@@ -666,7 +675,9 @@ function StudioApplicationCard({ message, mine }: { message: Message; mine: bool
         <Text style={[s.reqDetail, { color: sub, marginTop: 6, fontWeight: "700" }]}>
           {isOwner
             ? (ownerState === "accepted" ? "✓ Accepted" : "Declined")
-            : (mine ? "Pending · they have 5 days to reply" : "Pending")}
+            : applicantState === "accepted" ? "✓ Accepted — you're on the roster"
+              : applicantState === "closed" ? "This application wasn't accepted"
+                : "Pending · the studio has 5 days to respond"}
         </Text>
       )}
     </View>
