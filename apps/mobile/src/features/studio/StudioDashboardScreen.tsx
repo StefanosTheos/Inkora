@@ -10,7 +10,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
@@ -60,6 +60,8 @@ export function StudioDashboardScreen() {
   const { ctx, signOut } = useAuth();
   const meId = ctx.userId ?? "";
   const [menuArtist, setMenuArtist] = useState<{ id: string; name: string } | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<{ id: string; name: string } | null>(null);
+  const [suspendReason, setSuspendReason] = useState("");
   const [rosterPage, setRosterPage] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [period, setPeriod] = useState<StatsPeriod>("30d");
@@ -89,10 +91,10 @@ export function StudioDashboardScreen() {
       toast.show((e as Error).message, "error");
     }
   }
-  async function setMembership(artistId: string, status: "active" | "suspended" | "removed") {
+  async function setMembership(artistId: string, status: "active" | "suspended" | "removed", reason?: string) {
     setMenuArtist(null);
     try {
-      await studioSetMembership(supabase, st?.id ?? "", artistId, status);
+      await studioSetMembership(supabase, st?.id ?? "", artistId, status, reason);
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["my-studio", meId] }),
         qc.invalidateQueries({ queryKey: ["studio-artist-stats", st?.id] }),
@@ -254,7 +256,9 @@ export function StudioDashboardScreen() {
         {st.suspended.length > 0 ? (
           <>
             <Text style={s.section} accessibilityRole="header">Suspended</Text>
-            {st.suspended.map((a) => (
+            {st.suspended.map((a) => {
+              const stat = statsById.get(a.id);
+              return (
               <View key={a.id} style={s.card}>
                 <View style={s.cardHead}>
                   <Pressable style={s.cardPerson} onPress={() => router.push(`/artist/${a.id}`)} accessibilityRole="button" accessibilityLabel={`View ${a.displayName}'s profile`}>
@@ -264,8 +268,28 @@ export function StudioDashboardScreen() {
                       <Text style={s.cardSub} numberOfLines={1}>{a.headline ?? "Tattoo artist"}</Text>
                     </View>
                   </Pressable>
-                  <View style={s.suspendedChip}><Text style={s.suspendedChipText}>Suspended</Text></View>
+                  <Pressable onPress={() => void messageArtist(a.id)} hitSlop={8} style={s.msgBtn} accessibilityRole="button" accessibilityLabel={`Message ${a.displayName}`}>
+                    <Ionicons name="chatbubble-outline" size={18} color="#18181B" />
+                  </Pressable>
                 </View>
+
+                {/* Why they're suspended, so the reactivate call isn't blind. */}
+                <View style={s.suspendReasonBox}>
+                  <View style={s.suspendedChip}><Text style={s.suspendedChipText}>Suspended{a.suspendedAt ? ` · ${fmtDate(a.suspendedAt)}` : ""}</Text></View>
+                  <Text style={s.suspendReasonText}>{a.suspensionReason?.trim() ? a.suspensionReason : "No reason recorded"}</Text>
+                </View>
+
+                {/* Their performance while active — informs whether to bring them back. */}
+                <View style={s.metrics}>
+                  <Metric label="Revenue" value={compactMoney(stat?.revenue ?? 0)} />
+                  <Metric label="Done" value={stat?.completed ?? 0} />
+                  <Metric label="Cancel" value={cancelRateLabel(stat)} alert={cancelRateValue(stat) >= 20} />
+                  <Metric label="No-show" value={stat?.noShow ?? 0} alert={(stat?.noShow ?? 0) > 0} />
+                  <Metric label="Reviews" value={stat?.ratingCount ?? 0} />
+                  <Metric label="Saves" value={(stat?.savedBy ?? 0) + (stat?.workSaves ?? 0)} />
+                  <Metric label="Visits" value={stat?.profileVisits ?? 0} />
+                </View>
+
                 <View style={s.suspendActions}>
                   <Pressable style={[s.suspendBtn, s.reactivateBtn]} onPress={() => void setMembership(a.id, "active")} accessibilityRole="button" accessibilityLabel={`Reactivate ${a.displayName}`}>
                     <Text style={s.reactivateText}>Reactivate</Text>
@@ -275,7 +299,8 @@ export function StudioDashboardScreen() {
                   </Pressable>
                 </View>
               </View>
-            ))}
+              );
+            })}
           </>
         ) : null}
 
@@ -319,7 +344,7 @@ export function StudioDashboardScreen() {
         <Pressable style={s.sheetBackdrop} onPress={() => setMenuArtist(null)}>
           <View style={s.sheet}>
             <Text style={s.sheetTitle}>{menuArtist?.name}</Text>
-            <Pressable style={s.sheetBtn} onPress={() => { if (menuArtist) void setMembership(menuArtist.id, "suspended"); }} accessibilityRole="button" accessibilityLabel="Suspend artist">
+            <Pressable style={s.sheetBtn} onPress={() => { const a = menuArtist; setMenuArtist(null); if (a) { setSuspendReason(""); setSuspendTarget(a); } }} accessibilityRole="button" accessibilityLabel="Suspend artist">
               <Ionicons name="pause-circle-outline" size={20} color="#18181B" />
               <Text style={s.sheetBtnText}>Suspend artist</Text>
             </Pressable>
@@ -331,6 +356,37 @@ export function StudioDashboardScreen() {
               <Text style={[s.sheetBtnText, { fontWeight: "800" }]}>Cancel</Text>
             </Pressable>
           </View>
+        </Pressable>
+      </Modal>
+
+      {/* Suspend with an optional reason (shown back to the owner on the card) */}
+      <Modal visible={!!suspendTarget} transparent animationType="fade" onRequestClose={() => setSuspendTarget(null)}>
+        <Pressable style={s.sheetBackdrop} onPress={() => setSuspendTarget(null)}>
+          <Pressable style={s.sheet} onPress={() => { /* swallow taps so the sheet doesn't dismiss */ }}>
+            <Text style={s.sheetTitle}>Suspend {suspendTarget?.name}</Text>
+            <Text style={s.suspendHint}>Add a reason so you remember why when reviewing them later (optional).</Text>
+            <TextInput
+              style={s.suspendInput}
+              value={suspendReason}
+              onChangeText={setSuspendReason}
+              placeholder="e.g. On leave · repeated no-shows · paused for the season"
+              placeholderTextColor="#A1A1AA"
+              multiline
+              accessibilityLabel="Suspension reason"
+            />
+            <Pressable
+              style={[s.sheetBtn, { backgroundColor: "#18181B" }]}
+              onPress={() => { const a = suspendTarget; setSuspendTarget(null); if (a) void setMembership(a.id, "suspended", suspendReason.trim() || undefined); }}
+              accessibilityRole="button"
+              accessibilityLabel="Confirm suspend"
+            >
+              <Ionicons name="pause-circle-outline" size={20} color="#fff" />
+              <Text style={[s.sheetBtnText, { color: "#fff" }]}>Suspend artist</Text>
+            </Pressable>
+            <Pressable style={[s.sheetBtn, s.sheetCancel]} onPress={() => setSuspendTarget(null)} accessibilityRole="button" accessibilityLabel="Cancel">
+              <Text style={[s.sheetBtnText, { fontWeight: "800" }]}>Cancel</Text>
+            </Pressable>
+          </Pressable>
         </Pressable>
       </Modal>
     </SafeAreaView>
@@ -509,8 +565,12 @@ const s = StyleSheet.create({
   metric: { alignItems: "center", width: "25%" },
   metricValue: { fontWeight: "800", fontSize: 15, color: "#18181B" },
   metricLabel: { color: "#A1A1AA", fontSize: 10, fontWeight: "600", marginTop: 2 },
-  suspendedChip: { backgroundColor: "#FFF7ED", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  suspendedChip: { alignSelf: "flex-start", backgroundColor: "#FFF7ED", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   suspendedChipText: { color: "#C2410C", fontWeight: "800", fontSize: 12 },
+  suspendReasonBox: { marginTop: 12, gap: 6 },
+  suspendReasonText: { color: "#52525B", fontSize: 13, lineHeight: 18 },
+  suspendHint: { color: "#71717A", fontSize: 13, textAlign: "center", paddingHorizontal: 8, marginBottom: 12, lineHeight: 18 },
+  suspendInput: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, minHeight: 80, textAlignVertical: "top", marginBottom: 12 },
   suspendActions: { flexDirection: "row", gap: 10, marginTop: 12 },
   suspendBtn: { flex: 1, borderRadius: 12, paddingVertical: 11, alignItems: "center" },
   reactivateBtn: { backgroundColor: "#18181B" },

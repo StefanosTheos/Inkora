@@ -1788,6 +1788,7 @@ export type Database = {
           role: Database["public"]["Enums"]["membership_role"]
           status: Database["public"]["Enums"]["membership_status"]
           studio_id: string
+          suspension_reason: string | null
           updated_at: string
         }
         Insert: {
@@ -1798,6 +1799,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["membership_role"]
           status?: Database["public"]["Enums"]["membership_status"]
           studio_id: string
+          suspension_reason?: string | null
           updated_at?: string
         }
         Update: {
@@ -1808,6 +1810,7 @@ export type Database = {
           role?: Database["public"]["Enums"]["membership_role"]
           status?: Database["public"]["Enums"]["membership_status"]
           studio_id?: string
+          suspension_reason?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2471,7 +2474,7 @@ export type Database = {
         }[]
       }
       studio_set_membership: {
-        Args: { p_studio_id: string; p_artist_id: string; p_status: string }
+        Args: { p_studio_id: string; p_artist_id: string; p_status: string; p_reason?: string | null }
         Returns: undefined
       }
       studio_invite_artist: {

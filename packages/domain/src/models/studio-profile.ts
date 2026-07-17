@@ -8,6 +8,9 @@ export interface StudioRosterArtist {
   ratingAvg: number;
   ratingCount: number;
   styles: string[]; // style slugs
+  /** Only meaningful for suspended members: why, and when. */
+  suspensionReason?: string | null;
+  suspendedAt?: string | null;
 }
 
 export interface StudioProfile {

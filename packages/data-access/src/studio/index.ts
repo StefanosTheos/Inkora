@@ -10,7 +10,7 @@ import { sendMessage, startStudioConversation } from "../messaging";
 
 const STUDIO_SELECT =
   "id, owner_id, name, slug, bio, logo_path, email, phone, website, address_line, city, country, latitude, longitude, opening_hours, " +
-  "studio_memberships(status, artists(id, headline, rating_avg, rating_count, profiles(display_name, avatar_path), artist_styles(tattoo_styles(slug))))";
+  "studio_memberships(status, suspension_reason, updated_at, artists(id, headline, rating_avg, rating_count, profiles(display_name, avatar_path), artist_styles(tattoo_styles(slug))))";
 
 /** A membership that hasn't reached a terminal state — drives the Apply button. */
 export type ActiveMembership = { studioId: string; status: "requested" | "invited" | "active" | "suspended" };
@@ -18,6 +18,8 @@ const NON_TERMINAL = ["requested", "invited", "active", "suspended"] as const;
 
 interface RosterMember {
   status: string;
+  suspension_reason: string | null;
+  updated_at: string | null;
   artists: {
     id: string;
     headline: string | null;
@@ -55,6 +57,8 @@ function mapStudioRow(r: StudioRow): StudioProfile {
     ratingAvg: Number(m.artists!.rating_avg),
     ratingCount: m.artists!.rating_count,
     styles: (m.artists!.artist_styles ?? []).map((s) => s.tattoo_styles?.slug).filter((x): x is string => Boolean(x)),
+    suspensionReason: m.suspension_reason,
+    suspendedAt: m.updated_at,
   });
   const members = (r.studio_memberships ?? []).filter((m) => m.artists);
   const roster = members.filter((m) => m.status === "active").map(toArtist);
@@ -206,8 +210,8 @@ export async function respondStudioApplication(client: InkoraClient, studioId: s
 }
 
 /** Owner suspends / removes / reactivates a roster member. */
-export async function studioSetMembership(client: InkoraClient, studioId: string, artistId: string, status: "active" | "suspended" | "removed"): Promise<void> {
-  const { error } = await client.rpc("studio_set_membership", { p_studio_id: studioId, p_artist_id: artistId, p_status: status });
+export async function studioSetMembership(client: InkoraClient, studioId: string, artistId: string, status: "active" | "suspended" | "removed", reason?: string): Promise<void> {
+  const { error } = await client.rpc("studio_set_membership", { p_studio_id: studioId, p_artist_id: artistId, p_status: status, p_reason: reason ?? null });
   if (error) throw toAppError(error);
 }
 
