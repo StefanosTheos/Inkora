@@ -187,7 +187,7 @@ export function StudioDashboardScreen() {
           <HeroStat
             text={compactMoney(pv?.revenue ?? 0)}
             label="Revenue"
-            trend={<TrendBadge cur={pv?.revenue ?? 0} prev={pv?.prevRevenue ?? 0} onDark />}
+            trend={<TrendBadge cur={pv?.revenue ?? 0} prev={pv?.prevRevenue ?? 0} />}
           />
           <View style={s.heroDivider} />
           <HeroStat text={ov && ov.ratingCount > 0 ? `★${ov.ratingAvg.toFixed(1)}` : "—"} label="Rating" />
@@ -355,11 +355,9 @@ function trendPct(cur: number, prev: number): number | null {
 
 /** Arrow + % vs. the previous equal-length window. Colour reflects whether the
  *  move is good — inverted for metrics where up is bad (e.g. cancellations). */
-function TrendBadge({ cur, prev, higherIsBetter = true, onDark = false }: { cur: number; prev: number; higherIsBetter?: boolean; onDark?: boolean }) {
+function TrendBadge({ cur, prev, higherIsBetter = true }: { cur: number; prev: number; higherIsBetter?: boolean }) {
   const pct = trendPct(cur, prev);
-  if (pct === null || pct === 0) {
-    return <Text style={[s.trendFlat, onDark && { color: "rgba(255,255,255,0.55)" }]}>{pct === 0 ? "no change" : "new"}</Text>;
-  }
+  if (pct === null || pct === 0) return null; // no baseline / no change → show nothing
   const up = pct > 0;
   const good = higherIsBetter ? up : !up;
   const color = good ? "#16A34A" : "#DC2626";
@@ -494,7 +492,6 @@ const s = StyleSheet.create({
   periodNote: { color: "#A1A1AA", fontSize: 11.5, fontWeight: "600", marginBottom: 12, marginTop: -2 },
   trendRow: { flexDirection: "row", alignItems: "center", gap: 1 },
   trendText: { fontSize: 11, fontWeight: "800" },
-  trendFlat: { fontSize: 10.5, fontWeight: "600", color: "#A1A1AA" },
   gridRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
   bigTile: { flex: 1, borderRadius: 18, padding: 16, backgroundColor: "#fff", borderWidth: 1, borderColor: "#EEEEF0" },
   bigIcon: { position: "absolute", top: 15, right: 15 },

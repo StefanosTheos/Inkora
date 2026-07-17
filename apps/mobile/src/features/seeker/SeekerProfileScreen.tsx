@@ -8,6 +8,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ImageZoomModal } from "../../components/ImageZoomModal";
+import { Pager } from "../../components/Pager";
 import { ReviewPhotoStrip } from "../../components/ReviewPhotoStrip";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
@@ -187,21 +188,7 @@ export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { i
                   <Text style={s.reviewDate}>{fmtDate(r.createdAt)}</Text>
                 </Pressable>
               ))}
-              {totalPages > 1 ? (
-                <View style={s.pager}>
-                  <Pressable disabled={safePage === 0} onPress={() => setPage(safePage - 1)} hitSlop={6} style={[s.pagerBtn, safePage === 0 && s.pagerBtnOff]} accessibilityRole="button" accessibilityLabel="Previous page">
-                    <Ionicons name="chevron-back" size={18} color={safePage === 0 ? "#D4D4D8" : "#18181B"} />
-                  </Pressable>
-                  {Array.from({ length: totalPages }, (_, i) => (
-                    <Pressable key={i} onPress={() => setPage(i)} style={[s.pageNum, i === safePage && s.pageNumActive]} accessibilityRole="button" accessibilityLabel={`Page ${i + 1}`}>
-                      <Text style={[s.pageNumText, i === safePage && s.pageNumTextActive]}>{i + 1}</Text>
-                    </Pressable>
-                  ))}
-                  <Pressable disabled={safePage >= totalPages - 1} onPress={() => setPage(safePage + 1)} hitSlop={6} style={[s.pagerBtn, safePage >= totalPages - 1 && s.pagerBtnOff]} accessibilityRole="button" accessibilityLabel="Next page">
-                    <Ionicons name="chevron-forward" size={18} color={safePage >= totalPages - 1 ? "#D4D4D8" : "#18181B"} />
-                  </Pressable>
-                </View>
-              ) : null}
+              <Pager page={safePage} totalPages={totalPages} onChange={setPage} />
             </>
           )
         ) : (
@@ -313,21 +300,7 @@ function ClientReviewsSection({ reviews, loading, isOwn }: { reviews: ClientRevi
               <Text style={s.reviewDate}>{fmtDate(r.createdAt)}</Text>
             </View>
           ))}
-          {totalPages > 1 ? (
-            <View style={s.pager}>
-              <Pressable disabled={safePage === 0} onPress={() => setPage(safePage - 1)} hitSlop={6} style={[s.pagerBtn, safePage === 0 && s.pagerBtnOff]} accessibilityRole="button" accessibilityLabel="Previous page">
-                <Ionicons name="chevron-back" size={18} color={safePage === 0 ? "#D4D4D8" : "#18181B"} />
-              </Pressable>
-              {Array.from({ length: totalPages }, (_, i) => (
-                <Pressable key={i} onPress={() => setPage(i)} style={[s.pageNum, i === safePage && s.pageNumActive]} accessibilityRole="button" accessibilityLabel={`Page ${i + 1}`}>
-                  <Text style={[s.pageNumText, i === safePage && s.pageNumTextActive]}>{i + 1}</Text>
-                </Pressable>
-              ))}
-              <Pressable disabled={safePage >= totalPages - 1} onPress={() => setPage(safePage + 1)} hitSlop={6} style={[s.pagerBtn, safePage >= totalPages - 1 && s.pagerBtnOff]} accessibilityRole="button" accessibilityLabel="Next page">
-                <Ionicons name="chevron-forward" size={18} color={safePage >= totalPages - 1 ? "#D4D4D8" : "#18181B"} />
-              </Pressable>
-            </View>
-          ) : null}
+          <Pager page={safePage} totalPages={totalPages} onChange={setPage} />
         </>
       )}
     </>
@@ -410,11 +383,4 @@ const s = StyleSheet.create({
   reviewTitle: { fontWeight: "600", marginTop: 4 },
   reviewBody: { color: "#3F3F46", marginTop: 2 },
   reviewDate: { color: "#A1A1AA", fontSize: 12, marginTop: 6 },
-  pager: { flexDirection: "row", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 6, marginTop: 16 },
-  pagerBtn: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "#E4E4E7", alignItems: "center", justifyContent: "center" },
-  pagerBtnOff: { opacity: 0.4 },
-  pageNum: { minWidth: 34, height: 34, borderRadius: 17, paddingHorizontal: 10, alignItems: "center", justifyContent: "center", backgroundColor: "#F4F4F5" },
-  pageNumActive: { backgroundColor: "#18181B" },
-  pageNumText: { fontWeight: "700", color: "#52525B", fontSize: 14 },
-  pageNumTextActive: { color: "#fff" },
 });

@@ -2,26 +2,33 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 /** The page tokens to render: real page indices interspersed with "…" gaps.
- *  Windows around the current page so the control never grows past one row —
- *  first, last, current and its immediate neighbours, ellipsis for the rest.
- *  e.g. 0 … 8 9 10 … 19 (all 0-indexed). */
+ *  Keeps the control to a single row by showing at most four numbers — the
+ *  current page and the next one (low side) plus the last two pages (high side),
+ *  with an ellipsis bridging the gap. e.g. 5 6 … 19 20 (all 0-indexed).
+ *  Small page counts (≤4) are shown in full. */
 function pageWindow(page: number, total: number): (number | "dots")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i);
-  const first = 0;
   const last = total - 1;
-  const left = Math.max(first + 1, page - 1);
-  const right = Math.min(last - 1, page + 1);
-  const out: (number | "dots")[] = [first];
-  if (left > first + 1) out.push("dots");
-  for (let i = left; i <= right; i++) out.push(i);
-  if (right < last - 1) out.push("dots");
-  out.push(last);
+  if (total <= 4) return Array.from({ length: total }, (_, i) => i);
+  const set = new Set<number>();
+  set.add(page); // current
+  if (page + 1 <= last) set.add(page + 1); // next
+  set.add(last - 1); // second to last
+  set.add(last); // last
+  const nums = [...set].filter((n) => n >= 0 && n <= last).sort((a, b) => a - b);
+  const out: (number | "dots")[] = [];
+  let prev: number | null = null;
+  for (const n of nums) {
+    if (prev !== null && n - prev > 1) out.push("dots");
+    out.push(n);
+    prev = n;
+  }
   return out;
 }
 
 /** Numbered page control: ‹ prev · 1 2 3 · next ›. Renders nothing for a single
  *  page. `page` is 0-indexed. Arrows and numbers always stay on one row — the
- *  numbers window with ellipses once there are more than 7 pages. */
+ *  numbers window (current + next, then the last two) with an ellipsis once
+ *  there are more than 4 pages. */
 export function Pager({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
   if (totalPages <= 1) return null;
   const tokens = pageWindow(page, totalPages);
