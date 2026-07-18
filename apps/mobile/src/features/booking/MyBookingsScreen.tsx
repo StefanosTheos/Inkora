@@ -5,11 +5,13 @@ import {
 } from "@inkora/domain";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CountBadge } from "../../components/CountBadge";
+import { EmptyState } from "../../components/EmptyState";
 import { Pager } from "../../components/Pager";
+import { RowSkeleton } from "../../components/Skeleton";
 import { useBadgeCounts } from "../../lib/badges";
 import { scheduleAppointmentReminders } from "../../lib/notifications";
 import { useMarkAppointmentsSeen, useMarkCompletedSeen, useSeenAppointments, useSeenCompleted } from "../../lib/seen-appointments";
@@ -90,20 +92,20 @@ export function MyBookingsScreen() {
 
       <ScrollView contentContainerStyle={s.body}>
         {tab === "upcoming" ? (
-          apptsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
-          upcomingAppts.length === 0 ? <Empty icon="calendar-outline" text="No upcoming appointments. When an artist’s offer is accepted, it shows up here." /> :
+          apptsQ.isLoading ? <ListSkeleton /> :
+          upcomingAppts.length === 0 ? <EmptyState icon="calendar-outline" title="No upcoming appointments" message="When an artist accepts your offer, the booking shows up here." actionLabel="Find an artist" onAction={() => router.push("/discover")} /> :
           paged(upcomingAppts).map((a) => <AppointmentCard key={a.id} appt={a} unread={!seenApptSet.has(a.id)} onPress={() => { markApptsSeen([a.id]); router.push(`/booking/${a.id}`); }} />)
         ) : tab === "completed" ? (
-          apptsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
-          completedAppts.length === 0 ? <Empty icon="checkmark-done-outline" text="No completed bookings yet. Finished sessions move here." /> :
+          apptsQ.isLoading ? <ListSkeleton /> :
+          completedAppts.length === 0 ? <EmptyState icon="checkmark-done-outline" title="No completed bookings yet" message="Finished sessions move here — where you can leave a review." /> :
           paged(completedAppts).map((a) => <AppointmentCard key={a.id} appt={a} unread={!seenCompletedSet.has(a.id)} onPress={() => { markCompletedSeen([a.id]); router.push(`/booking/${a.id}`); }} />)
         ) : tab === "archive" ? (
-          apptsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
-          archivedAppts.length === 0 ? <Empty icon="archive-outline" text="Nothing archived. Cancelled bookings and no-shows land here." /> :
+          apptsQ.isLoading ? <ListSkeleton /> :
+          archivedAppts.length === 0 ? <EmptyState icon="archive-outline" title="Nothing archived" message="Cancelled bookings and no-shows land here." /> :
           paged(archivedAppts).map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
         ) : (
-          reqsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
-          openRequests.length === 0 ? <Empty icon="paper-plane-outline" text="No open requests. Find an artist and tap “Request booking” to get started." /> :
+          reqsQ.isLoading ? <ListSkeleton /> :
+          openRequests.length === 0 ? <EmptyState icon="paper-plane-outline" title="No open requests" message="Find an artist and tap “Request booking” to get started." actionLabel="Find an artist" onAction={() => router.push("/discover")} /> :
           paged(openRequests).map((r) => (
             <RequestCard
               key={r.id}
@@ -168,13 +170,8 @@ export function RequestCard({ req, onPress, unread = false }: { req: Appointment
   );
 }
 
-function Empty({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
-  return (
-    <View style={s.emptyWrap}>
-      <Ionicons name={icon} size={40} color="#D4D4D8" />
-      <Text style={s.empty}>{text}</Text>
-    </View>
-  );
+function ListSkeleton() {
+  return <View style={{ paddingTop: 4 }}>{Array.from({ length: 5 }).map((_, i) => <RowSkeleton key={i} />)}</View>;
 }
 
 const s = StyleSheet.create({
@@ -198,6 +195,4 @@ const s = StyleSheet.create({
   cardStudio: { color: "#E5484D", fontSize: 12, fontWeight: "700", marginTop: 2 },
   cardSub: { color: "#71717A", fontSize: 13, marginTop: 2 },
   cardPrice: { color: "#E5484D", fontWeight: "700", fontSize: 13, marginTop: 2 },
-  emptyWrap: { alignItems: "center", marginTop: 56, paddingHorizontal: 32, gap: 12 },
-  empty: { textAlign: "center", color: "#A1A1AA", lineHeight: 20 },
 });

@@ -11,7 +11,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { EmptyState } from "../../components/EmptyState";
 import { SetLocationSheet } from "../../components/SetLocationSheet";
+import { RowSkeleton, TileGridSkeleton } from "../../components/Skeleton";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { IdeaTile } from "../home/components";
@@ -216,8 +218,8 @@ export function DiscoverScreen() {
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             ideaFeed.isLoading
-              ? <ActivityIndicator style={{ marginTop: 32 }} />
-              : <Text style={s.empty}>No designs match your search.</Text>
+              ? <TileGridSkeleton />
+              : <EmptyState icon="images-outline" title="No designs found" message={q ? "Try a different search or fewer style filters." : "Try a different style filter."} compact />
           }
           ListFooterComponent={ideaFeed.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
         />
@@ -248,9 +250,14 @@ export function DiscoverScreen() {
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
             search.isLoading ? (
-              <ActivityIndicator style={{ marginTop: 32 }} />
+              <View style={{ paddingTop: 4 }}>{Array.from({ length: 6 }).map((_, i) => <RowSkeleton key={i} />)}</View>
             ) : (
-              <Text style={s.empty}>{isStudios ? "No studios match your search." : "No artists match your search."}</Text>
+              <EmptyState
+                icon={isStudios ? "business-outline" : "person-outline"}
+                title={isStudios ? "No studios found" : "No artists found"}
+                message={q ? "Try a different search, or widen your filters." : "Try adjusting your filters."}
+                compact
+              />
             )
           }
           ListFooterComponent={search.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
@@ -305,5 +312,4 @@ const s = StyleSheet.create({
   filterBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: "#E4E4E7" },
   filterBtnActive: { backgroundColor: "#E5484D", borderColor: "#E5484D" },
   filterText: { fontWeight: "700", fontSize: 13, color: "#18181B" },
-  empty: { textAlign: "center", color: "#A1A1AA", marginTop: 32, paddingHorizontal: 24 },
 });

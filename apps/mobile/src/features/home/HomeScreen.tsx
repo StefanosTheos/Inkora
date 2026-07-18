@@ -10,7 +10,9 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { EmptyState } from "../../components/EmptyState";
 import { SetLocationSheet } from "../../components/SetLocationSheet";
+import { RailSkeleton, TileGridSkeleton } from "../../components/Skeleton";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { NotificationBell } from "../notifications/NotificationBell";
@@ -100,7 +102,7 @@ export function HomeScreen() {
       <View>
         <SectionHeader title={title} onSeeAll={() => goDiscover(seeAllParams)} />
         {q.isLoading ? (
-          <ActivityIndicator style={s.rowLoader} />
+          <RailSkeleton />
         ) : (
           <FlatList
             horizontal
@@ -255,11 +257,11 @@ export function HomeScreen() {
         refreshControl={<RefreshControl refreshing={feed.isRefetching} onRefresh={onRefresh} />}
         ListEmptyComponent={
           feed.isLoading ? (
-            <ActivityIndicator style={{ marginTop: 24 }} />
+            <TileGridSkeleton />
+          ) : filtersActive ? (
+            <EmptyState icon="options-outline" title="No ideas match these filters" message="Try removing a style to see more." actionLabel="Clear filters" onAction={() => setExploreStyles([])} compact />
           ) : (
-            <Text style={s.empty}>
-              {filtersActive ? "No ideas match these filters. Try clearing them." : "No inspiration yet — check back soon."}
-            </Text>
+            <EmptyState icon="images-outline" title="No inspiration yet" message="Check back soon — new designs land here." compact />
           )
         }
         ListFooterComponent={feed.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
@@ -295,8 +297,6 @@ const s = StyleSheet.create({
   topbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 4, paddingBottom: 6 },
   brand: { fontSize: 24, fontWeight: "900", color: "#E5484D", letterSpacing: -0.5 },
   rowPad: { paddingRight: 12 },
-  rowLoader: { alignSelf: "flex-start", marginLeft: 24, marginVertical: 12 },
-  empty: { textAlign: "center", color: "#A1A1AA", marginTop: 24, paddingHorizontal: 24 },
   exploreControls: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12, paddingBottom: 10 },
   sortSeg: { flexDirection: "row", backgroundColor: "#F4F4F5", borderRadius: 999, padding: 3 },
   sortSegBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999 },

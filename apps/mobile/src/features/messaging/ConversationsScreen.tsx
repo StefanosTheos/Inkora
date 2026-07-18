@@ -5,10 +5,12 @@ import { FlashList } from "@shopify/flash-list";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
+import { EmptyState } from "../../components/EmptyState";
+import { RowSkeleton } from "../../components/Skeleton";
 import { useToast } from "../../components/Toast";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
@@ -51,8 +53,16 @@ export function ConversationsScreen() {
         keyExtractor={(c) => c.id}
         renderItem={({ item }) => <Row conv={item} onPress={() => router.push(`/chats/${item.id}`)} onDelete={() => void onDelete(item)} />}
         ListEmptyComponent={
-          convs.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> : (
-            <Text style={s.empty}>No conversations yet. Message a client/artist to start one.</Text>
+          convs.isLoading ? (
+            <View style={{ paddingTop: 8 }}>{Array.from({ length: 7 }).map((_, i) => <RowSkeleton key={i} />)}</View>
+          ) : (
+            <EmptyState
+              icon="chatbubbles-outline"
+              title="No conversations yet"
+              message="Message an artist or studio, and your chats will show up here."
+              actionLabel="Find an artist"
+              onAction={() => router.push("/discover")}
+            />
           )
         }
       />
@@ -101,5 +111,4 @@ const s = StyleSheet.create({
   rightCol: { alignItems: "flex-end", gap: 6 },
   time: { color: "#A1A1AA", fontSize: 12 },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#E5484D" },
-  empty: { textAlign: "center", color: "#A1A1AA", marginTop: 40, paddingHorizontal: 24 },
 });
