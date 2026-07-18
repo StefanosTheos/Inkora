@@ -59,8 +59,16 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
   const [text, setText] = useState("");
   const [showActions, setShowActions] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [recElapsed, setRecElapsed] = useState(0);
   const recStart = useRef(0);
   const lastTyping = useRef(0);
+
+  // Tick the elapsed-time readout while recording.
+  useEffect(() => {
+    if (!recording) return;
+    const t = setInterval(() => setRecElapsed(Date.now() - recStart.current), 250);
+    return () => clearInterval(t);
+  }, [recording]);
 
   const data = useMemo(() => [...chat.messages].reverse(), [chat.messages]); // newest-first for inverted list
   const lastMineId = useMemo(() => data.find((m) => m.senderId === meId)?.id, [data, meId]);
@@ -105,6 +113,7 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
     await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
     const { recording: rec } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
     recStart.current = Date.now();
+    setRecElapsed(0);
     setRecording(rec);
   }
   async function stopRecording() {
@@ -113,7 +122,8 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
     await recording.stopAndUnloadAsync();
     const uri = recording.getURI();
     setRecording(null);
-    if (!uri) return;
+    // Too short to be intentional — treat as a cancel rather than sending a blip.
+    if (!uri || durationMs < 800) return;
     try {
       const buf = await (await fetch(uri)).arrayBuffer();
       const path = await uploadChatFile(supabase, conversationId, buf, "audio/m4a", "m4a");
@@ -121,6 +131,12 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
     } catch (e) {
       toast.show((e as Error).message, "error");
     }
+  }
+  // Discard the in-progress recording without sending it.
+  async function cancelRecording() {
+    if (!recording) return;
+    setRecording(null);
+    try { await recording.stopAndUnloadAsync(); } catch { /* already stopped */ }
   }
 
   return (
@@ -161,6 +177,11 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
             <Bubble message={item} mine={item.senderId === meId} isLastMine={item.id === lastMineId} seen={seen} />
           )}
           ListHeaderComponent={chat.typingOther ? <View style={s.typing}><Text style={s.typingText}>typing…</Text></View> : null}
+          // Inverted list: reaching the "end" = scrolling up to the oldest loaded
+          // message → page in older history. Footer (visual top) shows the spinner.
+          onEndReached={() => { void chat.loadEarlier(); }}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={chat.loadingEarlier ? <ActivityIndicator style={{ marginVertical: 12 }} /> : null}
         />
       )}
 
@@ -176,17 +197,34 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
       )}
 
       <View style={[s.composer, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-        {!isStudio ? (
-          <Pressable onPress={() => setShowActions((v) => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel="More actions"><Ionicons name="add-circle-outline" size={26} color="#71717A" /></Pressable>
-        ) : null}
-        <Pressable onPress={pickImage} hitSlop={8} accessibilityRole="button" accessibilityLabel="Attach photo"><Ionicons name="image-outline" size={24} color="#71717A" /></Pressable>
-        <TextInput style={s.input} placeholder={recording ? "Recording…" : "Message"} value={text} onChangeText={onChange} multiline editable={!recording} />
-        {text.trim().length > 0 ? (
-          <Pressable onPress={onSend} hitSlop={8} accessibilityRole="button" accessibilityLabel="Send message"><Ionicons name="send" size={22} color="#E5484D" /></Pressable>
+        {recording ? (
+          <>
+            <Pressable onPress={() => void cancelRecording()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel recording">
+              <Ionicons name="trash-outline" size={24} color="#E5484D" />
+            </Pressable>
+            <View style={s.recBar}>
+              <View style={s.recDot} />
+              <Text style={s.recText}>Recording… {mmss(recElapsed)}</Text>
+            </View>
+            <Pressable onPress={() => void stopRecording()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Send voice message">
+              <Ionicons name="send" size={22} color="#E5484D" />
+            </Pressable>
+          </>
         ) : (
-          <Pressable onPress={recording ? stopRecording : startRecording} hitSlop={8} accessibilityRole="button" accessibilityLabel={recording ? "Stop recording" : "Record voice message"}>
-            <Ionicons name={recording ? "stop-circle" : "mic"} size={26} color={recording ? "#E5484D" : "#71717A"} />
-          </Pressable>
+          <>
+            {!isStudio ? (
+              <Pressable onPress={() => setShowActions((v) => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel="More actions"><Ionicons name="add-circle-outline" size={26} color="#71717A" /></Pressable>
+            ) : null}
+            <Pressable onPress={pickImage} hitSlop={8} accessibilityRole="button" accessibilityLabel="Attach photo"><Ionicons name="image-outline" size={24} color="#71717A" /></Pressable>
+            <TextInput style={s.input} placeholder="Message" value={text} onChangeText={onChange} multiline />
+            {text.trim().length > 0 ? (
+              <Pressable onPress={onSend} hitSlop={8} accessibilityRole="button" accessibilityLabel="Send message"><Ionicons name="send" size={22} color="#E5484D" /></Pressable>
+            ) : (
+              <Pressable onPress={() => void startRecording()} hitSlop={8} accessibilityRole="button" accessibilityLabel="Record voice message">
+                <Ionicons name="mic" size={26} color="#71717A" />
+              </Pressable>
+            )}
+          </>
         )}
       </View>
     </KeyboardAvoidingView>
@@ -728,4 +766,7 @@ const s = StyleSheet.create({
   actionText: { fontWeight: "600", fontSize: 13 },
   composer: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#F4F4F5" },
   input: { flex: 1, maxHeight: 100, backgroundColor: "#F4F4F5", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15 },
+  recBar: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF2F2", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 11 },
+  recDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#E5484D" },
+  recText: { color: "#B91C1C", fontWeight: "700", fontSize: 14, fontVariant: ["tabular-nums"] },
 });

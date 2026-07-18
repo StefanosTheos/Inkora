@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { deleteConversation, publicStorageUrl, useConversations } from "@inkora/data-access";
 import { type ConversationSummary, timeAgo } from "@inkora/domain";
 import { FlashList } from "@shopify/flash-list";
@@ -48,7 +49,7 @@ export function ConversationsScreen() {
         data={convs.data ?? []}
         estimatedItemSize={72}
         keyExtractor={(c) => c.id}
-        renderItem={({ item }) => <Row conv={item} onPress={() => router.push(`/chats/${item.id}`)} onLongPress={() => void onDelete(item)} />}
+        renderItem={({ item }) => <Row conv={item} onPress={() => router.push(`/chats/${item.id}`)} onDelete={() => void onDelete(item)} />}
         ListEmptyComponent={
           convs.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> : (
             <Text style={s.empty}>No conversations yet. Message a client/artist to start one.</Text>
@@ -59,30 +60,37 @@ export function ConversationsScreen() {
   );
 }
 
-function Row({ conv, onPress, onLongPress }: { conv: ConversationSummary; onPress: () => void; onLongPress: () => void }) {
+function Row({ conv, onPress, onDelete }: { conv: ConversationSummary; onPress: () => void; onDelete: () => void }) {
   return (
-    <Pressable style={s.row} onPress={onPress} onLongPress={onLongPress} delayLongPress={350} accessibilityHint="Long-press to delete this chat">
-      <View style={s.avatar}>
-        {img(conv.otherAvatarPath) ? <Image source={{ uri: img(conv.otherAvatarPath) }} style={s.avatarImg} contentFit="cover" /> : (
-          <Text style={s.avatarInitial}>{conv.otherName.charAt(0).toUpperCase()}</Text>
-        )}
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[s.name, conv.unread && s.unreadName]} numberOfLines={1}>{conv.otherName}</Text>
-        <Text style={[s.preview, conv.unread && s.unreadPreview]} numberOfLines={1}>{conv.lastMessagePreview ?? "No messages yet"}</Text>
-      </View>
-      <View style={s.rightCol}>
-        <Text style={s.time}>{timeAgo(conv.lastMessageAt)}</Text>
-        {conv.unread && <View style={s.dot} />}
-      </View>
-    </Pressable>
+    <View style={s.row}>
+      <Pressable style={s.rowMain} onPress={onPress} onLongPress={onDelete} delayLongPress={350} accessibilityHint="Long-press or use the trash button to delete this chat">
+        <View style={s.avatar}>
+          {img(conv.otherAvatarPath) ? <Image source={{ uri: img(conv.otherAvatarPath) }} style={s.avatarImg} contentFit="cover" /> : (
+            <Text style={s.avatarInitial}>{conv.otherName.charAt(0).toUpperCase()}</Text>
+          )}
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.name, conv.unread && s.unreadName]} numberOfLines={1}>{conv.otherName}</Text>
+          <Text style={[s.preview, conv.unread && s.unreadPreview]} numberOfLines={1}>{conv.lastMessagePreview ?? "No messages yet"}</Text>
+        </View>
+        <View style={s.rightCol}>
+          <Text style={s.time}>{timeAgo(conv.lastMessageAt)}</Text>
+          {conv.unread && <View style={s.dot} />}
+        </View>
+      </Pressable>
+      <Pressable onPress={onDelete} hitSlop={8} style={s.trash} accessibilityRole="button" accessibilityLabel={`Delete chat with ${conv.otherName}`}>
+        <Ionicons name="trash-outline" size={20} color="#C4C4C8" />
+      </Pressable>
+    </View>
   );
 }
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   title: { fontSize: 28, fontWeight: "800", paddingHorizontal: 16, paddingVertical: 8 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
+  row: { flexDirection: "row", alignItems: "center", paddingRight: 8 },
+  rowMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingVertical: 10 },
+  trash: { padding: 10 },
   avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#1F1B2E", alignItems: "center", justifyContent: "center", overflow: "hidden" },
   avatarImg: { width: "100%", height: "100%" },
   avatarInitial: { color: "#fff", fontSize: 22, fontWeight: "800" },

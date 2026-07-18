@@ -82,17 +82,28 @@ export async function listConversations(client: InkoraClient): Promise<Conversat
 }
 
 // ------------------------------------------------------------------ messages
-export async function getMessages(client: InkoraClient, conversationId: string): Promise<Message[]> {
-  const { data, error } = await client
+export const MESSAGE_PAGE = 40;
+
+/** Fetch a page of messages, newest-first internally then returned oldest→newest
+ *  for display. Without a cursor it returns the most recent page; pass `before`
+ *  (a message's created_at) to page backwards into the history ("load earlier").
+ *  This replaces the old fixed 200-cap that silently hid a long chat's history. */
+export async function getMessages(
+  client: InkoraClient,
+  conversationId: string,
+  opts?: { before?: string; limit?: number },
+): Promise<Message[]> {
+  let q = client
     .from("messages")
     .select("id, conversation_id, sender_id, type, body, attachments, metadata, created_at")
     .eq("conversation_id", conversationId)
     .is("deleted_at", null)
-    .order("created_at", { ascending: true })
-    .limit(200)
-    .returns<MsgRow[]>();
+    .order("created_at", { ascending: false })
+    .limit(opts?.limit ?? MESSAGE_PAGE);
+  if (opts?.before) q = q.lt("created_at", opts.before);
+  const { data, error } = await q.returns<MsgRow[]>();
   if (error) throw toAppError(error);
-  return (data ?? []).map(mapMessage);
+  return (data ?? []).map(mapMessage).reverse(); // oldest→newest for the list
 }
 
 interface SendFields {
@@ -181,9 +192,20 @@ export async function uploadChatFile(
   return path;
 }
 
+// Cache signed URLs by path so a chat image/voice note that re-mounts (FlatList
+// recycling, re-render) reuses the SAME url instead of minting a new one each
+// time — a changing uri made expo-image reload and flicker. Reused while >1 min
+// of the TTL remains.
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
 export async function getChatSignedUrl(client: InkoraClient, path: string, ttlSeconds = 3600): Promise<string | null> {
+  const now = Date.now();
+  const hit = signedUrlCache.get(path);
+  if (hit && hit.expiresAt > now + 60_000) return hit.url;
   const { data } = await client.storage.from(BUCKET).createSignedUrl(path, ttlSeconds);
-  return data?.signedUrl ?? null;
+  const url = data?.signedUrl ?? null;
+  if (url) signedUrlCache.set(path, { url, expiresAt: now + ttlSeconds * 1000 });
+  return url;
 }
 
 // ------------------------------------------------------------------ hooks
@@ -198,8 +220,39 @@ export function useChat(client: InkoraClient, conversationId: string, meId: stri
   const messagesQ = useQuery({ queryKey: key, queryFn: () => getMessages(client, conversationId), enabled: !!conversationId });
   const [typingOther, setTypingOther] = useState(false);
   const [otherReadAt, setOtherReadAt] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initedRef = useRef<string | null>(null);
+
+  // Whether a full first page came back → there may be older messages to page in.
+  // Set once per conversation so realtime appends don't reset it.
+  useEffect(() => {
+    if (!messagesQ.data || initedRef.current === conversationId) return;
+    initedRef.current = conversationId;
+    setHasMore(messagesQ.data.length >= MESSAGE_PAGE);
+  }, [messagesQ.data, conversationId]);
+
+  const loadEarlier = useCallback(async () => {
+    if (loadingEarlier || !hasMore || !conversationId) return;
+    const current = qc.getQueryData<Message[]>(key) ?? [];
+    const earliest = current[0];
+    if (!earliest) return;
+    setLoadingEarlier(true);
+    try {
+      const older = await getMessages(client, conversationId, { before: earliest.createdAt });
+      if (older.length < MESSAGE_PAGE) setHasMore(false);
+      if (older.length > 0) {
+        qc.setQueryData<Message[]>(key, (old = []) => {
+          const seen = new Set(old.map((x) => x.id));
+          return [...older.filter((x) => !seen.has(x.id)), ...old];
+        });
+      }
+    } finally {
+      setLoadingEarlier(false);
+    }
+  }, [client, conversationId, hasMore, loadingEarlier, qc]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const append = useCallback(
     (m: Message) => {
@@ -257,6 +310,9 @@ export function useChat(client: InkoraClient, conversationId: string, meId: stri
     isLoading: messagesQ.isLoading,
     typingOther,
     otherReadAt,
+    hasMore,
+    loadingEarlier,
+    loadEarlier,
     sendText: (body: string) => send(() => sendMessage(client, conversationId, meId!, { type: "text", body })),
     sendImage: (path: string) => send(() => sendMessage(client, conversationId, meId!, { type: "image", body: "📷 Photo", attachments: [{ path }] })),
     sendVoice: (path: string, durationMs: number) =>
