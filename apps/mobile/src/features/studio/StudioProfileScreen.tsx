@@ -56,8 +56,13 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
 
   const roster = st.roster ?? [];
   const styles = st.styles ?? [];
-  const avgRating = roster.length
-    ? roster.reduce((sum, r) => sum + r.ratingAvg * (r.ratingCount || 1), 0) / roster.reduce((sum, r) => sum + (r.ratingCount || 1), 0)
+  // Studio rating = the studio's own published reviews (per-appointment reviews
+  // of work done here), matching the dashboard hero and the Reviews tab — not a
+  // roster-weighted average of each artist's global rating.
+  const studioReviews = reviews.data ?? [];
+  const ratingCount = studioReviews.length;
+  const avgRating = ratingCount
+    ? studioReviews.reduce((sum, r) => sum + r.overallRating, 0) / ratingCount
     : 0;
   const openDirections = () =>
     Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${st.latitude},${st.longitude}`);
@@ -146,7 +151,7 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
           </View>
           <Text style={s.name} accessibilityRole="header">{st.name}</Text>
           <Text style={s.meta}>
-            {avgRating > 0 ? `★ ${avgRating.toFixed(1)} · ` : ""}{roster.length} artist{roster.length === 1 ? "" : "s"}
+            {avgRating > 0 ? `★ ${avgRating.toFixed(1)} (${ratingCount}) · ` : ""}{roster.length} artist{roster.length === 1 ? "" : "s"}
             {st.city ? ` · ${st.city}` : ""}
           </Text>
           <Text style={s.address}>{[st.addressLine, st.city, st.country].filter(Boolean).join(", ") || "—"}</Text>
