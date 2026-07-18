@@ -401,7 +401,10 @@ function HeroStat({ text, label, trend }: { text: string; label: string; trend?:
     <View style={s.heroStat} accessible accessibilityLabel={`${text} ${label}`}>
       <Text style={s.heroValue}>{text}</Text>
       <Text style={s.heroLabel}>{label}</Text>
-      {trend ? <View style={{ marginTop: 3 }}>{trend}</View> : null}
+      {/* Always reserve the trend row's height so all three columns stay the
+          same height and their value/label rows line up — with or without a
+          percentage under any one of them. */}
+      <View style={s.heroTrend}>{trend}</View>
     </View>
   );
 }
@@ -537,11 +540,12 @@ const s = StyleSheet.create({
   sheetBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 15, borderRadius: 14, backgroundColor: "#F4F4F5" },
   sheetBtnText: { fontWeight: "700", fontSize: 15, color: "#18181B" },
   sheetCancel: { backgroundColor: "#fff", marginTop: 4 },
-  hero: { flexDirection: "row", alignItems: "center", backgroundColor: "#18181B", borderRadius: 22, paddingVertical: 22, paddingHorizontal: 8, overflow: "hidden", marginBottom: 10 },
+  hero: { flexDirection: "row", alignItems: "center", backgroundColor: "#18181B", borderRadius: 22, paddingTop: 33, paddingBottom: 16, paddingHorizontal: 8, overflow: "hidden", marginBottom: 10 },
   heroBloom: { position: "absolute", top: -44, right: -24, width: 160, height: 160, borderRadius: 80, backgroundColor: "#E5484D", opacity: 0.22 },
   heroStat: { flex: 1, alignItems: "center" },
   heroValue: { color: "#fff", fontSize: 28, fontWeight: "900" },
   heroLabel: { color: "#A1A1AA", fontSize: 12, fontWeight: "600", marginTop: 5, letterSpacing: 0.2 },
+  heroTrend: { height: 16, marginTop: 3, alignItems: "center", justifyContent: "center" },
   heroDivider: { width: 1, height: 36, backgroundColor: "rgba(255,255,255,0.12)" },
   periodSeg: { flexDirection: "row", backgroundColor: "#F4F4F5", borderRadius: 999, padding: 3, marginBottom: 12 },
   periodBtn: { flex: 1, paddingVertical: 7, borderRadius: 999, alignItems: "center" },
