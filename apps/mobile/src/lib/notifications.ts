@@ -103,29 +103,53 @@ const REMINDER_OFFSETS = [
   { hours: 2, label: "in 2 hours" },
 ];
 
+/** Stable per-(appointment, offset) identifier so reminders can be reconciled
+ *  individually — never a blanket "cancel everything". */
+const reminderId = (appointmentId: string, hours: number) => `appt-reminder-${appointmentId}-${hours}h`;
+
 /**
- * Re-schedule local reminders for all upcoming scheduled appointments.
- * Clears previously scheduled reminders first so it's idempotent per refresh.
+ * Reconcile local reminders (24h + 2h before) for the given appointments,
+ * keyed by a stable identifier per appointment. For each one it cancels any
+ * prior reminder and re-creates it only if the appointment is still active and
+ * the fire time is in the future — so a reschedule moves the reminder and a
+ * cancellation removes it, on the next data refresh.
+ *
+ * Scoped by identifier: it never touches unrelated local notifications, and
+ * calling it from multiple screens is idempotent (they converge on the same set
+ * instead of wiping each other). Silent when notification permission isn't
+ * already granted — it never prompts (push/reminders are opt-in elsewhere).
  */
 export async function scheduleAppointmentReminders(appointments: AppointmentView[]): Promise<void> {
   try {
-    if (!(await ensureNotificationPermissions())) return;
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    const perm = await Notifications.getPermissionsAsync();
+    if (!perm.granted) return; // don't prompt from here
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("reminders", {
+        name: "Appointment reminders",
+        importance: Notifications.AndroidImportance.HIGH,
+      });
+    }
     const now = Date.now();
     for (const appt of appointments) {
-      if (appt.status !== "scheduled" && appt.status !== "rescheduled") continue;
+      const active = appt.status === "scheduled" || appt.status === "rescheduled";
       const start = new Date(appt.scheduledStart).getTime();
       for (const off of REMINDER_OFFSETS) {
+        const id = reminderId(appt.id, off.hours);
+        // Clear this appointment's prior reminder (no-op if none), then re-create
+        // if still wanted — handles reschedule (moves it) and cancel (drops it).
+        await Notifications.cancelScheduledNotificationAsync(id);
         const fireAt = start - off.hours * 3600_000;
-        if (fireAt <= now) continue;
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: `Tattoo appointment ${off.label}`,
-            body: `with ${appt.counterparty.name}`,
-            data: { appointmentId: appt.id },
-          },
-          trigger: { date: new Date(fireAt), channelId: "reminders" },
-        });
+        if (active && fireAt > now) {
+          await Notifications.scheduleNotificationAsync({
+            identifier: id,
+            content: {
+              title: `Tattoo appointment ${off.label}`,
+              body: `with ${appt.counterparty.name}`,
+              data: { appointmentId: appt.id, kind: "appt_reminder" },
+            },
+            trigger: { date: new Date(fireAt), channelId: "reminders" },
+          });
+        }
       }
     }
   } catch {
