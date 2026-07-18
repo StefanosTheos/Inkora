@@ -436,10 +436,14 @@ function periodRanges(period: StatsPeriod): { curStart: string; curEnd: string; 
   let curStart: Date;
   let prevStart: Date;
   let prevEnd: Date;
-  if (period === "30d") {
-    curStart = new Date(now.getTime() - 30 * 86_400_000);
-    prevEnd = curStart;
-    prevStart = new Date(curStart.getTime() - 30 * 86_400_000);
+  if (period === "wtd") {
+    // Week-to-date, weeks starting Monday; prior window is the same elapsed
+    // span of last week, for a like-for-like comparison (as MTD/YTD do).
+    const daysSinceMonday = (now.getDay() + 6) % 7;
+    curStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday);
+    const elapsed = now.getTime() - curStart.getTime();
+    prevStart = new Date(curStart.getTime() - 7 * 86_400_000);
+    prevEnd = new Date(prevStart.getTime() + elapsed);
   } else if (period === "mtd") {
     curStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const elapsed = now.getTime() - curStart.getTime();

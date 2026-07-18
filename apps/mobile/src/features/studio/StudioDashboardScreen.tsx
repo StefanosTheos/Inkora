@@ -67,7 +67,7 @@ export function StudioDashboardScreen() {
   const [suspendReason, setSuspendReason] = useState("");
   const [rosterPage, setRosterPage] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
-  const [period, setPeriod] = useState<StatsPeriod>("30d");
+  const [period, setPeriod] = useState<StatsPeriod>("wtd");
   const scrollRef = useRef<ScrollView>(null);
   const rosterAnchor = useRef<View>(null);
   const studioQ = useMyStudio(supabase, meId);
@@ -177,7 +177,7 @@ export function StudioDashboardScreen() {
         {/* Period selector — scopes the activity metrics (revenue, completed,
             cancelled, visits); current-state metrics stay all-time. */}
         <View style={s.periodSeg}>
-          {(["30d", "mtd", "ytd"] as const).map((p) => (
+          {(["wtd", "mtd", "ytd"] as const).map((p) => (
             <Pressable
               key={p}
               style={[s.periodBtn, period === p && s.periodBtnActive]}

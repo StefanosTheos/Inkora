@@ -69,10 +69,10 @@ export interface StudioOverview {
 }
 
 /** Time window for the studio dashboard's activity metrics. */
-export type StatsPeriod = "30d" | "mtd" | "ytd";
+export type StatsPeriod = "wtd" | "mtd" | "ytd";
 
 export const STATS_PERIOD_LABEL: Record<StatsPeriod, string> = {
-  "30d": "30 days",
+  wtd: "This week",
   mtd: "This month",
   ytd: "This year",
 };
