@@ -99,6 +99,8 @@ function RoleChoice({ onSeeker, onComplete }: { onSeeker: () => void; onComplete
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [headline, setHeadline] = useState("");
+  const [artistCity, setArtistCity] = useState("");
+  const [artistCountry, setArtistCountry] = useState("");
   const [studioName, setStudioName] = useState("");
   const [studioCity, setStudioCity] = useState("");
   const [studioCountry, setStudioCountry] = useState("");
@@ -107,9 +109,16 @@ function RoleChoice({ onSeeker, onComplete }: { onSeeker: () => void; onComplete
   const [expanded, setExpanded] = useState<"artist" | "studio" | null>(null);
 
   async function onArtist() {
+    const city = artistCity.trim();
+    // Capture a location up front so the artist is discoverable by distance
+    // immediately — previously they had no city/coords until a manual edit.
+    if (!city) { toast.show("Enter your city so clients can find you", "error"); return; }
     setBusy(true);
     const res = await becomeArtist(supabase, headline.trim() || undefined);
     if (!res.ok) { setBusy(false); toast.show(res.error.message, "error"); return; }
+    const loc = await updateProfileLocation(supabase, city, artistCountry.trim() || undefined); // geocodes "city, country"
+    if (!loc.ok) { setBusy(false); toast.show(loc.error.message, "error"); return; }
+    if (!loc.value) { setBusy(false); toast.show("Couldn't locate that city — try adding the country.", "error"); return; }
     // Mark onboarded (no style prefs needed for artists), then re-mint the session.
     const fin = await finish.mutateAsync({});
     if (!fin.ok) { setBusy(false); toast.show(fin.error.message, "error"); return; }
@@ -165,6 +174,24 @@ function RoleChoice({ onSeeker, onComplete }: { onSeeker: () => void; onComplete
               value={headline}
               onChangeText={setHeadline}
               accessibilityLabel="Artist headline"
+            />
+            <Text style={s.roleFieldLabel}>City</Text>
+            <TextInput
+              style={s.headlineInput}
+              placeholder="e.g. Berlin"
+              value={artistCity}
+              onChangeText={setArtistCity}
+              autoCapitalize="words"
+              accessibilityLabel="Artist city"
+            />
+            <Text style={s.roleFieldLabel}>Country (improves the map location)</Text>
+            <TextInput
+              style={s.headlineInput}
+              placeholder="e.g. Germany"
+              value={artistCountry}
+              onChangeText={setArtistCountry}
+              autoCapitalize="words"
+              accessibilityLabel="Artist country"
             />
             <Pressable style={s.roleBtn} onPress={onArtist} disabled={busy} accessibilityRole="button" accessibilityLabel="Continue as artist">
               {busy ? <ActivityIndicator color="#fff" /> : <Text style={s.roleBtnText}>Continue as artist</Text>}
