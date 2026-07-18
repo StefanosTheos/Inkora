@@ -114,7 +114,11 @@ export function ArtistDashboardScreen() {
         </View>
 
         {/* Reviews */}
-        <SectionHeader title="Recent reviews" />
+        <SectionHeader
+          title="Recent reviews"
+          onSeeAll={(reviews.data ?? []).length > 3 ? () => router.push(`/artist/${meId}?tab=reviews`) : undefined}
+          seeAllLabel={`See all (${reviews.data?.length ?? 0})`}
+        />
         {reviews.isLoading ? (
           <ActivityIndicator style={{ marginTop: 12 }} />
         ) : (reviews.data ?? []).length === 0 ? (

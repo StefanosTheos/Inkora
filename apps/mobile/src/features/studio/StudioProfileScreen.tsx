@@ -12,6 +12,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, Vi
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
+import { Pager } from "../../components/Pager";
 import { RatingDistribution } from "../../components/RatingDistribution";
 import { ReviewPhotoStrip } from "../../components/ReviewPhotoStrip";
 import { ReviewReply } from "../../components/ReviewReply";
@@ -349,14 +350,21 @@ function PortfolioGrid({ images, loading }: { images: PortfolioImage[]; loading:
   );
 }
 
+const REVIEWS_PAGE_SIZE = 3;
+
 function Reviews({ items, loading, canReply, onReplied }: { items: ReviewItem[]; loading: boolean; canReply: boolean; onReplied: () => void }) {
   const router = useRouter();
+  const [page, setPage] = useState(0);
   if (loading) return <ActivityIndicator />;
   if (items.length === 0) return <Text style={s.muted}>No reviews yet.</Text>;
+  // Distribution summarises ALL reviews; the list itself paginates.
+  const totalPages = Math.max(1, Math.ceil(items.length / REVIEWS_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageReviews = items.slice(safePage * REVIEWS_PAGE_SIZE, safePage * REVIEWS_PAGE_SIZE + REVIEWS_PAGE_SIZE);
   return (
     <View>
       <RatingDistribution reviews={items} />
-      {items.map((r) => (
+      {pageReviews.map((r) => (
         <View key={r.id} style={s.reviewCard}>
           <Pressable
             onPress={() => r.authorId && router.push({ pathname: "/seeker/[id]", params: { id: r.authorId, reviewId: r.id } })}
@@ -379,6 +387,7 @@ function Reviews({ items, loading, canReply, onReplied }: { items: ReviewItem[];
           <ReviewReply reviewId={r.id} reply={r.reply} canReply={canReply} onReplied={onReplied} />
         </View>
       ))}
+      <Pager page={safePage} totalPages={totalPages} onChange={setPage} />
     </View>
   );
 }

@@ -9,11 +9,12 @@ import {
 } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Pager } from "../../components/Pager";
 import { ReviewPhotoStrip } from "../../components/ReviewPhotoStrip";
 import { ReviewReply } from "../../components/ReviewReply";
 import { useToast } from "../../components/Toast";
@@ -50,7 +51,8 @@ export function ArtistProfileScreen({ id }: { id: string }) {
   const flashes = useArtistFlashes(supabase, id);
   const availability = useArtistAvailability(supabase, id);
   const save = useArtistSaved(supabase, id);
-  const [tab, setTab] = useState<Tab>("portfolio");
+  const tabParam = useLocalSearchParams<{ tab?: string }>().tab;
+  const [tab, setTab] = useState<Tab>(tabParam === "reviews" ? "reviews" : "portfolio");
   const [complexity, setComplexity] = useState<Complexity>("medium");
   // A studio owner sees business actions (Message, Invite) — not client ones
   // (Save, Request booking).
@@ -247,13 +249,19 @@ function PortfolioGrid({ images, loading }: { images: PortfolioImage[]; loading:
   );
 }
 
+const REVIEWS_PAGE_SIZE = 3;
+
 function Reviews({ items, loading, avg, count, canReply, onReplied }: { items: ReviewItem[]; loading: boolean; avg: number; count: number; canReply: boolean; onReplied: () => void }) {
   const router = useRouter();
+  const [page, setPage] = useState(0);
   if (loading) return <ActivityIndicator />;
+  const totalPages = Math.max(1, Math.ceil(items.length / REVIEWS_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageReviews = items.slice(safePage * REVIEWS_PAGE_SIZE, safePage * REVIEWS_PAGE_SIZE + REVIEWS_PAGE_SIZE);
   return (
     <View>
       <Text style={s.reviewSummary}>{count > 0 ? `★ ${avg.toFixed(1)} · ${count} review${count === 1 ? "" : "s"}` : "No reviews yet."}</Text>
-      {items.map((r) => (
+      {pageReviews.map((r) => (
         <View key={r.id} style={s.reviewCard}>
           <Pressable
             onPress={() => r.authorId && router.push({ pathname: "/seeker/[id]", params: { id: r.authorId, reviewId: r.id } })}
@@ -276,6 +284,7 @@ function Reviews({ items, loading, avg, count, canReply, onReplied }: { items: R
           <ReviewReply reviewId={r.id} reply={r.reply} canReply={canReply} onReplied={onReplied} />
         </View>
       ))}
+      <Pager page={safePage} totalPages={totalPages} onChange={setPage} />
     </View>
   );
 }
