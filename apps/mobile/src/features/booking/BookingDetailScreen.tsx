@@ -258,26 +258,37 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
           <DangerBtn label="Cancel appointment" onPress={cancelEntirely} disabled={busy} />
         </View>
       ) : active ? (
-        <View style={s.actions}>
-          <SecondaryBtn label="Reschedule" onPress={onReschedulePress} disabled={busy} />
-          {sessionStarted && <SecondaryBtn label="Mark completed" onPress={() => run(() => completeAppointment(supabase, appt.id))} disabled={busy} />}
-          {sessionStarted && isArtist && (
-            <SecondaryBtn
-              label="Mark as no-show"
-              disabled={busy}
-              onPress={() => {
-                void confirm({
-                  title: "Mark as no-show?",
-                  message: "Use this when the client didn't show up. They'll be notified and it's recorded in your studio stats.",
-                  confirmLabel: "Mark no-show",
-                  cancelLabel: "Back",
-                  destructive: true,
-                }).then((ok) => { if (ok) void run(() => markNoShow(supabase, appt.id)); });
-              }}
-            />
-          )}
-          <DangerBtn
+        <View style={s.actionCard}>
+          {/* Primary happy-path action once the session has started. */}
+          {sessionStarted ? (
+            <ActionBtn icon="checkmark-circle" label="Mark completed" variant="primary" disabled={busy} onPress={() => run(() => completeAppointment(supabase, appt.id))} />
+          ) : null}
+          {/* Secondary actions share a row. */}
+          <View style={s.actionRow}>
+            <ActionBtn icon="calendar-outline" label="Reschedule" variant="secondary" fill disabled={busy} onPress={onReschedulePress} />
+            {sessionStarted && isArtist ? (
+              <ActionBtn
+                icon="person-remove-outline"
+                label="No-show"
+                variant="secondary"
+                fill
+                disabled={busy}
+                onPress={() => {
+                  void confirm({
+                    title: "Mark as no-show?",
+                    message: "Use this when the client didn't show up. They'll be notified and it's recorded in your studio stats.",
+                    confirmLabel: "Mark no-show",
+                    cancelLabel: "Back",
+                    destructive: true,
+                  }).then((ok) => { if (ok) void run(() => markNoShow(supabase, appt.id)); });
+                }}
+              />
+            ) : null}
+          </View>
+          <ActionBtn
+            icon="close-circle-outline"
             label="Cancel appointment"
+            variant="danger"
             disabled={busy}
             onPress={() => {
               void confirm({
@@ -874,6 +885,27 @@ function DangerBtn({ label, onPress, disabled }: { label: string; onPress: () =>
   return <Pressable style={[s.danger, disabled && s.disabled]} disabled={disabled} onPress={onPress}><Text style={s.dangerText}>{label}</Text></Pressable>;
 }
 
+/** Icon + label action button with a primary/secondary/danger variant. `fill`
+ *  makes it flex to share a row; without it, it stretches full-width in a column. */
+function ActionBtn({ icon, label, variant, onPress, disabled, fill }: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  variant: "primary" | "secondary" | "danger";
+  onPress: () => void;
+  disabled?: boolean;
+  fill?: boolean;
+}) {
+  const wrap = variant === "primary" ? s.abPrimary : variant === "danger" ? s.abDanger : s.abSecondary;
+  const txt = variant === "primary" ? s.abPrimaryText : variant === "danger" ? s.abDangerText : s.abSecondaryText;
+  const color = variant === "primary" ? "#fff" : variant === "danger" ? "#DC2626" : "#18181B";
+  return (
+    <Pressable style={[s.abBase, fill && s.flex1, wrap, disabled && s.disabled]} disabled={disabled} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+      <Ionicons name={icon} size={18} color={color} />
+      <Text style={[s.abText, txt]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
@@ -931,6 +963,16 @@ const s = StyleSheet.create({
   noticeText: { flex: 1, color: "#92400E", fontSize: 13, lineHeight: 18 },
   noticeTextWarn: { color: "#B91C1C" },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 6 },
+  actionCard: { gap: 10, marginTop: 6 },
+  actionRow: { flexDirection: "row", gap: 10 },
+  abBase: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 12 },
+  abPrimary: { backgroundColor: "#18181B" },
+  abPrimaryText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  abSecondary: { borderWidth: 1, borderColor: "#E4E4E7", backgroundColor: "#fff" },
+  abSecondaryText: { color: "#18181B", fontWeight: "700", fontSize: 15 },
+  abDanger: { borderWidth: 1, borderColor: "#FECACA", backgroundColor: "#FEF2F2" },
+  abDangerText: { color: "#DC2626", fontWeight: "700", fontSize: 15 },
+  abText: { fontSize: 15 },
   reschedBox: { borderWidth: 1, borderColor: "#FDE68A", backgroundColor: "#FFFBEB", borderRadius: 16, padding: 14, gap: 10, marginTop: 6 },
   reschedHead: { flexDirection: "row", alignItems: "center", gap: 8 },
   reschedTitle: { fontWeight: "800", fontSize: 15, color: "#92400E" },
