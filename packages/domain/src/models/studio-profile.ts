@@ -29,6 +29,7 @@ export interface StudioProfile {
   country: string | null;
   latitude: number;
   longitude: number;
+  currencyCode: string;
   /** { mon: [["11:00","19:00"]], ... } */
   openingHours: Record<string, string[][]>;
   /** Union of the roster's style slugs (studio "specialties"). */
@@ -48,6 +49,8 @@ export interface StudioEditInput {
   addressLine: string | null;
   city: string | null;
   openingHours: Record<string, string[][]>;
+  logoPath: string | null;
+  currencyCode: string;
 }
 
 /** Studio-owner dashboard: headline aggregates across the studio. */

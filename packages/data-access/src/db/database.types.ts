@@ -1844,6 +1844,7 @@ export type Database = {
           city: string | null
           country: string | null
           created_at: string
+          currency_code: string
           email: string | null
           geo: unknown
           id: string
@@ -1865,6 +1866,7 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          currency_code?: string
           email?: string | null
           geo?: unknown
           id?: string
@@ -1886,6 +1888,7 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          currency_code?: string
           email?: string | null
           geo?: unknown
           id?: string
@@ -2496,6 +2499,8 @@ export type Database = {
           p_address_line: string | null
           p_city: string | null
           p_opening_hours: Json
+          p_logo_path?: string | null
+          p_currency_code?: string | null
         }
         Returns: undefined
       }

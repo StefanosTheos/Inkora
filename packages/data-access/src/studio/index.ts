@@ -9,7 +9,7 @@ import { toAppError } from "../errors";
 import { sendMessage, startStudioConversation } from "../messaging";
 
 const STUDIO_SELECT =
-  "id, owner_id, name, slug, bio, logo_path, email, phone, website, address_line, city, country, latitude, longitude, opening_hours, " +
+  "id, owner_id, name, slug, bio, logo_path, email, phone, website, address_line, city, country, latitude, longitude, currency_code, opening_hours, " +
   "studio_memberships(status, suspension_reason, updated_at, artists(id, headline, rating_avg, rating_count, profiles(display_name, avatar_path), artist_styles(tattoo_styles(slug))))";
 
 /** A membership that hasn't reached a terminal state — drives the Apply button. */
@@ -44,6 +44,7 @@ interface StudioRow {
   country: string | null;
   latitude: number;
   longitude: number;
+  currency_code: string | null;
   opening_hours: Record<string, string[][]> | null;
   studio_memberships: RosterMember[] | null;
 }
@@ -79,6 +80,7 @@ function mapStudioRow(r: StudioRow): StudioProfile {
     country: r.country,
     latitude: r.latitude,
     longitude: r.longitude,
+    currencyCode: r.currency_code ?? "EUR",
     openingHours: r.opening_hours ?? {},
     styles,
     roster,
@@ -482,7 +484,8 @@ export function useStudioOverviewPeriod(client: InkoraClient, studioId: string, 
   });
 }
 
-/** Update the owner's studio (name, about, contact, city/address, hours). */
+/** Update the owner's studio (name, about, contact, city/address, hours, logo,
+ *  currency). A null logoPath leaves the existing logo unchanged. */
 export async function updateStudio(client: InkoraClient, studioId: string, input: StudioEditInput): Promise<void> {
   const { error } = await client.rpc("update_studio", {
     p_studio_id: studioId,
@@ -494,8 +497,23 @@ export async function updateStudio(client: InkoraClient, studioId: string, input
     p_address_line: input.addressLine,
     p_city: input.city,
     p_opening_hours: input.openingHours,
+    p_logo_path: input.logoPath,
+    p_currency_code: input.currencyCode,
   });
   if (error) throw toAppError(error);
+}
+
+/** Upload a new studio logo. Stored in the public `avatars` bucket under the
+ *  owner's uid folder (storage RLS keys writes to that folder). Returns the path
+ *  to persist on the studio; caller passes it to updateStudio. */
+export async function uploadStudioLogo(client: InkoraClient, body: ArrayBuffer | Blob, contentType: string, ext: string): Promise<string> {
+  const { data: userRes } = await client.auth.getUser();
+  const uid = userRes.user?.id;
+  if (!uid) throw toAppError({ message: "unauthenticated" });
+  const objectPath = `${uid}/studio-${Date.now()}.${ext}`;
+  const { error } = await client.storage.from("avatars").upload(objectPath, body, { contentType, upsert: false });
+  if (error) throw toAppError(error);
+  return `avatars/${objectPath}`;
 }
 
 /** Log a view of an artist/studio profile (best-effort; dedupes server-side). */

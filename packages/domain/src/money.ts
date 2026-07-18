@@ -13,6 +13,14 @@ export interface Money {
 
 const SYMBOL: Record<string, string> = { EUR: "€", USD: "$", GBP: "£" };
 
+/** The currency's symbol (€/$/£) or a "CODE " fallback for compact formatting. */
+export function currencySymbol(currency: CurrencyCode = "EUR"): string {
+  return SYMBOL[currency] ?? `${currency} `;
+}
+
+/** Common currencies offered in pickers. Symbol ones first for clean display. */
+export const CURRENCY_OPTIONS: CurrencyCode[] = ["EUR", "USD", "GBP", "CAD", "AUD", "CHF", "SEK"];
+
 /** Build Money from a decimal major-unit value (e.g. 90.5 EUR → { minor: 9050 }). */
 export function money(major: number, currency: CurrencyCode = "EUR"): Money {
   return { minor: Math.round(major * 100), currency };

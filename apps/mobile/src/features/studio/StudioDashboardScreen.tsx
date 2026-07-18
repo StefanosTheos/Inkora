@@ -4,7 +4,7 @@ import {
   useStudioArtistStats, useStudioOverview, useStudioOverviewPeriod, useStudioReviews,
 } from "@inkora/data-access";
 import type { ReviewItem, StatsPeriod, StudioArtistStat, StudioRosterArtist } from "@inkora/domain";
-import { STATS_PERIOD_LABEL } from "@inkora/domain";
+import { currencySymbol, STATS_PERIOD_LABEL } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -43,11 +43,12 @@ function sortValue(key: SortKey, a: StudioRosterArtist, stat?: StudioArtistStat)
   }
 }
 
-/** Compact currency for headline numbers: €0, €120, €2.4k, €18k. */
-const compactMoney = (n: number): string => {
-  if (n >= 10000) return `€${Math.round(n / 1000)}k`;
-  if (n >= 1000) return `€${(n / 1000).toFixed(1)}k`;
-  return `€${Math.round(n)}`;
+/** Compact currency for headline numbers: €0, €120, €2.4k, €18k. `sym` is the
+ *  studio's currency symbol (€/$/£/"SEK "). */
+const compactMoney = (n: number, sym = "€"): string => {
+  if (n >= 10000) return `${sym}${Math.round(n / 1000)}k`;
+  if (n >= 1000) return `${sym}${(n / 1000).toFixed(1)}k`;
+  return `${sym}${Math.round(n)}`;
 };
 
 /** The studio-owner home: studio identity, headline stats, and the onboarded
@@ -125,6 +126,8 @@ export function StudioDashboardScreen() {
     );
   }
 
+  const sym = currencySymbol(st.currencyCode);
+
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={s.body}>
@@ -187,7 +190,7 @@ export function StudioDashboardScreen() {
           <HeroStat text={String(ov?.activeArtists ?? 0)} label="Artists" />
           <View style={s.heroDivider} />
           <HeroStat
-            text={compactMoney(pv?.revenue ?? 0)}
+            text={compactMoney(pv?.revenue ?? 0, sym)}
             label="Revenue"
             trend={<TrendBadge cur={pv?.revenue ?? 0} prev={pv?.prevRevenue ?? 0} />}
           />
@@ -246,7 +249,7 @@ export function StudioDashboardScreen() {
         ) : (
           <>
             {pagedRoster.map((a) => (
-              <ArtistStatCard key={a.id} artist={a} stat={statsById.get(a.id)} onOpen={() => router.push(`/artist/${a.id}`)} onMessage={() => void messageArtist(a.id)} onMenu={() => setMenuArtist({ id: a.id, name: a.displayName })} />
+              <ArtistStatCard key={a.id} artist={a} stat={statsById.get(a.id)} currencySym={sym} onOpen={() => router.push(`/artist/${a.id}`)} onMessage={() => void messageArtist(a.id)} onMenu={() => setMenuArtist({ id: a.id, name: a.displayName })} />
             ))}
             <Pager page={safeRosterPage} totalPages={rosterPages} onChange={setRosterPage} />
           </>
@@ -281,7 +284,7 @@ export function StudioDashboardScreen() {
 
                 {/* Their performance while active — informs whether to bring them back. */}
                 <View style={s.metrics}>
-                  <Metric label="Revenue" value={compactMoney(stat?.revenue ?? 0)} />
+                  <Metric label="Revenue" value={compactMoney(stat?.revenue ?? 0, sym)} />
                   <Metric label="Done" value={stat?.completed ?? 0} />
                   <Metric label="Cancel" value={cancelRateLabel(stat)} alert={cancelRateValue(stat) >= 20} />
                   <Metric label="No-show" value={stat?.noShow ?? 0} alert={(stat?.noShow ?? 0) > 0} />
@@ -444,7 +447,7 @@ function BigTile({ label, value, icon, alert, onPress, trend }: { label: string;
   return <View style={s.bigTile} accessible accessibilityLabel={`${value} ${label}`}>{inner}</View>;
 }
 
-function ArtistStatCard({ artist, stat, onOpen, onMessage, onMenu }: { artist: StudioRosterArtist; stat?: StudioArtistStat; onOpen: () => void; onMessage: () => void; onMenu: () => void }) {
+function ArtistStatCard({ artist, stat, currencySym, onOpen, onMessage, onMenu }: { artist: StudioRosterArtist; stat?: StudioArtistStat; currencySym: string; onOpen: () => void; onMessage: () => void; onMenu: () => void }) {
   return (
     <View style={s.card}>
       <View style={s.cardHead}>
@@ -467,7 +470,7 @@ function ArtistStatCard({ artist, stat, onOpen, onMessage, onMenu }: { artist: S
         </Pressable>
       </View>
       <View style={s.metrics}>
-        <Metric label="Revenue" value={compactMoney(stat?.revenue ?? 0)} />
+        <Metric label="Revenue" value={compactMoney(stat?.revenue ?? 0, currencySym)} />
         <Metric label="Done" value={stat?.completed ?? 0} />
         <Metric label="Upcoming" value={stat?.scheduled ?? 0} />
         <Metric label="Cancel" value={cancelRateLabel(stat)} alert={cancelRateValue(stat) >= 20} />
