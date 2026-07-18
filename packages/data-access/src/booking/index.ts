@@ -1,8 +1,9 @@
 import type {
   AppointmentId, AppointmentRequestId, AppointmentRequestView, AppointmentView, ArtistId,
   BookingRequestInput, ClientReviewInput, ConversationId, CounterpartyRef, OfferInput, OfferView,
-  ProfileId, StudioId, TimeOfDay,
+  ProfileId, ReviewScores, StudioId, TimeOfDay,
 } from "@inkora/domain";
+import { REVIEW_CATEGORIES } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
@@ -398,42 +399,59 @@ export async function getAppointment(client: InkoraClient, id: string): Promise<
 export interface AppointmentReview {
   id: string;
   overallRating: number;
+  /** Per-dimension scores (null for legacy reviews left before dimensions). */
+  scores: ReviewScores | null;
 }
 export interface ReviewInput {
   appointmentId: string;
   artistId: string;
-  rating: number;
+  scores: ReviewScores;
   title?: string;
   body?: string;
 }
+
+const scoreValues = (s: ReviewScores): number[] => REVIEW_CATEGORIES.map((c) => s[c.key]);
 
 /** The current user's review for an appointment, if they've left one. */
 export async function getAppointmentReview(client: InkoraClient, appointmentId: string): Promise<AppointmentReview | null> {
   const { data, error } = await client
     .from("reviews")
-    .select("id, overall_rating")
+    .select("id, overall_rating, ratings(dimension, score)")
     .eq("appointment_id", appointmentId)
-    .maybeSingle<{ id: string; overall_rating: number }>();
+    .maybeSingle<{ id: string; overall_rating: number; ratings: { dimension: string; score: number }[] | null }>();
   if (error) throw toAppError(error);
-  return data ? { id: data.id, overallRating: data.overall_rating } : null;
+  if (!data) return null;
+  const byDim = new Map((data.ratings ?? []).map((r) => [r.dimension, r.score]));
+  const scores: ReviewScores | null = REVIEW_CATEGORIES.every((c) => byDim.has(c.key))
+    ? { quality: byDim.get("quality")!, cleanliness: byDim.get("cleanliness")!, professionalism: byDim.get("professionalism")!, communication: byDim.get("communication")!, value: byDim.get("value")! }
+    : null;
+  return { id: data.id, overallRating: data.overall_rating, scores };
 }
 
 /** Leave a review. Only possible for a real appointment (reviews.appointment_id
  *  is NOT NULL + UNIQUE), so the "one review per completed booking" rule is
- *  enforced by the schema; the UI only surfaces this on completed appointments. */
+ *  enforced by the schema; the UI only surfaces this on completed appointments.
+ *  Captures five 1-5 dimensions (stored in `ratings`); overall_rating is their
+ *  rounded average. */
 export async function submitReview(client: InkoraClient, input: ReviewInput): Promise<void> {
   const { data: userRes } = await client.auth.getUser();
   const uid = userRes.user?.id;
   if (!uid) throw toAppError(new Error("You need to sign in to leave a review."));
-  const { error } = await client.from("reviews").insert({
+  const vals = scoreValues(input.scores);
+  const overall = Math.max(1, Math.min(5, Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)));
+  const { data: rev, error } = await client.from("reviews").insert({
     appointment_id: input.appointmentId,
     author_id: uid,
     artist_id: input.artistId,
-    overall_rating: input.rating,
+    overall_rating: overall,
     title: input.title ?? null,
     body: input.body ?? null,
-  });
+  }).select("id").single();
   if (error) throw toAppError(error);
+  // Store the per-dimension breakdown (RLS: author of the review may write).
+  const rows = REVIEW_CATEGORIES.map((c) => ({ review_id: rev.id, dimension: c.key, score: input.scores[c.key] }));
+  const { error: rErr } = await client.from("ratings").insert(rows);
+  if (rErr) throw toAppError(rErr);
 }
 
 // ------------------------------------------------------------------ client reviews (artist -> client)

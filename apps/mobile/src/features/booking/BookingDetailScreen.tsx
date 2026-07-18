@@ -9,6 +9,7 @@ import {
 import {
   APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView,
   CLIENT_REVIEW_CATEGORIES, type ClientReviewCategory, type OfferView,
+  REVIEW_CATEGORIES, type ReviewCategory,
   slotMatchesTimeOfDay, TIME_OF_DAY_LABEL, type TimeOfDay,
 } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
@@ -340,7 +341,9 @@ function ReviewSection({ appt }: { appt: AppointmentView }) {
   const toast = useToast();
   const reviewQ = useAppointmentReview(supabase, appt.id);
   const [open, setOpen] = useState(false);
-  const [rating, setRating] = useState(5);
+  const [scores, setScores] = useState<Record<ReviewCategory, number>>({
+    quality: 5, cleanliness: 5, professionalism: 5, communication: 5, value: 5,
+  });
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
@@ -349,7 +352,8 @@ function ReviewSection({ appt }: { appt: AppointmentView }) {
     setBusy(true);
     try {
       await submitReview(supabase, {
-        appointmentId: appt.id, artistId: appt.artistId, rating,
+        appointmentId: appt.id, artistId: appt.artistId,
+        scores: { quality: scores.quality, cleanliness: scores.cleanliness, professionalism: scores.professionalism, communication: scores.communication, value: scores.value },
         title: title.trim() || undefined, body: body.trim() || undefined,
       });
       await Promise.all([
@@ -390,13 +394,21 @@ function ReviewSection({ appt }: { appt: AppointmentView }) {
   return (
     <View style={s.reviewForm}>
       <Text style={s.reviewFormTitle}>Rate your session with {appt.counterparty.name}</Text>
-      <View style={s.starsRow}>
-        {[1, 2, 3, 4, 5].map((n) => (
-          <Pressable key={n} onPress={() => setRating(n)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${n} star${n > 1 ? "s" : ""}`}>
-            <Ionicons name={n <= rating ? "star" : "star-outline"} size={34} color="#E5484D" />
-          </Pressable>
-        ))}
-      </View>
+      {REVIEW_CATEGORIES.map((cat) => (
+        <View key={cat.key} style={s.catRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.catLabel}>{cat.label}</Text>
+            <Text style={s.catHint}>{cat.hint}</Text>
+          </View>
+          <View style={s.catStars}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Pressable key={n} onPress={() => setScores((p) => ({ ...p, [cat.key]: n }))} hitSlop={4} accessibilityRole="button" accessibilityLabel={`${cat.label}: ${n} star${n > 1 ? "s" : ""}`}>
+                <Ionicons name={n <= scores[cat.key] ? "star" : "star-outline"} size={22} color="#E5484D" />
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ))}
       <TextInput style={s.reviewInput} placeholder="Title (optional)" value={title} onChangeText={setTitle} accessibilityLabel="Review title" />
       <TextInput style={[s.reviewInput, s.reviewMultiline]} placeholder="Share the details (optional)" value={body} onChangeText={setBody} multiline accessibilityLabel="Review details" />
       <PrimaryBtn label={busy ? "Submitting…" : "Submit review"} onPress={() => void submit()} disabled={busy} />
@@ -933,7 +945,6 @@ const s = StyleSheet.create({
   catLabel: { fontWeight: "700", fontSize: 14, color: "#18181B" },
   catHint: { color: "#A1A1AA", fontSize: 11, marginTop: 1 },
   catStars: { flexDirection: "row", gap: 2 },
-  starsRow: { flexDirection: "row", gap: 8, justifyContent: "center", paddingVertical: 4 },
   reviewInput: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
   reviewMultiline: { minHeight: 80, textAlignVertical: "top" },
   primary: { flex: 1, minWidth: 120, backgroundColor: "#E5484D", borderRadius: 14, paddingVertical: 14, alignItems: "center" },

@@ -203,6 +203,29 @@ export function statusTone(
   }
 }
 
+// ---------------------------------------------------------------- seeker reviews
+// The client reviews the ARTIST after a completed session — five 1-5 category
+// scores (stored in the `ratings` table) plus an optional title/body. The
+// review's overall_rating is the rounded average of the five.
+export const REVIEW_CATEGORIES = [
+  { key: "quality", label: "Quality", hint: "Line work, shading and detail" },
+  { key: "cleanliness", label: "Cleanliness", hint: "Hygiene and a clean setup" },
+  { key: "professionalism", label: "Professionalism", hint: "Conduct and care throughout" },
+  { key: "communication", label: "Communication", hint: "Clear about the design and aftercare" },
+  { key: "value", label: "Value", hint: "Worth the price you paid" },
+] as const;
+
+export type ReviewCategory = (typeof REVIEW_CATEGORIES)[number]["key"];
+
+/** Category scores a client submits about an artist (each 1-5). */
+export interface ReviewScores {
+  quality: number;
+  cleanliness: number;
+  professionalism: number;
+  communication: number;
+  value: number;
+}
+
 // ---------------------------------------------------------------- client reviews
 // The artist reviews the CLIENT after a completed session — five 1-5 category
 // scores plus an optional written comment (see the client_reviews migration).
