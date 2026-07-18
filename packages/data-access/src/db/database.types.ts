@@ -1537,6 +1537,8 @@ export type Database = {
           is_published: boolean
           overall_rating: number
           photo_paths: string[]
+          reply: string | null
+          replied_at: string | null
           studio_id: string | null
           title: string | null
           updated_at: string
@@ -1551,6 +1553,8 @@ export type Database = {
           is_published?: boolean
           overall_rating: number
           photo_paths?: string[]
+          reply?: string | null
+          replied_at?: string | null
           studio_id?: string | null
           title?: string | null
           updated_at?: string
@@ -1565,6 +1569,8 @@ export type Database = {
           is_published?: boolean
           overall_rating?: number
           photo_paths?: string[]
+          reply?: string | null
+          replied_at?: string | null
           studio_id?: string | null
           title?: string | null
           updated_at?: string
@@ -2400,6 +2406,10 @@ export type Database = {
       respond_offer: {
         Args: { p_accept: boolean; p_offer_id: string }
         Returns: string
+      }
+      reply_to_review: {
+        Args: { p_review_id: string; p_reply: string }
+        Returns: undefined
       }
       artist_stats: {
         Args: { p_artist_id?: string }

@@ -131,12 +131,14 @@ interface StudioReviewRow {
   body: string | null;
   created_at: string;
   photo_paths: string[] | null;
+  reply: string | null;
+  replied_at: string | null;
   profiles: { display_name: string; avatar_path: string | null } | null;
 }
 export async function getStudioReviews(client: InkoraClient, studioId: string): Promise<ReviewItem[]> {
   const { data, error } = await client
     .from("reviews")
-    .select("id, author_id, overall_rating, title, body, created_at, photo_paths, profiles!reviews_author_id_fkey(display_name, avatar_path)")
+    .select("id, author_id, overall_rating, title, body, created_at, photo_paths, reply, replied_at, profiles!reviews_author_id_fkey(display_name, avatar_path)")
     .eq("studio_id", studioId)
     .eq("is_published", true)
     .order("created_at", { ascending: false })
@@ -152,7 +154,16 @@ export async function getStudioReviews(client: InkoraClient, studioId: string): 
     body: r.body,
     createdAt: r.created_at,
     photoPaths: r.photo_paths ?? [],
+    reply: r.reply,
+    repliedAt: r.replied_at,
   }));
+}
+
+/** Artist / studio owner posts (or clears, with an empty string) a public reply
+ *  to a review. Server-guarded to the reviewed artist or the studio's owner. */
+export async function replyToReview(client: InkoraClient, reviewId: string, reply: string): Promise<void> {
+  const { error } = await client.rpc("reply_to_review", { p_review_id: reviewId, p_reply: reply });
+  if (error) throw toAppError(error);
 }
 
 /** Map of artistId -> active weekday numbers (0=Sun..6=Sat) for a studio roster. */

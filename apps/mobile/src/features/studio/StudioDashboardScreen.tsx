@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useConfirm } from "../../components/ConfirmDialog";
 import { Pager } from "../../components/Pager";
 import { RatingDistribution } from "../../components/RatingDistribution";
+import { ReviewReply } from "../../components/ReviewReply";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
@@ -321,18 +322,19 @@ export function StudioDashboardScreen() {
             </View>
             <RatingDistribution reviews={reviewsQ.data ?? []} />
             {(reviewsQ.data ?? []).slice(0, 3).map((rv: ReviewItem) => (
-              <Pressable
-                key={rv.id}
-                style={s.reviewCard}
-                onPress={() => { if (rv.authorId) router.push(`/seeker/${rv.authorId}`); }}
-                accessibilityRole="button"
-                accessibilityLabel={`Review by ${rv.authorName}, ${rv.overallRating} stars`}
-              >
-                <Text style={s.reviewHead}>{rv.authorName} · ★ {rv.overallRating}</Text>
-                {rv.title ? <Text style={s.reviewTitle}>{rv.title}</Text> : null}
-                {rv.body ? <Text style={s.reviewBody} numberOfLines={2}>{rv.body}</Text> : null}
-                <Text style={s.reviewDate}>{fmtDate(rv.createdAt)}</Text>
-              </Pressable>
+              <View key={rv.id} style={s.reviewCard}>
+                <Pressable
+                  onPress={() => { if (rv.authorId) router.push(`/seeker/${rv.authorId}`); }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Review by ${rv.authorName}, ${rv.overallRating} stars`}
+                >
+                  <Text style={s.reviewHead}>{rv.authorName} · ★ {rv.overallRating}</Text>
+                  {rv.title ? <Text style={s.reviewTitle}>{rv.title}</Text> : null}
+                  {rv.body ? <Text style={s.reviewBody} numberOfLines={2}>{rv.body}</Text> : null}
+                  <Text style={s.reviewDate}>{fmtDate(rv.createdAt)}</Text>
+                </Pressable>
+                <ReviewReply reviewId={rv.id} reply={rv.reply} canReply onReplied={() => void reviewsQ.refetch()} />
+              </View>
             ))}
           </>
         ) : null}

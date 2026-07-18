@@ -14,6 +14,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useConfirm } from "../../components/ConfirmDialog";
 import { RatingDistribution } from "../../components/RatingDistribution";
 import { ReviewPhotoStrip } from "../../components/ReviewPhotoStrip";
+import { ReviewReply } from "../../components/ReviewReply";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
@@ -191,7 +192,7 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
             roster.map((r) => <ArtistCard key={r.id} artist={r} onPress={() => router.push(`/artist/${r.id}`)} />)
           )}
           {tab === "portfolio" && <PortfolioGrid images={portfolio.data ?? []} loading={portfolio.isLoading} />}
-          {tab === "reviews" && <Reviews items={reviews.data ?? []} loading={reviews.isLoading} />}
+          {tab === "reviews" && <Reviews items={reviews.data ?? []} loading={reviews.isLoading} canReply={isOwnerViewer} onReplied={() => void reviews.refetch()} />}
           {tab === "about" && (
             <View>
               {st.bio ? <Text style={s.bio}>{st.bio}</Text> : null}
@@ -348,7 +349,7 @@ function PortfolioGrid({ images, loading }: { images: PortfolioImage[]; loading:
   );
 }
 
-function Reviews({ items, loading }: { items: ReviewItem[]; loading: boolean }) {
+function Reviews({ items, loading, canReply, onReplied }: { items: ReviewItem[]; loading: boolean; canReply: boolean; onReplied: () => void }) {
   const router = useRouter();
   if (loading) return <ActivityIndicator />;
   if (items.length === 0) return <Text style={s.muted}>No reviews yet.</Text>;
@@ -356,26 +357,27 @@ function Reviews({ items, loading }: { items: ReviewItem[]; loading: boolean }) 
     <View>
       <RatingDistribution reviews={items} />
       {items.map((r) => (
-        <Pressable
-          key={r.id}
-          style={s.reviewCard}
-          onPress={() => r.authorId && router.push({ pathname: "/seeker/[id]", params: { id: r.authorId, reviewId: r.id } })}
-          disabled={!r.authorId}
-          accessibilityRole="button"
-          accessibilityLabel={`View ${r.authorName}'s profile`}
-        >
-          <View style={s.reviewHeadRow}>
-            <Avatar path={r.authorAvatarPath} name={r.authorName} size={36} />
-            <View style={{ flex: 1 }}>
-              <Text style={s.reviewAuthor}>{r.authorName}</Text>
-              <Text style={s.reviewStars}>{"★".repeat(r.overallRating)}{"☆".repeat(5 - r.overallRating)}</Text>
+        <View key={r.id} style={s.reviewCard}>
+          <Pressable
+            onPress={() => r.authorId && router.push({ pathname: "/seeker/[id]", params: { id: r.authorId, reviewId: r.id } })}
+            disabled={!r.authorId}
+            accessibilityRole="button"
+            accessibilityLabel={`View ${r.authorName}'s profile`}
+          >
+            <View style={s.reviewHeadRow}>
+              <Avatar path={r.authorAvatarPath} name={r.authorName} size={36} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.reviewAuthor}>{r.authorName}</Text>
+                <Text style={s.reviewStars}>{"★".repeat(r.overallRating)}{"☆".repeat(5 - r.overallRating)}</Text>
+              </View>
+              {r.authorId ? <Ionicons name="chevron-forward" size={16} color="#D4D4D8" /> : null}
             </View>
-            {r.authorId ? <Ionicons name="chevron-forward" size={16} color="#D4D4D8" /> : null}
-          </View>
-          {r.title ? <Text style={s.reviewTitle}>{r.title}</Text> : null}
-          {r.body ? <Text style={s.reviewBody}>{r.body}</Text> : null}
-          <ReviewPhotoStrip paths={r.photoPaths} />
-        </Pressable>
+            {r.title ? <Text style={s.reviewTitle}>{r.title}</Text> : null}
+            {r.body ? <Text style={s.reviewBody}>{r.body}</Text> : null}
+            <ReviewPhotoStrip paths={r.photoPaths} />
+          </Pressable>
+          <ReviewReply reviewId={r.id} reply={r.reply} canReply={canReply} onReplied={onReplied} />
+        </View>
       ))}
     </View>
   );

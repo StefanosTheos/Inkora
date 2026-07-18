@@ -39,6 +39,9 @@ export interface ReviewItem {
   createdAt: string;
   /** Tattoo progress/journey photos the seeker attached (public bucket paths). */
   photoPaths: string[];
+  /** The artist's / studio owner's public reply, if any. */
+  reply: string | null;
+  repliedAt: string | null;
 }
 
 /** Public snapshot of a seeker, shown when tapping their review. */

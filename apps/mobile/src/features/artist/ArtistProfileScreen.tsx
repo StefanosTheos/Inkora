@@ -15,6 +15,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, Vi
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ReviewPhotoStrip } from "../../components/ReviewPhotoStrip";
+import { ReviewReply } from "../../components/ReviewReply";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
@@ -170,7 +171,7 @@ export function ArtistProfileScreen({ id }: { id: string }) {
         {/* Tab content */}
         <View style={s.tabContent}>
           {tab === "portfolio" && <PortfolioGrid images={portfolio.data ?? []} loading={portfolio.isLoading} />}
-          {tab === "reviews" && <Reviews items={reviews.data ?? []} loading={reviews.isLoading} avg={a.ratingAvg} count={a.ratingCount} />}
+          {tab === "reviews" && <Reviews items={reviews.data ?? []} loading={reviews.isLoading} avg={a.ratingAvg} count={a.ratingCount} canReply={isSelf} onReplied={() => void reviews.refetch()} />}
           {tab === "flashes" && <FlashGrid images={flashes.data ?? []} loading={flashes.isLoading} />}
           {tab === "availability" && <Availability slots={availability.data ?? []} loading={availability.isLoading} />}
         </View>
@@ -246,33 +247,34 @@ function PortfolioGrid({ images, loading }: { images: PortfolioImage[]; loading:
   );
 }
 
-function Reviews({ items, loading, avg, count }: { items: ReviewItem[]; loading: boolean; avg: number; count: number }) {
+function Reviews({ items, loading, avg, count, canReply, onReplied }: { items: ReviewItem[]; loading: boolean; avg: number; count: number; canReply: boolean; onReplied: () => void }) {
   const router = useRouter();
   if (loading) return <ActivityIndicator />;
   return (
     <View>
       <Text style={s.reviewSummary}>{count > 0 ? `★ ${avg.toFixed(1)} · ${count} review${count === 1 ? "" : "s"}` : "No reviews yet."}</Text>
       {items.map((r) => (
-        <Pressable
-          key={r.id}
-          style={s.reviewCard}
-          onPress={() => r.authorId && router.push({ pathname: "/seeker/[id]", params: { id: r.authorId, reviewId: r.id } })}
-          disabled={!r.authorId}
-          accessibilityRole="button"
-          accessibilityLabel={`View ${r.authorName}'s profile`}
-        >
-          <View style={s.reviewHeadRow}>
-            <Avatar path={r.authorAvatarPath} name={r.authorName} size={36} />
-            <View style={{ flex: 1 }}>
-              <Text style={s.reviewAuthor}>{r.authorName}</Text>
-              <Text style={s.reviewStars}>{"★".repeat(r.overallRating)}{"☆".repeat(5 - r.overallRating)}</Text>
+        <View key={r.id} style={s.reviewCard}>
+          <Pressable
+            onPress={() => r.authorId && router.push({ pathname: "/seeker/[id]", params: { id: r.authorId, reviewId: r.id } })}
+            disabled={!r.authorId}
+            accessibilityRole="button"
+            accessibilityLabel={`View ${r.authorName}'s profile`}
+          >
+            <View style={s.reviewHeadRow}>
+              <Avatar path={r.authorAvatarPath} name={r.authorName} size={36} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.reviewAuthor}>{r.authorName}</Text>
+                <Text style={s.reviewStars}>{"★".repeat(r.overallRating)}{"☆".repeat(5 - r.overallRating)}</Text>
+              </View>
+              {r.authorId ? <Ionicons name="chevron-forward" size={16} color="#D4D4D8" /> : null}
             </View>
-            {r.authorId ? <Ionicons name="chevron-forward" size={16} color="#D4D4D8" /> : null}
-          </View>
-          {r.title ? <Text style={s.reviewTitle}>{r.title}</Text> : null}
-          {r.body ? <Text style={s.reviewBody}>{r.body}</Text> : null}
-          <ReviewPhotoStrip paths={r.photoPaths} />
-        </Pressable>
+            {r.title ? <Text style={s.reviewTitle}>{r.title}</Text> : null}
+            {r.body ? <Text style={s.reviewBody}>{r.body}</Text> : null}
+            <ReviewPhotoStrip paths={r.photoPaths} />
+          </Pressable>
+          <ReviewReply reviewId={r.id} reply={r.reply} canReply={canReply} onReplied={onReplied} />
+        </View>
       ))}
     </View>
   );
