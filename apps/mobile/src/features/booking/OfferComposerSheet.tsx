@@ -9,7 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useToast } from "../../components/Toast";
 import { supabase } from "../../lib/supabase";
 import { MonthCalendar } from "./components/MonthCalendar";
-import { budgetRangeLabel, fmtTime, offerBudgetError } from "./components/ui";
+import { budgetRangeLabel, fmtDate, fmtTime, offerBudgetError } from "./components/ui";
 
 const DURATIONS = [
   { label: "1h", minutes: 60 },
@@ -58,6 +58,7 @@ export function OfferComposerSheet({
   const budgetMin = reqQ.data?.budgetMin ?? null;
   const budgetMax = reqQ.data?.budgetMax ?? null;
   const pref = reqQ.data?.preferredTimeOfDay ?? null;
+  const preferredDate = reqQ.data?.preferredDate ?? null;
   const [showAll, setShowAll] = useState(false);
   const allSlots = slotsQ.data ?? [];
   const filtering = !!pref && !showAll;
@@ -161,6 +162,14 @@ export function OfferComposerSheet({
           ) : null}
 
           <Text style={s.label}>Propose a time</Text>
+          {preferredDate || pref ? (
+            <View style={s.preferBox}>
+              <Ionicons name="calendar" size={16} color="#B45309" />
+              <Text style={s.preferText}>
+                Client prefers {[preferredDate ? fmtDate(preferredDate) : null, pref ? TIME_OF_DAY_LABEL[pref] : null].filter(Boolean).join(" · ")}
+              </Text>
+            </View>
+          ) : null}
           <MonthCalendar selected={date} onSelect={(d) => { setDate(d); setPicked(null); }} enabledWeekdays={enabledWeekdays.length ? enabledWeekdays : undefined} />
           {pref && date ? (
             <Pressable onPress={() => setShowAll((v) => !v)} hitSlop={6} accessibilityRole="button">
@@ -353,6 +362,8 @@ const s = StyleSheet.create({
   note: { color: "#71717A", fontSize: 12, marginTop: 6 },
   budgetHint: { color: "#B45309", fontSize: 12, marginTop: 4, marginBottom: 2, fontWeight: "600" },
   slotFilterNote: { color: "#B45309", fontSize: 12, fontWeight: "700", marginTop: 8 },
+  preferBox: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF3C7", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginTop: 6, marginBottom: 2 },
+  preferText: { flex: 1, color: "#92400E", fontWeight: "700", fontSize: 14 },
   send: { backgroundColor: "#E5484D", borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 20 },
   sendText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   disabled: { opacity: 0.6 },

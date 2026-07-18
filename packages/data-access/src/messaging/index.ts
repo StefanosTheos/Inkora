@@ -213,6 +213,26 @@ export function useConversations(client: InkoraClient) {
   return useQuery({ queryKey: ["conversations"], queryFn: () => listConversations(client) });
 }
 
+/**
+ * App-wide realtime that keeps the conversations list (and the Chats tab badge)
+ * fresh when a message arrives while the user is elsewhere. Chat messages don't
+ * create notifications, so without this the unread count only updated on visiting
+ * Chats. Realtime is RLS-scoped, so the user only receives their own
+ * conversations' inserts. Mount ONCE (in the root gate).
+ */
+export function useConversationsRealtime(client: InkoraClient) {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const channel = client
+      .channel("conversations-badge")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => {
+        void qc.invalidateQueries({ queryKey: ["conversations"] });
+      })
+      .subscribe();
+    return () => { void client.removeChannel(channel); };
+  }, [client, qc]);
+}
+
 /** Combined chat hook: messages + realtime append + typing indicator + senders. */
 export function useChat(client: InkoraClient, conversationId: string, meId: string | null) {
   const qc = useQueryClient();
