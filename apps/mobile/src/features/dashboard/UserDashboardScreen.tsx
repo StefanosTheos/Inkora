@@ -94,12 +94,14 @@ export function UserDashboardScreen() {
         </View>
 
         <View style={s.profileRow}>
-          <Avatar path={p?.avatarPath ?? null} name={p?.displayName ?? "You"} size={64} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.name}>{p?.displayName ?? "Your profile"}</Text>
-            <Text style={s.sub}>{[p?.username ? `@${p.username}` : null, p?.city].filter(Boolean).join(" · ") || "Tap edit to complete your profile"}</Text>
-            <Text style={s.since}>Member since {monthYear(p?.memberSince)}</Text>
-          </View>
+          <Pressable style={s.profileTap} onPress={() => router.push("/profile/settings")} accessibilityRole="button" accessibilityLabel="Edit your profile">
+            <Avatar path={p?.avatarPath ?? null} name={p?.displayName ?? "You"} size={64} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.name}>{p?.displayName ?? "Your profile"}</Text>
+              <Text style={s.sub}>{[p?.username ? `@${p.username}` : null, p?.city].filter(Boolean).join(" · ") || "Tap edit to complete your profile"}</Text>
+              <Text style={s.since}>Member since {monthYear(p?.memberSince)}</Text>
+            </View>
+          </Pressable>
           <Pressable style={s.editBtn} onPress={() => router.push("/profile/settings")} accessibilityRole="button" accessibilityLabel="Edit profile">
             <Text style={s.editText}>Edit</Text>
           </Pressable>
@@ -285,6 +287,7 @@ const s = StyleSheet.create({
   topbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
   topTitle: { fontSize: 28, fontWeight: "800" },
   profileRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
+  profileTap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   name: { fontSize: 18, fontWeight: "800" },
   sub: { color: "#71717A", marginTop: 2 },
   since: { color: "#A1A1AA", fontSize: 12, marginTop: 2 },
