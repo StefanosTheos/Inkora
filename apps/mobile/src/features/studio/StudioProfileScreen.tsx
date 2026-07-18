@@ -6,12 +6,13 @@ import {
 import { formatStyleSlug, type PortfolioImage, type ReviewItem, type StudioRosterArtist } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
+import { RatingDistribution } from "../../components/RatingDistribution";
 import { ReviewPhotoStrip } from "../../components/ReviewPhotoStrip";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
@@ -42,7 +43,8 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
   const artistIds = useMemo(() => (studio.data?.roster ?? []).map((r) => r.id), [studio.data]);
   const portfolio = useStudioPortfolio(supabase, artistIds);
   const reviews = useStudioReviews(supabase, studio.data?.id ?? "");
-  const [tab, setTab] = useState<Tab>("artists");
+  const tabParam = useLocalSearchParams<{ tab?: string }>().tab;
+  const [tab, setTab] = useState<Tab>(tabParam === "reviews" ? "reviews" : "artists");
   // Log the visit (best-effort; server ignores self-views + dedupes per day).
   const studioId = studio.data?.id;
   useEffect(() => {
@@ -352,6 +354,7 @@ function Reviews({ items, loading }: { items: ReviewItem[]; loading: boolean }) 
   if (items.length === 0) return <Text style={s.muted}>No reviews yet.</Text>;
   return (
     <View>
+      <RatingDistribution reviews={items} />
       {items.map((r) => (
         <Pressable
           key={r.id}

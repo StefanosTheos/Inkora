@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
 import { Pager } from "../../components/Pager";
+import { RatingDistribution } from "../../components/RatingDistribution";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
@@ -307,10 +308,18 @@ export function StudioDashboardScreen() {
           </>
         ) : null}
 
-        {/* Recent reviews of the studio */}
+        {/* Reviews of the studio — distribution + recent, with see-all. */}
         {(reviewsQ.data ?? []).length > 0 ? (
           <>
-            <Text style={s.section} accessibilityRole="header">Recent reviews</Text>
+            <View style={s.sectionRow}>
+              <Text style={s.sectionInline} accessibilityRole="header">Reviews</Text>
+              {(reviewsQ.data ?? []).length > 3 ? (
+                <Pressable onPress={() => router.push(`/studio/${st.slug}?tab=reviews`)} accessibilityRole="button" accessibilityLabel={`See all ${reviewsQ.data?.length} reviews`}>
+                  <Text style={s.inviteLinkText}>See all ({reviewsQ.data?.length})</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            <RatingDistribution reviews={reviewsQ.data ?? []} />
             {(reviewsQ.data ?? []).slice(0, 3).map((rv: ReviewItem) => (
               <Pressable
                 key={rv.id}
