@@ -111,9 +111,10 @@ studio statistics, and discovery/messaging/rewards.
   - Files: `apps/mobile/src/components/{Skeleton,EmptyState}.tsx` (new), `HomeScreen.tsx`, `DiscoverScreen.tsx`, `MyBookingsScreen.tsx`, `ConversationsScreen.tsx`.
 
 ### Smaller items / cleanup
-- [ ] **32. Dead `/studio-dashboard` route** renders "coming soon" while the real dashboard is on the home tab; `homePathForRoles` even points there. Remove/redirect. (`app/studio-dashboard/index.tsx:18`)
+- [x] **32. Dead `/studio-dashboard` route** renders "coming soon" while the real dashboard is on the home tab; `homePathForRoles` even points there. ✅ Replaced the placeholder `studio-dashboard/index.tsx` with a `<Redirect href="/" />` (the sibling `/studio-dashboard/roster` route stays — it's real, used by #15 deep-links), and fixed `homePathForRoles` so `studio_admin` → `/` (the home tab shows their dashboard) instead of the dead route. `homePathForRoles` had no callers anyway. No migration.
+  - Files: `apps/mobile/app/studio-dashboard/index.tsx`, `packages/data-access/src/auth/roles.ts`.
 - [ ] **33. Solo owner-operator has no path** — `createStudio` grants only `studio_admin`, so an owner who also tattoos can't have an artist profile (compounds #5).
-- [ ] **34. Moderator role has no mobile surface** — falls through to the seeker feed silently.
+- [~] **34. Moderator role has no mobile surface** — falls through to the seeker feed silently. Deferred — moderation is unimplemented end-to-end (the web `/admin/moderation` page is a stub `export {}`, no approve/reject RPC/Edge function exists), so a real fix is a separate feature build, not a backlog patch. Low severity: RLS still protects content, so a mis-granted moderator can't do harm — just silently sees the seeker app.
 - [ ] **35. Artist/studio onboarding captures no location** — artist accounts get no city/coords, hurting distance-based recommendations until manual profile edit.
 - [ ] **36. "Let the studio choose" overpromises** — routes to the studio owner personally with no artist assignment/reassignment; roster-availability preview doesn't match who actually fulfills. (`BookingRequestFlow.tsx` ~:48, :58-61, :216)
 - [ ] **37. Local appointment reminders are fragile** — only scheduled when the seeker/artist opens the bookings/agenda screen; `cancelAllScheduledNotificationsAsync()` wipes all local notifications; two screens compete. (`notifications.ts` ~:74-98)

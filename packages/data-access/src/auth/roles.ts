@@ -42,7 +42,7 @@ export function homePathForRoles(roles: UserRole[]): string {
     case "moderator":
       return "/admin/moderation";
     case "studio_admin":
-      return "/studio-dashboard";
+      return "/"; // studio owners get their dashboard on the home tab (not a dedicated route)
     case "artist":
       return "/artist-dashboard";
     default:
