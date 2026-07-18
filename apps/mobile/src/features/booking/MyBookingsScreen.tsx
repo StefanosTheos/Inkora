@@ -17,7 +17,7 @@ import { useMarkRequestSeen, useSeenRequests } from "../../lib/seen-requests";
 import { supabase } from "../../lib/supabase";
 import { Avatar, fmtDateTime, money, requestChip, StatusChip } from "./components/ui";
 
-type Tab = "upcoming" | "completed" | "requests";
+type Tab = "upcoming" | "completed" | "archive" | "requests";
 
 const PAGE_SIZE = 6;
 
@@ -50,10 +50,12 @@ export function MyBookingsScreen() {
 
   const appts = apptsQ.data ?? [];
   const reqs = reqsQ.data ?? [];
-  // Completed bookings live in their own tab for clarity; everything else
-  // (scheduled/rescheduled/cancelled) stays under Upcoming.
-  const upcomingAppts = appts.filter((a) => a.status !== "completed");
+  // Upcoming = only live bookings (scheduled/rescheduled). Completed has its own
+  // tab; cancelled + no-shows are archived so they don't clutter — or inflate the
+  // count of — Upcoming.
+  const upcomingAppts = appts.filter((a) => a.status === "scheduled" || a.status === "rescheduled");
   const completedAppts = appts.filter((a) => a.status === "completed");
+  const archivedAppts = appts.filter((a) => a.status === "cancelled" || a.status === "no_show");
   // New bookings/completions carry a per-card "unread" mark (like requests):
   // the badge on the tab + a red dot on the card, cleared by tapping that card.
   // Unread requests (not yet opened) float to the top, separated from read ones.
@@ -62,7 +64,10 @@ export function MyBookingsScreen() {
     .sort((a, b) => Number(seenSet.has(a.id)) - Number(seenSet.has(b.id)));
 
   // Paginate the active tab, 6 items per page.
-  const activeCount = tab === "upcoming" ? upcomingAppts.length : tab === "completed" ? completedAppts.length : openRequests.length;
+  const activeCount = tab === "upcoming" ? upcomingAppts.length
+    : tab === "completed" ? completedAppts.length
+      : tab === "archive" ? archivedAppts.length
+        : openRequests.length;
   const totalPages = Math.max(1, Math.ceil(activeCount / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const paged = <T,>(arr: T[]): T[] => arr.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
@@ -78,6 +83,9 @@ export function MyBookingsScreen() {
         <TabButton label={`Upcoming${upcomingAppts.length ? ` (${upcomingAppts.length})` : ""}`} active={tab === "upcoming"} onPress={() => goTab("upcoming")} badge={newBookings + apptReplies} />
         <TabButton label={`Completed${completedAppts.length ? ` (${completedAppts.length})` : ""}`} active={tab === "completed"} onPress={() => goTab("completed")} badge={newCompleted} />
         <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => goTab("requests")} badge={offersUnread + openReqBadge} />
+        {archivedAppts.length > 0 ? (
+          <TabButton label={`Archive (${archivedAppts.length})`} active={tab === "archive"} onPress={() => goTab("archive")} />
+        ) : null}
       </ScrollView>
 
       <ScrollView contentContainerStyle={s.body}>
@@ -89,6 +97,10 @@ export function MyBookingsScreen() {
           apptsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
           completedAppts.length === 0 ? <Empty icon="checkmark-done-outline" text="No completed bookings yet. Finished sessions move here." /> :
           paged(completedAppts).map((a) => <AppointmentCard key={a.id} appt={a} unread={!seenCompletedSet.has(a.id)} onPress={() => { markCompletedSeen([a.id]); router.push(`/booking/${a.id}`); }} />)
+        ) : tab === "archive" ? (
+          apptsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
+          archivedAppts.length === 0 ? <Empty icon="archive-outline" text="Nothing archived. Cancelled bookings and no-shows land here." /> :
+          paged(archivedAppts).map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
         ) : (
           reqsQ.isLoading ? <ActivityIndicator style={{ marginTop: 32 }} /> :
           openRequests.length === 0 ? <Empty icon="paper-plane-outline" text="No open requests. Find an artist and tap “Request booking” to get started." /> :

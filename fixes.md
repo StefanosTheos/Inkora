@@ -98,7 +98,7 @@ studio statistics, and discovery/messaging/rewards.
 
 ## Tier 4 — Polish, IA & appearance
 
-- [ ] **25. Cancelled appointments sit under "Upcoming"** (and inflate its count) — separate/archive them. (`MyBookingsScreen.tsx` ~:55)
+- [x] **25. Cancelled appointments sit under "Upcoming"** (and inflate its count) — separate/archive them. ✅ Upcoming is now live bookings only (`scheduled`/`rescheduled`); cancelled + no-shows move to a new **Archive** tab (shown only when non-empty), so the Upcoming tab count no longer includes them. The Upcoming "new" badge already only counted scheduled/rescheduled, so it stays consistent. No migration. (`MyBookingsScreen.tsx`)
 - [ ] **26. Dead statuses** (`rescheduled`, `reviewing`, `no_show`) have labels/branches but are never set — implement or prune.
 - [ ] **27. Artist IA is inverted** — Home tab shows the seeker feed; the artist dashboard hides behind the Profile icon and is titled "Your studio" (misleading for independent artists). (`ArtistDashboardScreen.tsx:47`)
 - [ ] **28. The Create tab oversells "AI"** — it's on-device compositing, not generation; align the copy. (`create/index.tsx`, `AiPreviewHomeScreen.tsx`)
