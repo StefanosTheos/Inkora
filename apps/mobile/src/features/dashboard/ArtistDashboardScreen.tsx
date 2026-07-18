@@ -50,8 +50,8 @@ export function ArtistDashboardScreen() {
           </Pressable>
         </View>
 
-        {/* Identity */}
-        <View style={s.profileRow}>
+        {/* Identity — tap to edit your profile */}
+        <Pressable style={s.profileRow} onPress={() => router.push("/profile/settings")} accessibilityRole="button" accessibilityLabel="Edit your profile">
           <Avatar path={a?.avatarPath ?? null} name={a?.displayName ?? "You"} size={64} />
           <View style={{ flex: 1 }}>
             <Text style={s.name}>{a?.displayName ?? "Your profile"}</Text>
@@ -61,7 +61,8 @@ export function ArtistDashboardScreen() {
               {a ? (a.isAccepting ? " · Accepting" : " · Not accepting") : ""}
             </Text>
           </View>
-        </View>
+          <Ionicons name="chevron-forward" size={18} color="#D4D4D8" />
+        </Pressable>
         <Pressable style={s.viewPublic} onPress={() => router.push(`/artist/${meId}`)} accessibilityRole="button" accessibilityLabel="View public profile">
           <Text style={s.viewPublicText}>View public profile</Text>
           <Ionicons name="open-outline" size={16} color="#E5484D" />
