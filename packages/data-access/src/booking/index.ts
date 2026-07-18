@@ -599,6 +599,13 @@ export async function uploadBookingReference(client: InkoraClient, uploaderId: s
   return path;
 }
 
+/** Delete a reference object the seeker just uploaded (before the request is
+ *  submitted). RLS (`booking_ref_delete`) lets the uploader remove their own. */
+export async function deleteBookingReference(client: InkoraClient, path: string): Promise<void> {
+  const { error } = await client.storage.from(BOOKING_BUCKET).remove([path]);
+  if (error) throw toAppError(error);
+}
+
 // ------------------------------------------------------------------ hooks
 export const bookingKeys = {
   clientRequests: ["requests", "client"] as const,

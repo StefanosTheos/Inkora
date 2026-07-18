@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  bookingKeys, createBookingRequest, publicStorageUrl, uploadBookingReference, useArtistAvailability,
+  bookingKeys, createBookingRequest, deleteBookingReference, publicStorageUrl, uploadBookingReference, useArtistAvailability,
   useArtistProfile, useSavedDesigns, useStudioProfile, useStudioRosterAvailability,
 } from "@inkora/data-access";
 import { useAuth } from "@inkora/data-access";
@@ -117,6 +117,13 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRe
     } finally {
       setUploading(false);
     }
+  }
+
+  // Remove a reference the seeker added by mistake — drop it from the list and
+  // delete the just-uploaded object (best-effort; the request isn't sent yet).
+  function removeReference(path: string) {
+    setRefs((r) => r.filter((x) => x.path !== path));
+    void deleteBookingReference(supabase, path).catch(() => { /* orphan cleanup is best-effort */ });
   }
 
   // Attach one of the seeker's saved designs: copy its public image into the
@@ -318,9 +325,14 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRe
             {refs.length > 0 && (
               <View style={s.refGrid}>
                 {refs.map((r) => (
-                  <Pressable key={r.path} onPress={() => setZoomUri(r.uri)} accessibilityRole="imagebutton" accessibilityLabel="View reference photo">
-                    <Image source={{ uri: r.uri }} style={s.refImg} contentFit="cover" />
-                  </Pressable>
+                  <View key={r.path} style={s.refItem}>
+                    <Pressable onPress={() => setZoomUri(r.uri)} accessibilityRole="imagebutton" accessibilityLabel="View reference photo">
+                      <Image source={{ uri: r.uri }} style={s.refImg} contentFit="cover" />
+                    </Pressable>
+                    <Pressable style={s.refDelete} onPress={() => removeReference(r.path)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Remove reference photo">
+                      <Ionicons name="close-circle" size={22} color="#18181B" />
+                    </Pressable>
+                  </View>
                 ))}
               </View>
             )}
@@ -480,7 +492,9 @@ const s = StyleSheet.create({
   noticeText: { flex: 1, color: "#92400E", fontSize: 13, lineHeight: 18 },
   refButtons: { flexDirection: "row", gap: 8, marginTop: 8 },
   refGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  refItem: { position: "relative" },
   refImg: { width: 76, height: 76, borderRadius: 12 },
+  refDelete: { position: "absolute", top: -7, right: -7, backgroundColor: "#fff", borderRadius: 11 },
   addRef: { width: 76, height: 76, borderRadius: 12, backgroundColor: "#F4F4F5", alignItems: "center", justifyContent: "center", gap: 3 },
   addRefText: { fontSize: 11, color: "#71717A", fontWeight: "600" },
   modal: { flex: 1, backgroundColor: "#fff" },
