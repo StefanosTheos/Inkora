@@ -9,12 +9,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
-import { Pager } from "../../components/Pager";
+import { Pager, PagerScrollProvider } from "../../components/Pager";
 import { RatingDistribution } from "../../components/RatingDistribution";
 import { ReviewReply } from "../../components/ReviewReply";
 import { useToast } from "../../components/Toast";
@@ -68,6 +68,8 @@ export function StudioDashboardScreen() {
   const [rosterPage, setRosterPage] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [period, setPeriod] = useState<StatsPeriod>("30d");
+  const scrollRef = useRef<ScrollView>(null);
+  const rosterAnchor = useRef<View>(null);
   const studioQ = useMyStudio(supabase, meId);
   const st = studioQ.data;
   const overviewQ = useStudioOverview(supabase, st?.id ?? "");
@@ -132,7 +134,8 @@ export function StudioDashboardScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
-      <ScrollView contentContainerStyle={s.body}>
+      <ScrollView ref={scrollRef} contentContainerStyle={s.body}>
+        <PagerScrollProvider scrollRef={scrollRef}>
         <View style={s.topbar}>
           <Text style={s.topTitle} accessibilityRole="header">Studio</Text>
           <View style={s.topActions}>
@@ -217,6 +220,7 @@ export function StudioDashboardScreen() {
         </View>
 
         {/* Roster */}
+        <View ref={rosterAnchor} collapsable={false} />
         <View style={s.sectionRow}>
           <Text style={s.sectionInline} accessibilityRole="header">Artists</Text>
           <Pressable style={s.inviteLink} onPress={() => router.push("/studio-invite")} accessibilityRole="button" accessibilityLabel="Invite an artist">
@@ -253,7 +257,7 @@ export function StudioDashboardScreen() {
             {pagedRoster.map((a) => (
               <ArtistStatCard key={a.id} artist={a} stat={statsById.get(a.id)} currencySym={sym} onOpen={() => router.push(`/artist/${a.id}`)} onMessage={() => void messageArtist(a.id)} onMenu={() => setMenuArtist({ id: a.id, name: a.displayName })} />
             ))}
-            <Pager page={safeRosterPage} totalPages={rosterPages} onChange={setRosterPage} />
+            <Pager page={safeRosterPage} totalPages={rosterPages} onChange={setRosterPage} anchorRef={rosterAnchor} />
           </>
         )}
 
@@ -351,6 +355,7 @@ export function StudioDashboardScreen() {
             <Text style={[s.settingLabel, { color: "#DC2626" }]}>Sign out</Text>
           </Pressable>
         </View>
+        </PagerScrollProvider>
       </ScrollView>
 
       {/* Per-artist management sheet */}

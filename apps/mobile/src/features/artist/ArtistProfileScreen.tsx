@@ -10,11 +10,11 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Pager } from "../../components/Pager";
+import { Pager, PagerScrollProvider } from "../../components/Pager";
 import { ReviewPhotoStrip } from "../../components/ReviewPhotoStrip";
 import { ReviewReply } from "../../components/ReviewReply";
 import { useToast } from "../../components/Toast";
@@ -38,6 +38,7 @@ const COMPLEXITY: Complexity[] = ["simple", "medium", "complex"];
 export function ArtistProfileScreen({ id }: { id: string }) {
   const router = useRouter();
   const toast = useToast();
+  const scrollRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
   const { ctx } = useAuth();
   const isSelf = !!ctx.userId && ctx.userId === id;
@@ -109,7 +110,8 @@ export function ArtistProfileScreen({ id }: { id: string }) {
           <Ionicons name="chevron-back" size={26} color="#18181B" />
         </Pressable>
       </View>
-      <ScrollView contentContainerStyle={{ paddingBottom: 110 }}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 110 }}>
+        <PagerScrollProvider scrollRef={scrollRef}>
         {/* Header */}
         <View style={s.header}>
           <View style={s.avatar}>
@@ -177,6 +179,7 @@ export function ArtistProfileScreen({ id }: { id: string }) {
           {tab === "flashes" && <FlashGrid images={flashes.data ?? []} loading={flashes.isLoading} />}
           {tab === "availability" && <Availability slots={availability.data ?? []} loading={availability.isLoading} />}
         </View>
+        </PagerScrollProvider>
       </ScrollView>
 
       {/* Sticky CTA — hidden on your own profile (can't save/message/book yourself) */}
@@ -254,12 +257,14 @@ const REVIEWS_PAGE_SIZE = 3;
 function Reviews({ items, loading, avg, count, canReply, onReplied }: { items: ReviewItem[]; loading: boolean; avg: number; count: number; canReply: boolean; onReplied: () => void }) {
   const router = useRouter();
   const [page, setPage] = useState(0);
+  const anchorRef = useRef<View>(null);
   if (loading) return <ActivityIndicator />;
   const totalPages = Math.max(1, Math.ceil(items.length / REVIEWS_PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const pageReviews = items.slice(safePage * REVIEWS_PAGE_SIZE, safePage * REVIEWS_PAGE_SIZE + REVIEWS_PAGE_SIZE);
   return (
     <View>
+      <View ref={anchorRef} collapsable={false} />
       <Text style={s.reviewSummary}>{count > 0 ? `★ ${avg.toFixed(1)} · ${count} review${count === 1 ? "" : "s"}` : "No reviews yet."}</Text>
       {pageReviews.map((r) => (
         <View key={r.id} style={s.reviewCard}>
@@ -284,7 +289,7 @@ function Reviews({ items, loading, avg, count, canReply, onReplied }: { items: R
           <ReviewReply reviewId={r.id} reply={r.reply} canReply={canReply} onReplied={onReplied} />
         </View>
       ))}
-      <Pager page={safePage} totalPages={totalPages} onChange={setPage} />
+      <Pager page={safePage} totalPages={totalPages} onChange={setPage} anchorRef={anchorRef} />
     </View>
   );
 }

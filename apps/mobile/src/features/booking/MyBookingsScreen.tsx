@@ -4,13 +4,13 @@ import {
   APPOINTMENT_STATUS_LABEL, type AppointmentRequestView, type AppointmentView,
 } from "@inkora/domain";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CountBadge } from "../../components/CountBadge";
 import { EmptyState } from "../../components/EmptyState";
-import { Pager } from "../../components/Pager";
+import { Pager, PagerScrollProvider } from "../../components/Pager";
 import { RowSkeleton } from "../../components/Skeleton";
 import { useBadgeCounts } from "../../lib/badges";
 import { scheduleAppointmentReminders } from "../../lib/notifications";
@@ -27,6 +27,7 @@ export function MyBookingsScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("upcoming");
   const [page, setPage] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
   const goTab = (t: Tab) => { setTab(t); setPage(0); };
   const apptsQ = useMyAppointments(supabase);
   const reqsQ = useMyRequests(supabase, "client");
@@ -90,7 +91,8 @@ export function MyBookingsScreen() {
         ) : null}
       </ScrollView>
 
-      <ScrollView contentContainerStyle={s.body}>
+      <ScrollView ref={scrollRef} contentContainerStyle={s.body}>
+        <PagerScrollProvider scrollRef={scrollRef}>
         {tab === "upcoming" ? (
           apptsQ.isLoading ? <ListSkeleton /> :
           upcomingAppts.length === 0 ? <EmptyState icon="calendar-outline" title="No upcoming appointments" message="When an artist accepts your offer, the booking shows up here." actionLabel="Find an artist" onAction={() => router.push("/discover")} /> :
@@ -116,6 +118,7 @@ export function MyBookingsScreen() {
           ))
         )}
         <Pager page={safePage} totalPages={totalPages} onChange={setPage} />
+        </PagerScrollProvider>
       </ScrollView>
     </SafeAreaView>
   );

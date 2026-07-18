@@ -3,12 +3,12 @@ import { startDirectConversation, useAuth, useClientReviews, usePublicSeekerProf
 import { CLIENT_REVIEW_CATEGORIES, type ClientReviewItem, type SeekerReview } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ImageZoomModal } from "../../components/ImageZoomModal";
-import { Pager } from "../../components/Pager";
+import { Pager, PagerScrollProvider } from "../../components/Pager";
 import { ReviewPhotoStrip } from "../../components/ReviewPhotoStrip";
 import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
@@ -39,6 +39,7 @@ export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { i
   const [page, setPage] = useState(0);
   const [tab, setTab] = useState<ProfileTab>("journey");
   const scrollRef = useRef<ScrollView>(null);
+  const tabAnchor = useRef<View>(null);
   // Featuring a session (tapping a review, or arriving from an appointment)
   // jumps to the Journey tab + top, resets pagination, so the newly-featured
   // session is what the viewer lands on.
@@ -105,6 +106,7 @@ export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { i
     <SafeAreaView style={s.safe} edges={["top"]}>
       <TopBar onBack={() => router.back()} />
       <ScrollView ref={scrollRef} contentContainerStyle={s.body}>
+        <PagerScrollProvider scrollRef={scrollRef}>
         {/* Header */}
         <View style={s.header}>
           <Avatar path={p.avatarPath} name={p.displayName} size={80} />
@@ -136,6 +138,7 @@ export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { i
           <TabBtn label={`Reviews${allReviews.length ? ` (${allReviews.length})` : ""}`} active={tab === "reviews"} onPress={() => setTab("reviews")} />
           {canSeeClientReviews ? <TabBtn label={`Ratings${clientReviews.data?.length ? ` (${clientReviews.data.length})` : ""}`} active={tab === "ratings"} onPress={() => setTab("ratings")} /> : null}
         </View>
+        <View ref={tabAnchor} collapsable={false} />
 
         {tab === "journey" ? (
           featured ? (
@@ -188,13 +191,14 @@ export function SeekerProfileScreen({ id, featuredReviewId, appointmentId }: { i
                   <Text style={s.reviewDate}>{fmtDate(r.createdAt)}</Text>
                 </Pressable>
               ))}
-              <Pager page={safePage} totalPages={totalPages} onChange={setPage} />
+              <Pager page={safePage} totalPages={totalPages} onChange={setPage} anchorRef={tabAnchor} />
             </>
           )
         ) : (
           /* Ratings — how artists rate this client (only shown to artists / self). */
-          <ClientReviewsSection reviews={clientReviews.data ?? []} loading={clientReviews.isLoading} isOwn={isOwn} />
+          <ClientReviewsSection reviews={clientReviews.data ?? []} loading={clientReviews.isLoading} isOwn={isOwn} anchorRef={tabAnchor} />
         )}
+        </PagerScrollProvider>
       </ScrollView>
       <ImageZoomModal visible={!!zoomUri} uri={zoomUri ?? ""} onClose={() => setZoomUri(null)} label="Tattoo progress" />
     </SafeAreaView>
@@ -245,7 +249,7 @@ function FeaturedReviewCard({ review }: { review: SeekerReview }) {
 
 // The artist-facing client reputation: overall score, per-category averages,
 // and each artist's note (hidden until the double-blind window unlocks it).
-function ClientReviewsSection({ reviews, loading, isOwn }: { reviews: ClientReviewItem[]; loading: boolean; isOwn: boolean }) {
+function ClientReviewsSection({ reviews, loading, isOwn, anchorRef }: { reviews: ClientReviewItem[]; loading: boolean; isOwn: boolean; anchorRef?: RefObject<View | null> }) {
   const avg = (key: keyof ClientReviewItem) =>
     reviews.length ? reviews.reduce((sum, r) => sum + (r[key] as number), 0) / reviews.length : 0;
   // True grand mean of every category score (no intermediate per-review
@@ -300,7 +304,7 @@ function ClientReviewsSection({ reviews, loading, isOwn }: { reviews: ClientRevi
               <Text style={s.reviewDate}>{fmtDate(r.createdAt)}</Text>
             </View>
           ))}
-          <Pager page={safePage} totalPages={totalPages} onChange={setPage} />
+          <Pager page={safePage} totalPages={totalPages} onChange={setPage} anchorRef={anchorRef} />
         </>
       )}
     </>

@@ -7,12 +7,12 @@ import { formatStyleSlug, type PortfolioImage, type ReviewItem, type StudioRoste
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
-import { Pager } from "../../components/Pager";
+import { Pager, PagerScrollProvider } from "../../components/Pager";
 import { RatingDistribution } from "../../components/RatingDistribution";
 import { ReviewPhotoStrip } from "../../components/ReviewPhotoStrip";
 import { ReviewReply } from "../../components/ReviewReply";
@@ -34,6 +34,7 @@ const TABS: { key: Tab; label: string }[] = [
 export function StudioProfileScreen({ slug }: { slug: string }) {
   const router = useRouter();
   const toast = useToast();
+  const scrollRef = useRef<ScrollView>(null);
   const confirm = useConfirm();
   const qc = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -145,7 +146,8 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
           <Ionicons name="chevron-back" size={26} color="#18181B" />
         </Pressable>
       </View>
-      <ScrollView contentContainerStyle={{ paddingBottom: 110 }}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 110 }}>
+        <PagerScrollProvider scrollRef={scrollRef}>
         {/* Header */}
         <View style={s.header}>
           <View style={s.logo}>
@@ -213,6 +215,7 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
             </View>
           )}
         </View>
+        </PagerScrollProvider>
       </ScrollView>
 
       {/* Sticky CTA */}
@@ -355,6 +358,7 @@ const REVIEWS_PAGE_SIZE = 3;
 function Reviews({ items, loading, canReply, onReplied }: { items: ReviewItem[]; loading: boolean; canReply: boolean; onReplied: () => void }) {
   const router = useRouter();
   const [page, setPage] = useState(0);
+  const anchorRef = useRef<View>(null);
   if (loading) return <ActivityIndicator />;
   if (items.length === 0) return <Text style={s.muted}>No reviews yet.</Text>;
   // Distribution summarises ALL reviews; the list itself paginates.
@@ -363,6 +367,7 @@ function Reviews({ items, loading, canReply, onReplied }: { items: ReviewItem[];
   const pageReviews = items.slice(safePage * REVIEWS_PAGE_SIZE, safePage * REVIEWS_PAGE_SIZE + REVIEWS_PAGE_SIZE);
   return (
     <View>
+      <View ref={anchorRef} collapsable={false} />
       <RatingDistribution reviews={items} />
       {pageReviews.map((r) => (
         <View key={r.id} style={s.reviewCard}>
@@ -387,7 +392,7 @@ function Reviews({ items, loading, canReply, onReplied }: { items: ReviewItem[];
           <ReviewReply reviewId={r.id} reply={r.reply} canReply={canReply} onReplied={onReplied} />
         </View>
       ))}
-      <Pager page={safePage} totalPages={totalPages} onChange={setPage} />
+      <Pager page={safePage} totalPages={totalPages} onChange={setPage} anchorRef={anchorRef} />
     </View>
   );
 }

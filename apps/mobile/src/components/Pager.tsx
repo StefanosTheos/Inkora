@@ -1,5 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { createContext, type ReactNode, type RefObject,useContext } from "react";
+import { findNodeHandle, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+
+/** Lets a <Pager> nested anywhere below a screen's scroll container reach it so
+ *  that changing pages resets the scroll position — otherwise a shorter page
+ *  leaves you stranded mid-scroll (e.g. a page with a single item). The screen
+ *  that owns the ScrollView wraps its content in <PagerScrollProvider>; every
+ *  <Pager> inside consumes it automatically. */
+const ScrollHostContext = createContext<RefObject<ScrollView | null> | null>(null);
+
+export function PagerScrollProvider({ scrollRef, children }: { scrollRef: RefObject<ScrollView | null>; children: ReactNode }) {
+  return <ScrollHostContext.Provider value={scrollRef}>{children}</ScrollHostContext.Provider>;
+}
 
 /** The page tokens to render: real page indices interspersed with "…" gaps.
  *  Keeps the control to a single row by showing at most four numbers — the
@@ -28,25 +40,70 @@ function pageWindow(page: number, total: number): (number | "dots")[] {
 /** Numbered page control: ‹ prev · 1 2 3 · next ›. Renders nothing for a single
  *  page. `page` is 0-indexed. Arrows and numbers always stay on one row — the
  *  numbers window (current + next, then the last two) with an ellipsis once
- *  there are more than 4 pages. */
-export function Pager({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+ *  there are more than 4 pages.
+ *
+ *  On every page change the enclosing scroll view is scrolled back to the top of
+ *  this list so the first item of the new page is the first thing on screen.
+ *  `scrollRef` (or, more commonly, a surrounding <PagerScrollProvider>) supplies
+ *  the scroll container; `anchorRef` marks where the top of the list sits — omit
+ *  it when the list starts at the very top of its scroll view (scrolls to 0). */
+export function Pager({
+  page,
+  totalPages,
+  onChange,
+  anchorRef,
+  scrollRef,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (p: number) => void;
+  anchorRef?: RefObject<View | null>;
+  scrollRef?: RefObject<ScrollView | null>;
+}) {
+  const ctxScroll = useContext(ScrollHostContext);
+  const scroll = scrollRef ?? ctxScroll;
   if (totalPages <= 1) return null;
+
+  const go = (p: number) => {
+    onChange(p);
+    const sc = scroll?.current;
+    if (!sc) return;
+    const anchor = anchorRef?.current;
+    if (!anchor) {
+      sc.scrollTo({ y: 0, animated: true });
+      return;
+    }
+    const node = findNodeHandle(sc);
+    if (node == null) {
+      sc.scrollTo({ y: 0, animated: true });
+      return;
+    }
+    // measureLayout gives the anchor's offset within the scroll content
+    // (unaffected by the current scroll position), so we can land its top just
+    // below the container edge regardless of how nested it is.
+    anchor.measureLayout(
+      node,
+      (_x, y) => sc.scrollTo({ y: Math.max(y - 12, 0), animated: true }),
+      () => sc.scrollTo({ y: 0, animated: true }),
+    );
+  };
+
   const tokens = pageWindow(page, totalPages);
   return (
     <View style={s.pager}>
-      <Pressable disabled={page === 0} onPress={() => onChange(page - 1)} hitSlop={6} style={[s.arrow, page === 0 && s.off]} accessibilityRole="button" accessibilityLabel="Previous page">
+      <Pressable disabled={page === 0} onPress={() => go(page - 1)} hitSlop={6} style={[s.arrow, page === 0 && s.off]} accessibilityRole="button" accessibilityLabel="Previous page">
         <Ionicons name="chevron-back" size={18} color={page === 0 ? "#D4D4D8" : "#18181B"} />
       </Pressable>
       {tokens.map((t, i) =>
         t === "dots" ? (
           <View key={`dots-${i}`} style={s.dots}><Text style={s.dotsText}>…</Text></View>
         ) : (
-          <Pressable key={t} onPress={() => onChange(t)} style={[s.num, t === page && s.numActive]} accessibilityRole="button" accessibilityLabel={`Page ${t + 1}`}>
+          <Pressable key={t} onPress={() => go(t)} style={[s.num, t === page && s.numActive]} accessibilityRole="button" accessibilityLabel={`Page ${t + 1}`}>
             <Text style={[s.numText, t === page && s.numTextActive]}>{t + 1}</Text>
           </Pressable>
         ),
       )}
-      <Pressable disabled={page >= totalPages - 1} onPress={() => onChange(page + 1)} hitSlop={6} style={[s.arrow, page >= totalPages - 1 && s.off]} accessibilityRole="button" accessibilityLabel="Next page">
+      <Pressable disabled={page >= totalPages - 1} onPress={() => go(page + 1)} hitSlop={6} style={[s.arrow, page >= totalPages - 1 && s.off]} accessibilityRole="button" accessibilityLabel="Next page">
         <Ionicons name="chevron-forward" size={18} color={page >= totalPages - 1 ? "#D4D4D8" : "#18181B"} />
       </Pressable>
     </View>
