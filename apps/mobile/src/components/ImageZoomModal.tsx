@@ -22,16 +22,21 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
  * Fills its parent — use inside a Modal (ImageZoomModal) or a full-screen route.
  */
 export function ZoomableImage({
-  uri, onRequestClose, label,
-}: { uri: string; onRequestClose?: () => void; label?: string }) {
+  uri, onRequestClose, label, onZoomChange, tapToClose = true,
+}: { uri: string; onRequestClose?: () => void; label?: string; onZoomChange?: (zoomed: boolean) => void; tapToClose?: boolean }) {
   const scale = useRef(new Animated.Value(1)).current;
   const tx = useRef(new Animated.Value(0)).current;
   const ty = useRef(new Animated.Value(0)).current;
   // Committed gesture state we read/write directly.
-  const g = useRef({ scale: 1, tx: 0, ty: 0, mode: 0, dist0: 0, scale0: 1, x0: 0, y0: 0, tx0: 0, ty0: 0, moved: false }).current;
+  const g = useRef({ scale: 1, tx: 0, ty: 0, mode: 0, dist0: 0, scale0: 1, x0: 0, y0: 0, tx0: 0, ty0: 0, moved: false, zoomed: false }).current;
+
+  // Report zoom on/off so a parent gallery can disable horizontal paging while
+  // the image is zoomed (pan should win over swipe-to-next then).
+  const reportZoom = (z: boolean) => { if (z !== g.zoomed) { g.zoomed = z; onZoomChange?.(z); } };
 
   const reset = (animated: boolean) => {
     g.scale = 1; g.tx = 0; g.ty = 0;
+    reportZoom(false);
     if (animated) {
       Animated.parallel([
         Animated.spring(scale, { toValue: 1, useNativeDriver: false, bounciness: 0 }),
@@ -57,6 +62,7 @@ export function ZoomableImage({
       const next = clamp((g.scale0 * dist) / g.dist0, MIN_SCALE, MAX_SCALE);
       g.scale = next;
       scale.setValue(next);
+      reportZoom(next > MIN_SCALE + 0.01);
     } else if (a) {
       if (g.mode !== 1) { g.mode = 1; g.x0 = a.pageX; g.y0 = a.pageY; g.tx0 = g.tx; g.ty0 = g.ty; }
       const dx = a.pageX - g.x0;
@@ -78,7 +84,10 @@ export function ZoomableImage({
     if (remaining === 0) {
       if (g.scale <= MIN_SCALE + 0.01) {
         reset(true);
-        if (!g.moved) close(); // clean tap while not zoomed = dismiss
+        // Clean tap while not zoomed = dismiss. Disabled inside a horizontal
+        // pager: a swipe the parent list consumes doesn't fire our onTouchMove,
+        // so `moved` stays false and we'd misread the swipe as a tap and close.
+        if (!g.moved && tapToClose) close();
       }
     }
   };

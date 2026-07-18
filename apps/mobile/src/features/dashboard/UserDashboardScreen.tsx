@@ -203,7 +203,7 @@ export function UserDashboardScreen() {
             {(savedDesigns.data ?? []).map((d) => (
               <View key={d.id} style={s.designWrap}>
                 <Pressable
-                  onPress={() => router.push({ pathname: "/image-viewer", params: { path: d.imagePath, title: d.title ?? "", artistId: d.artistId ?? "", artistName: d.artistName ?? "" } })}
+                  onPress={() => router.push({ pathname: "/image-viewer", params: { id: d.id } })}
                   accessibilityRole="imagebutton"
                   accessibilityLabel={d.title ? `View design: ${d.title}` : "View saved design"}
                 >
