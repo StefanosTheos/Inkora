@@ -227,6 +227,18 @@ export async function getBookingRequest(client: InkoraClient, id: string): Promi
   return data ? mapReq(data, me) : null;
 }
 
+/** Artist opened a still-pending request → bump it to 'reviewing' so the seeker
+ *  sees "Reviewing" instead of a static "Pending". Only pending→reviewing (never
+ *  overrides offered/declined/etc.); no notification fires for this transition. */
+export async function markRequestReviewing(client: InkoraClient, id: string): Promise<void> {
+  const { error } = await client
+    .from("appointment_requests")
+    .update({ status: "reviewing" })
+    .eq("id", id)
+    .eq("status", "pending");
+  if (error) throw toAppError(error);
+}
+
 /** Artist marks a request declined (party update policy allows this). */
 export async function declineRequest(client: InkoraClient, id: string): Promise<void> {
   const { error } = await client.from("appointment_requests").update({ status: "declined" }).eq("id", id);

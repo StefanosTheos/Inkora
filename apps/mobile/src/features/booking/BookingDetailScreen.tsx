@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
   acceptReschedule, bookingKeys, cancelAppointment, cancelRequest, completeAppointment, createOffer,
-  declineRequest, declineReschedule, getChatSignedUrl, markEntityNotificationsRead, markNoShow, proposeReschedule, respondToOffer,
+  declineRequest, declineReschedule, getChatSignedUrl, markEntityNotificationsRead, markNoShow, markRequestReviewing, proposeReschedule, respondToOffer,
   startDirectConversation, submitClientReview, submitReview,
   useAppointment, useAppointmentClientReview, useAppointmentReview, useArtistAvailability,
   useArtistDaySlots, useAuth, useBookingRequest, withdrawOffer,
@@ -532,6 +532,15 @@ function RequestDetail({ req, meId }: { req: AppointmentRequestView; meId: strin
   useEffect(() => {
     if (!isArtist) markSeen(req.id);
   }, [isArtist, req.id, markSeen]);
+
+  // Artist opening a still-pending request bumps it to "reviewing", so the seeker
+  // sees the artist is looking at it (rather than a static "Pending").
+  useEffect(() => {
+    if (!isArtist || req.status !== "pending") return;
+    void markRequestReviewing(supabase, req.id)
+      .then(() => qc.invalidateQueries({ queryKey: bookingKeys.request(req.id) }))
+      .catch(() => { /* best-effort status bump */ });
+  }, [isArtist, req.status, req.id, qc]);
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     try { await fn(); await invalidate(); }
