@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useIdeaDetail, useIdeaSaved, useSimilarIdeas } from "@inkora/data-access";
+import { startDirectConversation, useAuth, useIdeaDetail, useIdeaSaved, useSimilarIdeas } from "@inkora/data-access";
 import type { IdeaCard } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ImageZoomModal } from "../../components/ImageZoomModal";
@@ -16,6 +16,7 @@ import { Avatar } from "../booking/components/ui";
 export function IdeaDetailScreen({ id }: { id: string }) {
   const router = useRouter();
   const toast = useToast();
+  const { ctx } = useAuth();
   const detail = useIdeaDetail(supabase, id);
   const similar = useSimilarIdeas(supabase, id);
   const save = useIdeaSaved(supabase, id);
@@ -41,6 +42,7 @@ export function IdeaDetailScreen({ id }: { id: string }) {
 
   const aspect = d.width && d.height ? d.width / d.height : 1;
   const artist = d.artist;
+  const canMessage = !!artist && (ctx.userId as string | null) !== (artist.id as string);
 
   const onToggleSave = () => {
     const next = !save.saved;
@@ -48,9 +50,27 @@ export function IdeaDetailScreen({ id }: { id: string }) {
     toast.show(next ? "Saved to your designs" : "Removed from saved");
   };
 
+  async function onShare() {
+    try {
+      const url = imageUrl(d?.imagePath) ?? "";
+      const line = `Check out this tattoo design${d?.title ? ` "${d.title}"` : ""}${artist ? ` by ${artist.displayName}` : ""} on Inkora`;
+      await Share.share({ message: [line, url].filter(Boolean).join("\n") });
+    } catch { /* user dismissed the share sheet */ }
+  }
+
+  async function messageArtist() {
+    if (!artist) return;
+    try {
+      const cid = await startDirectConversation(supabase, artist.id);
+      router.push(`/chats/${cid}`);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    }
+  }
+
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
-      <TopBar onBack={() => router.back()} />
+      <TopBar onBack={() => router.back()} onShare={() => void onShare()} />
       <ScrollView contentContainerStyle={s.body}>
         <Pressable onPress={() => setZoom(true)} accessibilityRole="imagebutton" accessibilityLabel={`${d.title ?? "Tattoo design"}. Tap to zoom`}>
           <Image source={{ uri: imageUrl(d.imagePath, 800) }} style={[s.hero, { aspectRatio: aspect }]} contentFit="cover" />
@@ -74,14 +94,22 @@ export function IdeaDetailScreen({ id }: { id: string }) {
           )}
 
           {artist ? (
-            <Pressable style={s.artistRow} onPress={() => router.push(`/artist/${artist.id}`)} accessibilityRole="button" accessibilityLabel={`View ${artist.displayName}'s profile`}>
-              <Avatar path={artist.avatarPath} name={artist.displayName} size={44} />
-              <View style={{ flex: 1 }}>
-                <Text style={s.artistName}>{artist.displayName}</Text>
-                <Text style={s.artistMeta} numberOfLines={1}>{artist.headline ?? "Tattoo artist"}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#D4D4D8" />
-            </Pressable>
+            <View style={s.artistRow}>
+              <Pressable style={s.artistInfo} onPress={() => router.push(`/artist/${artist.id}`)} accessibilityRole="button" accessibilityLabel={`View ${artist.displayName}'s profile`}>
+                <Avatar path={artist.avatarPath} name={artist.displayName} size={44} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.artistName}>{artist.displayName}</Text>
+                  <Text style={s.artistMeta} numberOfLines={1}>{artist.headline ?? "Tattoo artist"}</Text>
+                </View>
+              </Pressable>
+              {canMessage ? (
+                <Pressable style={s.msgBtn} onPress={() => void messageArtist()} accessibilityRole="button" accessibilityLabel={`Message ${artist.displayName}`}>
+                  <Ionicons name="chatbubble-outline" size={18} color="#18181B" />
+                </Pressable>
+              ) : (
+                <Ionicons name="chevron-forward" size={18} color="#D4D4D8" />
+              )}
+            </View>
           ) : null}
 
           {/* Actions */}
@@ -146,19 +174,24 @@ export function IdeaDetailScreen({ id }: { id: string }) {
   );
 }
 
-function TopBar({ onBack }: { onBack: () => void }) {
+function TopBar({ onBack, onShare }: { onBack: () => void; onShare?: () => void }) {
   return (
     <View style={s.topbar}>
       <Pressable onPress={onBack} hitSlop={10} accessibilityRole="button" accessibilityLabel="Back">
         <Ionicons name="chevron-back" size={26} color="#18181B" />
       </Pressable>
+      {onShare ? (
+        <Pressable onPress={onShare} hitSlop={10} accessibilityRole="button" accessibilityLabel="Share this design">
+          <Ionicons name="share-outline" size={23} color="#18181B" />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
-  topbar: { paddingHorizontal: 12, paddingVertical: 4 },
+  topbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 4 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   muted: { color: "#A1A1AA" },
   body: { paddingBottom: 40 },
@@ -172,6 +205,8 @@ const s = StyleSheet.create({
   tag: { backgroundColor: "#F4F4F5", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   tagText: { fontSize: 12, fontWeight: "600", color: "#18181B" },
   artistRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#F4F4F5" },
+  artistInfo: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
+  msgBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: "#E4E4E7", alignItems: "center", justifyContent: "center" },
   artistName: { fontWeight: "800", fontSize: 15 },
   artistMeta: { color: "#71717A", fontSize: 13, marginTop: 2 },
   actions: { flexDirection: "row", gap: 10 },

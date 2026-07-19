@@ -57,7 +57,7 @@ studio statistics, and discovery/messaging/rewards.
 - [ ] **9. No boards/collections** — saves are a flat, unorganizable list; can't share a collection with an artist.
   - Files: `UserDashboardScreen.tsx` (~:198), `favorites` table.
 - [x] **10. `save_count` is fully wired but never displayed.** ✅ Idea tiles now show a compact `♥ N` badge (only when >0); idea detail shows a "N saves" line. Plus a **Recent / Popular** sort (popularity = save_count, keyset on (save_count, id)) on both Home Explore and Discover → Designs.
-- [ ] **11. No Share and no "Message artist" from ideas/portfolio** — missing organic-growth + contact shortcuts (Share exists only for referral code).
+- [x] **11. No Share and no "Message artist" from ideas/portfolio** ✅ Both detail screens gain a **Share** action (share-outline icon in the header → native `Share.share` with a "Check out this tattoo design … on Inkora" line + the design's public image URL, for organic growth) and a **Message artist** shortcut (a chat-bubble button on the artist row → `startDirectConversation` → `/chats/{cid}`, the same flow as the profile CTA). The artist row is split into a profile-nav area + the message button; the button is hidden when the viewer is the artist themselves (falls back to the chevron). No migration.
   - Files: `IdeaDetailScreen.tsx`, `PortfolioDesignScreen.tsx`.
 - [x] **12. Style-filtered feed silently truncates at ~500 ideas.** ✅ Replaced client-side id materialization (1000-link/500-id caps) with a server-side `idea_styles!inner` join filter — whole style corpus reachable, keyset applies to the full set, no parent duplication (verified). Less code, no migration.
 
