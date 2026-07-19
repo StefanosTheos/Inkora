@@ -57,6 +57,17 @@ export default function ImageViewerModal() {
               {item.artistId ? (
                 <View style={s.footer} pointerEvents="box-none">
                   {item.artistName ? <Text style={s.artist} numberOfLines={1}>By {item.artistName}</Text> : null}
+                  {item.isFlash ? (
+                    <Pressable
+                      style={s.tryOnBtn}
+                      onPress={() => router.push({ pathname: "/create/new", params: { flashPath: item.imagePath, flashId: item.id, artistName: item.artistName ?? "Artist", caption: item.title ?? "" } })}
+                      accessibilityRole="button"
+                      accessibilityLabel="Try this design on you"
+                    >
+                      <Ionicons name="sparkles-outline" size={18} color="#fff" />
+                      <Text style={s.tryOnText}>Try on you</Text>
+                    </Pressable>
+                  ) : null}
                   <Pressable
                     style={s.bookBtn}
                     onPress={() => router.push({ pathname: "/booking-request", params: { artistId: item.artistId ?? "", refPath: item.imagePath } })}
@@ -87,6 +98,8 @@ const s = StyleSheet.create({
   artist: { color: "#fff", fontSize: 15, fontWeight: "700" },
   bookBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#E5484D", borderRadius: 14, paddingVertical: 14 },
   bookText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  tryOnBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.75)", borderRadius: 14, paddingVertical: 12.5 },
+  tryOnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   counter: { position: "absolute", top: 52, alignSelf: "center", backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 },
   counterText: { color: "#fff", fontWeight: "700", fontSize: 13, fontVariant: ["tabular-nums"] },
 });

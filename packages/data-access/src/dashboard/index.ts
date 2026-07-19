@@ -146,6 +146,8 @@ export interface SavedDesignCard {
    *  show attribution and to start a booking with this design as a reference. */
   artistId: string | null;
   artistName: string | null;
+  /** A flash piece (portfolio_image with kind='flash') — eligible for try-on. */
+  isFlash: boolean;
 }
 export async function getSavedDesigns(client: InkoraClient): Promise<SavedDesignCard[]> {
   const { data: favs, error: favErr } = await client
@@ -164,12 +166,12 @@ export async function getSavedDesigns(client: InkoraClient): Promise<SavedDesign
   if (ideaIds.length > 0) {
     const { data, error } = await client.from("tattoo_ideas").select("id, title, image_path, source_artist_id").in("id", ideaIds);
     if (error) throw toAppError(error);
-    for (const d of data ?? []) cards.set(d.id, { id: d.id, targetType: "idea", title: d.title, imagePath: d.image_path, artistId: d.source_artist_id ?? null, artistName: null });
+    for (const d of data ?? []) cards.set(d.id, { id: d.id, targetType: "idea", title: d.title, imagePath: d.image_path, artistId: d.source_artist_id ?? null, artistName: null, isFlash: false });
   }
   if (pieceIds.length > 0) {
-    const { data, error } = await client.from("portfolio_images").select("id, caption, image_path, artist_id").in("id", pieceIds);
+    const { data, error } = await client.from("portfolio_images").select("id, caption, image_path, artist_id, kind").in("id", pieceIds);
     if (error) throw toAppError(error);
-    for (const d of data ?? []) cards.set(d.id, { id: d.id, targetType: "portfolio_image", title: d.caption, imagePath: d.image_path, artistId: d.artist_id, artistName: null });
+    for (const d of data ?? []) cards.set(d.id, { id: d.id, targetType: "portfolio_image", title: d.caption, imagePath: d.image_path, artistId: d.artist_id, artistName: null, isFlash: d.kind === "flash" });
   }
 
   // Resolve artist display names (artists.id === profiles.id).
