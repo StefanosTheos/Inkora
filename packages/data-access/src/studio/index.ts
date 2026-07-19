@@ -1,6 +1,6 @@
 import type {
   ArtistId, PortfolioImage, PortfolioImageId, ProfileId, ReviewId, ReviewItem, StatsPeriod, StudioApplication,
-  StudioArtistStat, StudioEditInput, StudioId, StudioOverview, StudioPeriodStat, StudioProfile,
+  StudioArtistStat, StudioBookingDetail, StudioEditInput, StudioId, StudioOverview, StudioPeriodStat, StudioProfile,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
@@ -496,6 +496,48 @@ export function useStudioOverviewPeriod(client: InkoraClient, studioId: string, 
     queryKey: ["studio-overview-period", studioId, period],
     queryFn: () => getStudioOverviewPeriod(client, studioId, period),
     enabled: !!studioId,
+  });
+}
+
+/** Every completed booking for a studio within [start, end) — the insights
+ *  drill-down. Boundaries are ISO timestamps the caller computes from the local
+ *  day/week/month it's showing. */
+export async function getStudioCompletedBookings(
+  client: InkoraClient,
+  studioId: string,
+  startISO: string,
+  endISO: string,
+): Promise<StudioBookingDetail[]> {
+  const { data, error } = await client.rpc("studio_completed_bookings", {
+    p_studio_id: studioId,
+    p_start: startISO,
+    p_end: endISO,
+  });
+  if (error) throw toAppError(error);
+  return (data ?? []).map((r) => ({
+    appointmentId: r.appointment_id,
+    scheduledStart: r.scheduled_start,
+    scheduledEnd: r.scheduled_end,
+    durationMinutes: Math.max(0, Math.round((new Date(r.scheduled_end).getTime() - new Date(r.scheduled_start).getTime()) / 60000)),
+    priceAmount: r.price_amount == null ? null : Number(r.price_amount),
+    artistId: r.artist_id as ProfileId,
+    artistName: r.artist_name,
+    artistAvatarPath: r.artist_avatar,
+    clientId: r.client_id as ProfileId,
+    clientName: r.client_name,
+    clientAvatarPath: r.client_avatar,
+    title: r.title,
+    placement: r.placement,
+    approxSize: r.approx_size,
+    isColor: r.is_color,
+  }));
+}
+
+export function useStudioCompletedBookings(client: InkoraClient, studioId: string, startISO: string, endISO: string) {
+  return useQuery({
+    queryKey: ["studio-completed-bookings", studioId, startISO, endISO],
+    queryFn: () => getStudioCompletedBookings(client, studioId, startISO, endISO),
+    enabled: !!studioId && !!startISO && !!endISO,
   });
 }
 

@@ -91,6 +91,25 @@ export interface StudioPeriodStat {
   prevProfileVisits: number;
 }
 
+/** One completed booking in the studio insights drill-down. */
+export interface StudioBookingDetail {
+  appointmentId: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  durationMinutes: number;
+  priceAmount: number | null;
+  artistId: ProfileId;
+  artistName: string;
+  artistAvatarPath: string | null;
+  clientId: ProfileId;
+  clientName: string;
+  clientAvatarPath: string | null;
+  title: string | null;
+  placement: string | null;
+  approxSize: string | null;
+  isColor: boolean | null;
+}
+
 /** A pending artist application to join a studio (owner's inbox). */
 export interface StudioApplication {
   artistId: ArtistId;

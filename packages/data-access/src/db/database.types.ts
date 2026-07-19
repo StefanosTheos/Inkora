@@ -2486,6 +2486,25 @@ export type Database = {
           prev_profile_visits: number
         }[]
       }
+      studio_completed_bookings: {
+        Args: { p_studio_id: string; p_start: string; p_end: string }
+        Returns: {
+          appointment_id: string
+          scheduled_start: string
+          scheduled_end: string
+          price_amount: number | null
+          artist_id: string
+          artist_name: string
+          artist_avatar: string | null
+          client_id: string
+          client_name: string
+          client_avatar: string | null
+          title: string | null
+          placement: string | null
+          approx_size: string | null
+          is_color: boolean | null
+        }[]
+      }
       studio_set_membership: {
         Args: { p_studio_id: string; p_artist_id: string; p_status: string; p_reason?: string | null }
         Returns: undefined

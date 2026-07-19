@@ -202,6 +202,18 @@ export function StudioDashboardScreen() {
           <View style={s.heroDivider} />
           <HeroStat text={ov && ov.ratingCount > 0 ? `★${ov.ratingAvg.toFixed(1)}` : "—"} label="Rating" />
         </View>
+        {/* Drill into every completed booking (artist, client, price, length),
+            filterable per day/week/month. Opens at the selected period's grain. */}
+        <Pressable
+          style={s.insightsCta}
+          onPress={() => router.push(`/studio-insights?g=${period === "wtd" ? "week" : "month"}`)}
+          accessibilityRole="button"
+          accessibilityLabel="See all completed bookings and details"
+        >
+          <Ionicons name="receipt-outline" size={17} color="#18181B" />
+          <Text style={s.insightsCtaText}>See all completed bookings</Text>
+          <Ionicons name="chevron-forward" size={16} color="#A1A1AA" />
+        </Pressable>
         <Text style={s.periodNote}>Revenue, completed, cancelled &amp; visits shown for {STATS_PERIOD_LABEL[period].toLowerCase()}</Text>
         <View style={s.gridRow}>
           <BigTile label="Completed" value={pv?.completed ?? 0} icon="checkmark-done-outline" trend={<TrendBadge cur={pv?.completed ?? 0} prev={pv?.prevCompleted ?? 0} />} />
@@ -569,6 +581,8 @@ const s = StyleSheet.create({
   periodText: { fontSize: 13, fontWeight: "700", color: "#71717A" },
   periodTextActive: { color: "#fff" },
   periodNote: { color: "#A1A1AA", fontSize: 11.5, fontWeight: "600", marginBottom: 12, marginTop: -2 },
+  insightsCta: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F4F4F5", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 12 },
+  insightsCtaText: { flex: 1, fontSize: 14, fontWeight: "800", color: "#18181B" },
   trendRow: { flexDirection: "row", alignItems: "center", gap: 1 },
   trendText: { fontSize: 11, fontWeight: "800" },
   gridRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
