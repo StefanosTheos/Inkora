@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   bookingKeys, declineRequest, getChatSignedUrl, markEntityNotificationsRead, publicStorageUrl,
   respondStudioApplication, respondToOffer, uploadChatFile, useAuth, useBookingRequest, useChat,
-  useConversations, useMyStudio, useMyStudioMembershipStatus, useOfferStatus, useStudioApplications,
+  useConversation, useConversations, useMyStudio, useMyStudioMembershipStatus, useOfferStatus, useStudioApplications,
 } from "@inkora/data-access";
 import { type ArtistId, type ConversationId, type Message, messageKind, TIME_OF_DAY_LABEL, type TimeOfDay } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
@@ -40,7 +40,11 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
   const meId = ctx.userId;
   const chat = useChat(supabase, conversationId, meId);
   const convs = useConversations(supabase);
-  const conv = convs.data?.find((c) => c.id === conversationId);
+  // Prefer the list entry (has unread state), but fall back to a direct fetch so
+  // a freshly-started conversation — not yet in the message-filtered list — still
+  // shows the other party's name + avatar instead of a generic "Chat".
+  const convOne = useConversation(supabase, conversationId);
+  const conv = convs.data?.find((c) => c.id === conversationId) ?? convOne.data ?? undefined;
   const title = conv?.otherName ?? "Chat";
   const avatarUrl = img(conv?.otherAvatarPath);
   // Tapping the header opens a profile. Support conversations have none. Studio

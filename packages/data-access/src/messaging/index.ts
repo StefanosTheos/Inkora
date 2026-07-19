@@ -46,39 +46,62 @@ interface ConvRow {
   conversation_participants: { profile_id: string; last_read_at: string | null; profiles: { display_name: string; avatar_path: string | null; artists: { id: string } | null } | null }[] | null;
 }
 
+const CONV_SELECT =
+  "id, type, studio_id, studios(name, slug, logo_path, owner_id), last_message_at, last_message_preview, conversation_participants(profile_id, last_read_at, profiles(display_name, avatar_path, artists(id)))";
+
+/** Resolve a conversation row into the viewer-relative summary (who the "other"
+ *  party is, their name/avatar, unread state). */
+function mapConvRow(c: ConvRow, me: string | undefined): ConversationSummary {
+  const parts = c.conversation_participants ?? [];
+  const mine = parts.find((p) => p.profile_id === me);
+  const other = parts.find((p) => p.profile_id !== me);
+  const unread = c.last_message_at != null && (mine?.last_read_at == null || c.last_message_at > mine.last_read_at);
+  // A studio-tagged conversation shows the STUDIO's identity — but to the
+  // studio's OWNER it shows the other participant (e.g. the applying artist),
+  // since "chatting with your own studio" makes no sense.
+  const showStudio = !!c.studios && c.studios.owner_id !== me;
+  return {
+    id: c.id as ConversationId,
+    type: c.type as ConversationType,
+    otherId: (other?.profile_id as ProfileId | null) ?? null,
+    otherName: (showStudio ? c.studios?.name : null) ?? other?.profiles?.display_name ?? "Conversation",
+    otherAvatarPath: showStudio ? (c.studios?.logo_path ?? null) : (other?.profiles?.avatar_path ?? null),
+    otherIsArtist: !!other?.profiles?.artists,
+    studioId: (c.studio_id as ConversationSummary["studioId"]) ?? null,
+    studioSlug: showStudio ? (c.studios?.slug ?? null) : null,
+    lastMessagePreview: c.last_message_preview,
+    lastMessageAt: c.last_message_at,
+    unread,
+  };
+}
+
 export async function listConversations(client: InkoraClient): Promise<ConversationSummary[]> {
   const { data: userRes } = await client.auth.getUser();
   const me = userRes.user?.id;
   const { data, error } = await client
     .from("conversations")
-    .select("id, type, studio_id, studios(name, slug, logo_path, owner_id), last_message_at, last_message_preview, conversation_participants(profile_id, last_read_at, profiles(display_name, avatar_path, artists(id)))")
+    .select(CONV_SELECT)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(100)
     .returns<ConvRow[]>();
   if (error) throw toAppError(error);
-  return (data ?? []).filter((c) => c.last_message_at != null).map((c) => {
-    const parts = c.conversation_participants ?? [];
-    const mine = parts.find((p) => p.profile_id === me);
-    const other = parts.find((p) => p.profile_id !== me);
-    const unread = c.last_message_at != null && (mine?.last_read_at == null || c.last_message_at > mine.last_read_at);
-    // A studio-tagged conversation shows the STUDIO's identity — but to the
-    // studio's OWNER it shows the other participant (e.g. the applying artist),
-    // since "chatting with your own studio" makes no sense.
-    const showStudio = !!c.studios && c.studios.owner_id !== me;
-    return {
-      id: c.id as ConversationId,
-      type: c.type as ConversationType,
-      otherId: (other?.profile_id as ProfileId | null) ?? null,
-      otherName: (showStudio ? c.studios?.name : null) ?? other?.profiles?.display_name ?? "Conversation",
-      otherAvatarPath: showStudio ? (c.studios?.logo_path ?? null) : (other?.profiles?.avatar_path ?? null),
-      otherIsArtist: !!other?.profiles?.artists,
-      studioId: (c.studio_id as ConversationSummary["studioId"]) ?? null,
-      studioSlug: showStudio ? (c.studios?.slug ?? null) : null,
-      lastMessagePreview: c.last_message_preview,
-      lastMessageAt: c.last_message_at,
-      unread,
-    };
-  });
+  // Hide conversations no one has spoken in yet — they'd clutter the list.
+  return (data ?? []).filter((c) => c.last_message_at != null).map((c) => mapConvRow(c, me));
+}
+
+/** Fetch a single conversation's summary directly, so the chat screen can render
+ *  the right header (name + avatar) even for a freshly-started conversation that
+ *  has no messages yet and thus isn't in the (message-filtered) list. */
+export async function getConversation(client: InkoraClient, conversationId: string): Promise<ConversationSummary | null> {
+  const { data: userRes } = await client.auth.getUser();
+  const me = userRes.user?.id;
+  const { data, error } = await client
+    .from("conversations")
+    .select(CONV_SELECT)
+    .eq("id", conversationId)
+    .maybeSingle<ConvRow>();
+  if (error) throw toAppError(error);
+  return data ? mapConvRow(data, me) : null;
 }
 
 // ------------------------------------------------------------------ messages
@@ -211,6 +234,16 @@ export async function getChatSignedUrl(client: InkoraClient, path: string, ttlSe
 // ------------------------------------------------------------------ hooks
 export function useConversations(client: InkoraClient) {
   return useQuery({ queryKey: ["conversations"], queryFn: () => listConversations(client) });
+}
+
+/** Single conversation summary — a fallback for the chat header when the
+ *  conversation isn't in the list yet (no messages sent). */
+export function useConversation(client: InkoraClient, conversationId: string) {
+  return useQuery({
+    queryKey: ["conversation", conversationId],
+    queryFn: () => getConversation(client, conversationId),
+    enabled: !!conversationId,
+  });
 }
 
 /**
