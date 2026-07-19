@@ -1,10 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useArtistProfile, useArtistReviews, useArtistStats, useAuth, useMyAppointmentCount } from "@inkora/data-access";
+import {
+  dashboardKeys, removeSavedDesign, type SavedDesignCard, useArtistProfile, useArtistReviews,
+  useArtistStats, useAuth, useMyAppointmentCount, useSavedDesigns,
+} from "@inkora/data-access";
+import { useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
+import { useToast } from "../../components/Toast";
+import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { Avatar } from "../booking/components/ui";
 
@@ -13,14 +20,34 @@ import { Avatar } from "../booking/components/ui";
 export function ArtistDashboardScreen() {
   const router = useRouter();
   const confirm = useConfirm();
+  const toast = useToast();
+  const qc = useQueryClient();
   const { ctx, signOut } = useAuth();
   const meId = ctx.userId ?? "";
   const profile = useArtistProfile(supabase, meId);
   const stats = useArtistStats(supabase);
   const apptCount = useMyAppointmentCount(supabase);
   const reviews = useArtistReviews(supabase, meId);
+  const savedDesigns = useSavedDesigns(supabase);
 
   const a = profile.data;
+
+  const confirmRemoveDesign = (design: SavedDesignCard) => {
+    void confirm({
+      title: design.title ? `Remove "${design.title}"?` : "Remove design?",
+      message: "This removes it from your saved designs.",
+      confirmLabel: "Remove",
+      destructive: true,
+    }).then(async (ok) => {
+      if (!ok) return;
+      try {
+        await removeSavedDesign(supabase, design.id, design.targetType);
+        await qc.invalidateQueries({ queryKey: dashboardKeys.savedDesigns });
+      } catch (e) {
+        toast.show((e as Error).message, "error");
+      }
+    });
+  };
 
   const confirmSignOut = () => {
     void confirm({
@@ -66,6 +93,38 @@ export function ArtistDashboardScreen() {
           <Stat label="Reviews" value={String(a?.ratingCount ?? 0)} />
           <Stat label="Bookings" value={String(apptCount.data ?? 0)} />
         </View>
+
+        {/* Saved designs — inspiration the artist has hearted (also feeds the
+            try-on "Saved" picker and the chat design attach). */}
+        <SectionHeader title="Saved designs" />
+        {savedDesigns.isLoading ? (
+          <ActivityIndicator style={{ marginTop: 12 }} />
+        ) : (savedDesigns.data ?? []).length === 0 ? (
+          <Empty icon="images-outline" text="Save inspiration from Discover — tap the heart on a design." />
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.hRow}>
+            {(savedDesigns.data ?? []).map((d) => (
+              <View key={d.id} style={s.designWrap}>
+                <Pressable
+                  onPress={() => router.push({ pathname: "/image-viewer", params: { id: d.id } })}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={d.title ? `View design: ${d.title}` : "View saved design"}
+                >
+                  <Image source={{ uri: imageUrl(d.imagePath, 110) }} style={s.designThumb} contentFit="cover" accessibilityElementsHidden importantForAccessibility="no" />
+                </Pressable>
+                <Pressable
+                  style={s.designRemove}
+                  onPress={() => confirmRemoveDesign(d)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={d.title ? `Remove ${d.title} from saved designs` : "Remove design from saved"}
+                >
+                  <Ionicons name="close" size={14} color="#fff" />
+                </Pressable>
+              </View>
+            ))}
+          </ScrollView>
+        )}
 
         {/* Manage — identity & account (operational tools live on Home) */}
         <SectionHeader title="Manage" />
@@ -169,6 +228,10 @@ const s = StyleSheet.create({
   actionLabel: { flex: 1, fontWeight: "600", fontSize: 15, color: "#18181B" },
   empty: { alignItems: "center", gap: 6, paddingVertical: 20 },
   emptyText: { color: "#A1A1AA", fontSize: 13, textAlign: "center", paddingHorizontal: 24 },
+  hRow: { gap: 12, paddingVertical: 4 },
+  designWrap: { width: 110 },
+  designThumb: { width: 110, height: 140, borderRadius: 14, backgroundColor: "#E4E4E7" },
+  designRemove: { position: "absolute", top: 6, right: 6, width: 24, height: 24, borderRadius: 12, backgroundColor: "rgba(0,0,0,0.6)", alignItems: "center", justifyContent: "center" },
   reviewCard: { borderWidth: 1, borderColor: "#F4F4F5", borderRadius: 12, padding: 12, marginBottom: 8 },
   reviewHead: { fontWeight: "700" },
   reviewTitle: { fontWeight: "600", marginTop: 4 },
