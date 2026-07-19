@@ -103,56 +103,74 @@ const REMINDER_OFFSETS = [
   { hours: 2, label: "in 2 hours" },
 ];
 
-/** Stable per-(appointment, offset) identifier so reminders can be reconciled
- *  individually — never a blanket "cancel everything". */
-const reminderId = (appointmentId: string, hours: number) => `appt-reminder-${appointmentId}-${hours}h`;
+/** Common prefix for our reminder identifiers, so a reconcile can find (and only
+ *  ever touch) reminders we scheduled — never unrelated local notifications. */
+const REMINDER_PREFIX = "appt-reminder-";
+/** Stable per-(appointment, offset) identifier. */
+const reminderId = (appointmentId: string, hours: number) => `${REMINDER_PREFIX}${appointmentId}-${hours}h`;
+
+// Serialize reconciles into a single chain. Two screens (My bookings, the
+// agenda) both schedule off the shared appointments cache, so their effects can
+// fire concurrently with the same data; without this their cancel/schedule
+// steps interleave and leave a duplicate reminder (seen as two identical
+// "appointment tomorrow" alerts). The queue makes every call run to completion
+// before the next starts.
+let reminderQueue: Promise<void> = Promise.resolve();
 
 /**
- * Reconcile local reminders (24h + 2h before) for the given appointments,
- * keyed by a stable identifier per appointment. For each one it cancels any
- * prior reminder and re-creates it only if the appointment is still active and
- * the fire time is in the future — so a reschedule moves the reminder and a
- * cancellation removes it, on the next data refresh.
+ * Reconcile local reminders (24h + 2h before) for the given appointments.
  *
- * Scoped by identifier: it never touches unrelated local notifications, and
- * calling it from multiple screens is idempotent (they converge on the same set
- * instead of wiping each other). Silent when notification permission isn't
- * already granted — it never prompts (push/reminders are opt-in elsewhere).
+ * It clears every existing reminder we own, then schedules exactly one per
+ * still-active, still-future (appointment, offset) — so a reschedule moves the
+ * reminder, a cancellation removes it, duplicates collapse to one, and repeated
+ * appointments in the input are ignored. Runs serialized (never interleaves with
+ * another call) and never touches unrelated notifications. Silent when
+ * notification permission isn't already granted — it never prompts.
  */
-export async function scheduleAppointmentReminders(appointments: AppointmentView[]): Promise<void> {
-  try {
-    const perm = await Notifications.getPermissionsAsync();
-    if (!perm.granted) return; // don't prompt from here
-    if (Platform.OS === "android") {
-      await Notifications.setNotificationChannelAsync("reminders", {
-        name: "Appointment reminders",
-        importance: Notifications.AndroidImportance.HIGH,
+export function scheduleAppointmentReminders(appointments: AppointmentView[]): Promise<void> {
+  reminderQueue = reminderQueue.then(() => reconcileReminders(appointments)).catch(() => { /* best-effort */ });
+  return reminderQueue;
+}
+
+async function reconcileReminders(appointments: AppointmentView[]): Promise<void> {
+  const perm = await Notifications.getPermissionsAsync();
+  if (!perm.granted) return; // don't prompt from here
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("reminders", {
+      name: "Appointment reminders",
+      importance: Notifications.AndroidImportance.HIGH,
+    });
+  }
+
+  // Cancel every reminder we own first — this collapses any pre-existing
+  // duplicates and drops reminders for now-cancelled/rescheduled slots.
+  const existing = await Notifications.getAllScheduledNotificationsAsync();
+  for (const req of existing) {
+    const id = req.identifier;
+    if (id && id.startsWith(REMINDER_PREFIX)) await Notifications.cancelScheduledNotificationAsync(id);
+  }
+
+  // Re-create the desired set: one reminder per active, future (appt, offset).
+  const now = Date.now();
+  const seen = new Set<string>();
+  for (const appt of appointments) {
+    if (seen.has(appt.id)) continue; // guard against the same appointment appearing twice
+    seen.add(appt.id);
+    const active = appt.status === "scheduled" || appt.status === "rescheduled";
+    if (!active) continue;
+    const start = new Date(appt.scheduledStart).getTime();
+    for (const off of REMINDER_OFFSETS) {
+      const fireAt = start - off.hours * 3600_000;
+      if (fireAt <= now) continue;
+      await Notifications.scheduleNotificationAsync({
+        identifier: reminderId(appt.id, off.hours),
+        content: {
+          title: `Tattoo appointment ${off.label}`,
+          body: `with ${appt.counterparty.name}`,
+          data: { appointmentId: appt.id, kind: "appt_reminder" },
+        },
+        trigger: { date: new Date(fireAt), channelId: "reminders" },
       });
     }
-    const now = Date.now();
-    for (const appt of appointments) {
-      const active = appt.status === "scheduled" || appt.status === "rescheduled";
-      const start = new Date(appt.scheduledStart).getTime();
-      for (const off of REMINDER_OFFSETS) {
-        const id = reminderId(appt.id, off.hours);
-        // Clear this appointment's prior reminder (no-op if none), then re-create
-        // if still wanted — handles reschedule (moves it) and cancel (drops it).
-        await Notifications.cancelScheduledNotificationAsync(id);
-        const fireAt = start - off.hours * 3600_000;
-        if (active && fireAt > now) {
-          await Notifications.scheduleNotificationAsync({
-            identifier: id,
-            content: {
-              title: `Tattoo appointment ${off.label}`,
-              body: `with ${appt.counterparty.name}`,
-              data: { appointmentId: appt.id, kind: "appt_reminder" },
-            },
-            trigger: { date: new Date(fireAt), channelId: "reminders" },
-          });
-        }
-      }
-    }
-  } catch {
-    // best-effort
   }
 }
