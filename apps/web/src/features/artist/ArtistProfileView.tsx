@@ -100,8 +100,14 @@ export function ArtistProfileView({ id }: { id: string }) {
         )}
         {tab === "availability" && (
           (availability.data ?? []).length === 0 ? <p className="text-zinc-500">Availability not set.</p> :
-          (availability.data ?? []).map((sl, i) => (
-            <div key={i} className="flex justify-between border-b py-2"><span className="font-bold">{DAY_LABELS[sl.dayOfWeek]}</span><span className="text-zinc-700">{sl.startTime.slice(0, 5)}–{sl.endTime.slice(0, 5)}</span></div>
+          // Collapse split shifts onto one row per day (slots arrive ordered by
+          // day then start time), e.g. "10:00–14:00, 16:00–20:00".
+          [...(availability.data ?? []).reduce((map, sl) => {
+            const ranges = map.get(sl.dayOfWeek) ?? [];
+            ranges.push(`${sl.startTime.slice(0, 5)}–${sl.endTime.slice(0, 5)}`);
+            return map.set(sl.dayOfWeek, ranges);
+          }, new Map<number, string[]>()).entries()].map(([dow, ranges]) => (
+            <div key={dow} className="flex justify-between border-b py-2"><span className="font-bold">{DAY_LABELS[dow]}</span><span className="text-zinc-700">{ranges.join(", ")}</span></div>
           ))
         )}
       </div>

@@ -16,7 +16,10 @@ const STEP = 30; // minutes
 const MIN_START = 0;
 const MAX_END = 24 * 60;
 
-interface DayState { open: boolean; start: number; end: number } // start/end = minutes from midnight
+interface Interval { start: number; end: number } // minutes from midnight
+interface DayState { open: boolean; intervals: Interval[] }
+
+const defaultInterval = (): Interval => ({ start: 11 * 60, end: 19 * 60 });
 
 const toMin = (t: string): number => {
   const [h, m] = t.split(":").map(Number);
@@ -38,7 +41,7 @@ export function AvailabilityEditorScreen() {
 
   const [days, setDays] = useState<Record<number, DayState>>(() => {
     const init: Record<number, DayState> = {};
-    for (let d = 0; d < 7; d++) init[d] = { open: false, start: 11 * 60, end: 19 * 60 };
+    for (let d = 0; d < 7; d++) init[d] = { open: false, intervals: [defaultInterval()] };
     return init;
   });
   const [hydrated, setHydrated] = useState(false);
@@ -48,8 +51,14 @@ export function AvailabilityEditorScreen() {
     if (availQ.data && !hydrated) {
       setDays((prev) => {
         const next = { ...prev };
+        // Group every stored slot back under its day, so split shifts survive.
+        const byDay: Record<number, Interval[]> = {};
         for (const slot of availQ.data ?? []) {
-          next[slot.dayOfWeek] = { open: true, start: toMin(slot.startTime), end: toMin(slot.endTime) };
+          (byDay[slot.dayOfWeek] ??= []).push({ start: toMin(slot.startTime), end: toMin(slot.endTime) });
+        }
+        for (const [dow, ivs] of Object.entries(byDay)) {
+          ivs.sort((a, b) => a.start - b.start);
+          next[Number(dow)] = { open: true, intervals: ivs.length ? ivs : [defaultInterval()] };
         }
         return next;
       });
@@ -59,24 +68,45 @@ export function AvailabilityEditorScreen() {
 
   const openCount = useMemo(() => Object.values(days).filter((d) => d.open).length, [days]);
 
-  const setDay = (dow: number, patch: Partial<DayState>) => setDays((p) => ({ ...p, [dow]: { ...p[dow]!, ...patch } }));
-  const stepStart = (dow: number, delta: number) => {
-    const d = days[dow]!;
-    const start = Math.min(Math.max(d.start + delta, MIN_START), d.end - STEP);
-    setDay(dow, { start });
+  const setDayOpen = (dow: number, open: boolean) => setDays((p) => ({ ...p, [dow]: { ...p[dow]!, open } }));
+  const setInterval = (dow: number, idx: number, patch: Partial<Interval>) =>
+    setDays((p) => ({ ...p, [dow]: { ...p[dow]!, intervals: p[dow]!.intervals.map((iv, i) => (i === idx ? { ...iv, ...patch } : iv)) } }));
+  const addInterval = (dow: number) =>
+    setDays((p) => ({ ...p, [dow]: { ...p[dow]!, intervals: [...p[dow]!.intervals, defaultInterval()] } }));
+  const removeInterval = (dow: number, idx: number) =>
+    setDays((p) => {
+      const kept = p[dow]!.intervals.filter((_, i) => i !== idx);
+      return { ...p, [dow]: { ...p[dow]!, intervals: kept.length ? kept : [defaultInterval()] } };
+    });
+  const stepStart = (dow: number, idx: number, delta: number) => {
+    const iv = days[dow]!.intervals[idx]!;
+    const start = Math.min(Math.max(iv.start + delta, MIN_START), iv.end - STEP);
+    setInterval(dow, idx, { start });
   };
-  const stepEnd = (dow: number, delta: number) => {
-    const d = days[dow]!;
-    const end = Math.min(Math.max(d.end + delta, d.start + STEP), MAX_END);
-    setDay(dow, { end });
+  const stepEnd = (dow: number, idx: number, delta: number) => {
+    const iv = days[dow]!.intervals[idx]!;
+    const end = Math.min(Math.max(iv.end + delta, iv.start + STEP), MAX_END);
+    setInterval(dow, idx, { end });
   };
 
   async function save() {
+    // Build the slot list, guarding against overlapping ranges within a day
+    // (they'd double-count bookable slots).
+    const slots: AvailabilityInput[] = [];
+    for (const d of DAY_ORDER) {
+      const day = days[d]!;
+      if (!day.open) continue;
+      const ivs = [...day.intervals].sort((a, b) => a.start - b.start);
+      for (let i = 0; i < ivs.length; i++) {
+        if (i > 0 && ivs[i]!.start < ivs[i - 1]!.end) {
+          toast.show(`${DAY_FULL[d]}: time ranges can’t overlap`, "error");
+          return;
+        }
+        slots.push({ dayOfWeek: d, startTime: dbTime(ivs[i]!.start), endTime: dbTime(ivs[i]!.end) });
+      }
+    }
     setSaving(true);
     try {
-      const slots: AvailabilityInput[] = DAY_ORDER.filter((d) => days[d]!.open).map((d) => ({
-        dayOfWeek: d, startTime: dbTime(days[d]!.start), endTime: dbTime(days[d]!.end),
-      }));
       await setArtistAvailability(supabase, slots, deviceTz());
       await qc.invalidateQueries({ queryKey: ["artist-availability", meId] });
       toast.show(slots.length ? "Availability updated" : "Availability cleared");
@@ -100,7 +130,7 @@ export function AvailabilityEditorScreen() {
         <ActivityIndicator style={{ marginTop: 32 }} />
       ) : (
         <ScrollView contentContainerStyle={s.body}>
-          <Text style={s.intro}>Set the days and hours you take appointments. Clients see open slots when booking.</Text>
+          <Text style={s.intro}>Set the days and hours you take appointments. Clients see open slots when booking. Add a second range for a split day (e.g. a lunch break).</Text>
           {DAY_ORDER.map((dow) => {
             const d = days[dow]!;
             return (
@@ -109,15 +139,30 @@ export function AvailabilityEditorScreen() {
                   <Text style={s.dayName}>{DAY_FULL[dow]}</Text>
                   <Switch
                     value={d.open}
-                    onValueChange={(v) => setDay(dow, { open: v })}
+                    onValueChange={(v) => setDayOpen(dow, v)}
                     trackColor={{ true: "#E5484D" }}
                     accessibilityLabel={`${DAY_FULL[dow]} open`}
                   />
                 </View>
                 {d.open ? (
-                  <View style={s.timesRow}>
-                    <TimePicker label="Opens" value={d.start} onDec={() => stepStart(dow, -STEP)} onInc={() => stepStart(dow, STEP)} />
-                    <TimePicker label="Closes" value={d.end} onDec={() => stepEnd(dow, -STEP)} onInc={() => stepEnd(dow, STEP)} />
+                  <View style={s.intervals}>
+                    {d.intervals.map((iv, idx) => (
+                      <View key={idx} style={s.intervalRow}>
+                        <View style={s.timesRow}>
+                          <TimePicker label="Opens" value={iv.start} onDec={() => stepStart(dow, idx, -STEP)} onInc={() => stepStart(dow, idx, STEP)} />
+                          <TimePicker label="Closes" value={iv.end} onDec={() => stepEnd(dow, idx, -STEP)} onInc={() => stepEnd(dow, idx, STEP)} />
+                        </View>
+                        {d.intervals.length > 1 ? (
+                          <Pressable onPress={() => removeInterval(dow, idx)} hitSlop={8} style={s.removeBtn} accessibilityRole="button" accessibilityLabel={`Remove ${DAY_FULL[dow]} time range ${idx + 1}`}>
+                            <Ionicons name="close-circle" size={22} color="#D4D4D8" />
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    ))}
+                    <Pressable style={s.addBtn} onPress={() => addInterval(dow)} accessibilityRole="button" accessibilityLabel={`Add another time range for ${DAY_FULL[dow]}`}>
+                      <Ionicons name="add" size={16} color="#E5484D" />
+                      <Text style={s.addBtnText}>Add hours</Text>
+                    </Pressable>
                   </View>
                 ) : (
                   <Text style={s.closed}>Closed</Text>
@@ -160,7 +205,12 @@ const s = StyleSheet.create({
   dayHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   dayName: { fontSize: 16, fontWeight: "800", color: "#18181B" },
   closed: { color: "#A1A1AA", marginTop: 6 },
-  timesRow: { flexDirection: "row", gap: 12, marginTop: 12 },
+  intervals: { marginTop: 12, gap: 10 },
+  intervalRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+  timesRow: { flex: 1, flexDirection: "row", gap: 12 },
+  removeBtn: { paddingBottom: 6 },
+  addBtn: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", paddingVertical: 2 },
+  addBtnText: { color: "#E5484D", fontWeight: "800", fontSize: 13 },
   timeCol: { flex: 1, gap: 6 },
   timeLabel: { color: "#71717A", fontSize: 12, fontWeight: "600" },
   stepper: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 6 },

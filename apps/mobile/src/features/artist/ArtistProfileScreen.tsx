@@ -321,12 +321,20 @@ function FlashGrid({ images, loading }: { images: PortfolioImage[]; loading: boo
 function Availability({ slots, loading }: { slots: AvailabilitySlot[]; loading: boolean }) {
   if (loading) return <ActivityIndicator />;
   if (slots.length === 0) return <Text style={s.muted}>Availability not set.</Text>;
+  // Collapse split shifts onto one row per day (slots arrive ordered by day then
+  // start time), e.g. "10:00 – 14:00, 16:00 – 20:00".
+  const byDay = new Map<number, string[]>();
+  for (const sl of slots) {
+    const ranges = byDay.get(sl.dayOfWeek) ?? [];
+    ranges.push(`${hhmm(sl.startTime)} – ${hhmm(sl.endTime)}`);
+    byDay.set(sl.dayOfWeek, ranges);
+  }
   return (
     <View>
-      {slots.map((sl, i) => (
-        <View key={i} style={s.availRow}>
-          <Text style={s.availDay}>{DAY_LABELS[sl.dayOfWeek]}</Text>
-          <Text style={s.availTime}>{hhmm(sl.startTime)} – {hhmm(sl.endTime)}</Text>
+      {[...byDay.entries()].map(([dow, ranges]) => (
+        <View key={dow} style={s.availRow}>
+          <Text style={s.availDay}>{DAY_LABELS[dow]}</Text>
+          <Text style={s.availTime}>{ranges.join(", ")}</Text>
         </View>
       ))}
     </View>
