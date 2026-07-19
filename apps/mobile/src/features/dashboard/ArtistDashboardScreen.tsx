@@ -1,19 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
-import {
-  useArtistProfile, useArtistReviews, useArtistStats, useAuth,
-  useMyAppointmentCount, useUpcomingAppointments,
-} from "@inkora/data-access";
-import { APPOINTMENT_STATUS_LABEL } from "@inkora/domain";
+import { useArtistProfile, useArtistReviews, useArtistStats, useAuth, useMyAppointmentCount } from "@inkora/data-access";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
-import { CountBadge } from "../../components/CountBadge";
-import { useBadgeCounts } from "../../lib/badges";
 import { supabase } from "../../lib/supabase";
-import { Avatar, fmtDateTime, StatusChip } from "../booking/components/ui";
+import { Avatar } from "../booking/components/ui";
 
+// Artist Profile tab — identity, reputation and account. Operational tools
+// (bookings, requests, schedule, availability) live on the artist Home tab.
 export function ArtistDashboardScreen() {
   const router = useRouter();
   const confirm = useConfirm();
@@ -21,15 +17,10 @@ export function ArtistDashboardScreen() {
   const meId = ctx.userId ?? "";
   const profile = useArtistProfile(supabase, meId);
   const stats = useArtistStats(supabase);
-  const upcomingQ = useUpcomingAppointments(supabase, 3);
   const apptCount = useMyAppointmentCount(supabase);
   const reviews = useArtistReviews(supabase, meId);
-  // Booking requests badge: new incoming requests + clients' responses to the
-  // artist's offers. Clears as requests are answered / the page is opened.
-  const { requests: newRequests, newBookings, newCompleted, apptReplies } = useBadgeCounts();
 
   const a = profile.data;
-  const upcoming = upcomingQ.data ?? [];
 
   const confirmSignOut = () => {
     void confirm({
@@ -44,7 +35,7 @@ export function ArtistDashboardScreen() {
     <SafeAreaView style={s.safe} edges={["top"]}>
       <ScrollView contentContainerStyle={s.body}>
         <View style={s.topbar}>
-          <Text style={s.topTitle} accessibilityRole="header">Your studio</Text>
+          <Text style={s.topTitle} accessibilityRole="header">Profile</Text>
           <Pressable hitSlop={10} onPress={() => router.push("/profile/account")} accessibilityRole="button" accessibilityLabel="Account settings">
             <Ionicons name="settings-outline" size={24} color="#18181B" />
           </Pressable>
@@ -68,7 +59,7 @@ export function ArtistDashboardScreen() {
           <Ionicons name="open-outline" size={16} color="#E5484D" />
         </Pressable>
 
-        {/* Audience stats */}
+        {/* Audience / reputation stats */}
         <View style={s.stats}>
           <Stat label="Saved you" value={String(stats.data?.savedBy ?? 0)} />
           <Stat label="Design saves" value={String(stats.data?.designSaves ?? 0)} />
@@ -76,38 +67,10 @@ export function ArtistDashboardScreen() {
           <Stat label="Bookings" value={String(apptCount.data ?? 0)} />
         </View>
 
-        {/* Upcoming appointments */}
-        <SectionHeader title="Appointments" onSeeAll={() => router.push("/artist-dashboard/upcoming")} badge={newBookings + newCompleted + apptReplies} />
-        {upcomingQ.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 12 }} />
-        ) : upcoming.length === 0 ? (
-          <Empty icon="calendar-outline" text="No upcoming appointments." />
-        ) : (
-          upcoming.map((appt) => (
-            <Pressable
-              key={appt.id}
-              style={s.apptRow}
-              onPress={() => router.push(`/booking/${appt.id}`)}
-              accessibilityRole="button"
-              accessibilityLabel={`Appointment with ${appt.counterparty.name}, ${fmtDateTime(appt.scheduledStart)}`}
-            >
-              <Avatar path={appt.counterparty.avatarPath} name={appt.counterparty.name} size={44} />
-              <View style={{ flex: 1 }}>
-                <Text style={s.apptName}>{appt.counterparty.name}</Text>
-                <Text style={s.apptSub}>{fmtDateTime(appt.scheduledStart)}</Text>
-              </View>
-              <StatusChip status={appt.status} label={APPOINTMENT_STATUS_LABEL[appt.status]} />
-            </Pressable>
-          ))
-        )}
-
-        {/* Manage */}
+        {/* Manage — identity & account (operational tools live on Home) */}
         <SectionHeader title="Manage" />
         <View style={s.card}>
-          <ActionRow icon="calendar-outline" label="Your schedule" onPress={() => router.push("/artist-dashboard")} />
-          <ActionRow icon="file-tray-full-outline" label="Booking requests" badge={newRequests} onPress={() => router.push("/artist-dashboard/requests")} />
-          <ActionRow icon="time-outline" label="Availability" onPress={() => router.push("/artist-dashboard/availability")} />
-          <ActionRow icon="images-outline" label="Portfolio / Flashes" onPress={() => router.push("/artist-dashboard/portfolio")} />
+          <ActionRow icon="images-outline" label="Portfolio & flashes" onPress={() => router.push("/artist-dashboard/portfolio")} />
           <ActionRow icon="person-outline" label="Edit profile" onPress={() => router.push("/profile/settings")} />
           <ActionRow icon="settings-outline" label="Account settings" onPress={() => router.push("/profile/account")} />
           <ActionRow icon="log-out-outline" label="Sign out" danger onPress={confirmSignOut} />
@@ -152,14 +115,13 @@ function Stat({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
-function SectionHeader({ title, onSeeAll, seeAllLabel, badge = 0 }: { title: string; onSeeAll?: () => void; seeAllLabel?: string; badge?: number }) {
+function SectionHeader({ title, onSeeAll, seeAllLabel }: { title: string; onSeeAll?: () => void; seeAllLabel?: string }) {
   return (
     <View style={s.sectionHead}>
       <Text style={s.sectionTitle} accessibilityRole="header">{title}</Text>
       {onSeeAll ? (
-        <Pressable onPress={onSeeAll} hitSlop={8} style={s.seeAllRow} accessibilityRole="button" accessibilityLabel={badge > 0 ? `${seeAllLabel ?? `See all ${title}`}, ${badge} new` : (seeAllLabel ?? `See all ${title}`)}>
+        <Pressable onPress={onSeeAll} hitSlop={8} style={s.seeAllRow} accessibilityRole="button" accessibilityLabel={seeAllLabel ?? `See all ${title}`}>
           <Text style={s.seeAll}>{seeAllLabel ?? "See all"}</Text>
-          <CountBadge count={badge} />
         </Pressable>
       ) : null}
     </View>
@@ -173,12 +135,11 @@ function Empty({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: str
     </View>
   );
 }
-function ActionRow({ icon, label, onPress, danger, badge = 0 }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; danger?: boolean; badge?: number }) {
+function ActionRow({ icon, label, onPress, danger }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; danger?: boolean }) {
   return (
-    <Pressable style={s.actionRow} onPress={onPress} accessibilityRole="button" accessibilityLabel={badge > 0 ? `${label}, ${badge} new` : label}>
+    <Pressable style={s.actionRow} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
       <Ionicons name={icon} size={20} color={danger ? "#DC2626" : "#52525B"} />
       <Text style={[s.actionLabel, danger && { color: "#DC2626" }]}>{label}</Text>
-      <CountBadge count={badge} />
       {!danger && <Ionicons name="chevron-forward" size={16} color="#D4D4D8" />}
     </Pressable>
   );
@@ -203,9 +164,6 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: "800" },
   seeAll: { color: "#E5484D", fontWeight: "700" },
   seeAllRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  apptRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
-  apptName: { fontWeight: "700", fontSize: 15 },
-  apptSub: { color: "#71717A", fontSize: 13, marginTop: 2 },
   card: { borderWidth: 1, borderColor: "#F4F4F5", borderRadius: 16, overflow: "hidden" },
   actionRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
   actionLabel: { flex: 1, fontWeight: "600", fontSize: 15, color: "#18181B" },

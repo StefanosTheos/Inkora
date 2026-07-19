@@ -33,22 +33,27 @@ function ChatsTabIcon(props: IconProps) {
 }
 
 // The first tab is Home for seekers/artists and the Studio dashboard for owners.
-// Studio owners get a dot for unread notifications (new applications, etc.).
+// Studio owners get a dot for unread notifications; artists get one for
+// actionable work (new requests/bookings) since their Home is a business hub.
 function HomeTabIcon(props: IconProps) {
   const { ctx } = useAuth();
   const isStudio = ctx.roles.includes("studio_admin");
+  const isArtist = ctx.roles.includes("artist");
   const { notifications } = useNotifications(supabase);
   const unread = notifications.filter((n) => !n.readAt).length;
-  return isStudio
-    ? <DotIcon {...props} active="business" inactive="business-outline" show={unread > 0} />
-    : <DotIcon {...props} active="home" inactive="home-outline" show={false} />;
+  const { requests, newBookings, newCompleted, apptReplies } = useBadgeCounts();
+  if (isStudio) return <DotIcon {...props} active="business" inactive="business-outline" show={unread > 0} />;
+  if (isArtist) return <DotIcon {...props} active="home" inactive="home-outline" show={requests + newBookings + newCompleted + apptReplies > 0} />;
+  return <DotIcon {...props} active="home" inactive="home-outline" show={false} />;
 }
 
 function ProfileTabIcon(props: IconProps) {
   const { ctx } = useAuth();
-  const { rewards, offers, requests, journey, openRequests, newBookings, newCompleted, apptReplies } = useBadgeCounts();
+  const { rewards, offers, journey, openRequests, newBookings, apptReplies } = useBadgeCounts();
+  // Artists' actionable items (requests/bookings) now live on the Home tab, so
+  // their Profile tab only carries identity/reviews — no operational badge.
   const show = ctx.roles.includes("artist")
-    ? requests + newBookings + newCompleted + apptReplies > 0
+    ? false
     : rewards + offers + journey + openRequests + newBookings + apptReplies > 0;
   return <DotIcon {...props} active="person" inactive="person-outline" show={show} />;
 }
