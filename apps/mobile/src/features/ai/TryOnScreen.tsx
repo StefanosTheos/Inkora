@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { aiKeys, type FlashListItem, saveTattooTryOn, uploadTryOnResult, useFlashes } from "@inkora/data-access";
+import { aiKeys, saveTattooTryOn, uploadTryOnResult, useFlashes, useSavedDesigns } from "@inkora/data-access";
 import { AI_PREVIEW_DISCLAIMER, type PortfolioImageId } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
@@ -17,6 +17,9 @@ import { supabase } from "../../lib/supabase";
 import { type CompositorHandle, TattooCompositor } from "./TattooCompositor";
 
 type Flash = { id: string; path: string; caption: string | null; artistName: string };
+/** Minimal flash shape the picker hands back — works for both the full catalog
+ *  and the user's saved flashes. */
+type PickItem = { id: string; imagePath: string; caption: string | null; artistName: string };
 
 export function TryOnScreen() {
   const router = useRouter();
@@ -194,23 +197,61 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
   );
 }
 
-function FlashPicker({ onPick }: { onPick: (f: FlashListItem) => void }) {
-  const q = useFlashes(supabase);
-  const flashes = q.data ?? [];
-  if (q.isLoading) return <View style={s.center}><ActivityIndicator /></View>;
-  if (flashes.length === 0) return <View style={s.center}><Ionicons name="sparkles-outline" size={36} color="#D4D4D8" /><Text style={s.muted}>No flash designs to try on yet.</Text></View>;
+function FlashPicker({ onPick }: { onPick: (f: PickItem) => void }) {
+  const [mode, setMode] = useState<"all" | "saved">("all");
+  const allQ = useFlashes(supabase);
+  const savedQ = useSavedDesigns(supabase);
+
+  const all: PickItem[] = (allQ.data ?? []).map((f) => ({ id: f.id, imagePath: f.imagePath, caption: f.caption, artistName: f.artistName }));
+  const saved: PickItem[] = (savedQ.data ?? [])
+    .filter((d) => d.isFlash)
+    .map((d) => ({ id: d.id, imagePath: d.imagePath, caption: d.title, artistName: d.artistName ?? "Artist" }));
+  const items = mode === "saved" ? saved : all;
+  const loading = mode === "saved" ? savedQ.isLoading : allQ.isLoading;
+
   return (
-    <ScrollView contentContainerStyle={s.grid}>
-      <Text style={s.pickerHint}>Pick a flash design to see it on you.</Text>
-      <View style={s.gridRow}>
-        {flashes.map((f) => (
-          <Pressable key={f.id} style={s.gridItem} onPress={() => onPick(f)} accessibilityRole="button" accessibilityLabel={f.caption ?? `Flash by ${f.artistName}`}>
-            <Image source={{ uri: imageUrl(f.imagePath, 300) ?? undefined }} style={s.gridImg} contentFit="cover" />
-            <Text style={s.gridCaption} numberOfLines={1}>{f.caption ?? f.artistName}</Text>
+    <View style={{ flex: 1 }}>
+      {/* All flashes vs. only the flashes this user has saved. */}
+      <View style={s.pickerSeg}>
+        {(["all", "saved"] as const).map((m) => (
+          <Pressable
+            key={m}
+            style={[s.segBtn, mode === m && s.segBtnActive]}
+            onPress={() => setMode(m)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: mode === m }}
+            accessibilityLabel={m === "all" ? "All flashes" : "Saved flashes"}
+          >
+            <Text style={[s.segText, mode === m && s.segTextActive]}>{m === "all" ? "All flashes" : "Saved"}</Text>
           </Pressable>
         ))}
       </View>
-    </ScrollView>
+
+      {loading ? (
+        <View style={s.center}><ActivityIndicator /></View>
+      ) : items.length === 0 ? (
+        <View style={s.center}>
+          <Ionicons name={mode === "saved" ? "heart-outline" : "sparkles-outline"} size={36} color="#D4D4D8" />
+          <Text style={s.muted}>
+            {mode === "saved"
+              ? "You haven't saved any flash designs yet. Tap the heart on a flash to save it."
+              : "No flash designs to try on yet."}
+          </Text>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={s.grid}>
+          <Text style={s.pickerHint}>{mode === "saved" ? "Pick one of your saved flashes." : "Pick a flash design to see it on you."}</Text>
+          <View style={s.gridRow}>
+            {items.map((f) => (
+              <Pressable key={f.id} style={s.gridItem} onPress={() => onPick(f)} accessibilityRole="button" accessibilityLabel={f.caption ?? `Flash by ${f.artistName}`}>
+                <Image source={{ uri: imageUrl(f.imagePath, 300) ?? undefined }} style={s.gridImg} contentFit="cover" />
+                <Text style={s.gridCaption} numberOfLines={1}>{f.caption ?? f.artistName}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
@@ -266,6 +307,11 @@ const s = StyleSheet.create({
   bigBtnAlt: { backgroundColor: "#F4F4F5" },
   bigBtnAltText: { color: "#18181B" },
   // picker
+  pickerSeg: { flexDirection: "row", gap: 3, backgroundColor: "#F4F4F5", borderRadius: 999, padding: 3, marginHorizontal: 16, marginTop: 14 },
+  segBtn: { flex: 1, paddingVertical: 8, borderRadius: 999, alignItems: "center" },
+  segBtnActive: { backgroundColor: "#18181B" },
+  segText: { fontWeight: "700", color: "#52525B", fontSize: 14 },
+  segTextActive: { color: "#fff" },
   grid: { padding: 16 },
   pickerHint: { color: "#71717A", fontSize: 14, marginBottom: 12 },
   gridRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 12 },
