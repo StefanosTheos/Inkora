@@ -43,9 +43,12 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRe
   const rosterAvailQ = useStudioRosterAvailability(supabase, rosterIds);
   const rosterAvail = useMemo(() => rosterAvailQ.data ?? {}, [rosterAvailQ.data]);
 
-  // null in studio mode = "let the studio choose" (routes to the studio owner)
+  // In studio mode the seeker picks a specific roster artist — the studio has no
+  // artist-assignment step, so there's no "studio's choice" that routes to the
+  // owner (who may not even tattoo). The request goes straight to the chosen
+  // artist, tagged to the studio.
   const [chosenArtist, setChosenArtist] = useState<string | null>(null);
-  const effectiveArtistId = isStudio ? (chosenArtist ?? studio?.ownerId ?? "") : (artistId ?? "");
+  const effectiveArtistId = isStudio ? (chosenArtist ?? "") : (artistId ?? "");
 
   const profileQ = useArtistProfile(supabase, effectiveArtistId);
   const availabilityQ = useArtistAvailability(supabase, effectiveArtistId);
@@ -55,12 +58,19 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRe
     ? ["Artist", "Idea", "Details", "When", "Budget", "Review"]
     : ["Idea", "Details", "When", "Budget", "Review"];
 
-  const enabledWeekdays = useMemo(() => {
-    if (isStudio && !chosenArtist) return Array.from(new Set(Object.values(rosterAvail).flat()));
-    return Array.from(new Set((availabilityQ.data ?? []).map((a) => a.dayOfWeek)));
-  }, [isStudio, chosenArtist, rosterAvail, availabilityQ.data]);
+  // Availability preview reflects the chosen artist (studio mode picks one before
+  // the When step), so shaded days match who actually fulfils the booking.
+  const enabledWeekdays = useMemo(
+    () => Array.from(new Set((availabilityQ.data ?? []).map((a) => a.dayOfWeek))),
+    [availabilityQ.data],
+  );
 
   const [step, setStep] = useState(0);
+  // A single-artist studio has no real choice to make — preselect them.
+  useEffect(() => {
+    const only = roster[0];
+    if (isStudio && roster.length === 1 && only && chosenArtist === null) setChosenArtist(only.id);
+  }, [isStudio, roster, chosenArtist]);
   const [submitting, setSubmitting] = useState(false);
   const [title, setTitle] = useState(presetTitle ?? "");
   const [description, setDescription] = useState("");
@@ -93,10 +103,11 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRe
   // Details step is mandatory: placement (with a body part if "Other"), size and colour.
   const detailsComplete = effectivePlacement != null && size != null && isColor != null;
   const canNext =
-    cur === "Idea" ? title.trim().length > 0
-      : cur === "Details" ? detailsComplete
-        : cur === "Budget" ? !budgetInvalid && !belowMinCharge
-          : true;
+    cur === "Artist" ? chosenArtist != null
+      : cur === "Idea" ? title.trim().length > 0
+        : cur === "Details" ? detailsComplete
+          : cur === "Budget" ? !budgetInvalid && !belowMinCharge
+            : true;
   const chosenArtistName = chosenArtist ? roster.find((r) => r.id === chosenArtist)?.displayName : null;
 
   async function addReference() {
@@ -158,7 +169,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRe
   }, [presetRefPath, ctx.userId]);
 
   async function submit() {
-    if (!effectiveArtistId) { toast.show("Pick an artist or let the studio decide", "error"); return; }
+    if (!effectiveArtistId) { toast.show("Please choose an artist to continue", "error"); return; }
     if (budgetInvalid) { toast.show("Your minimum budget can’t be higher than your maximum.", "error"); return; }
     if (belowMinCharge) { toast.show(`This artist’s minimum charge is ${money(minCharge, currency)}. Set your budget at or above that.`, "error"); return; }
     setSubmitting(true);
@@ -214,23 +225,21 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRe
       <ScrollView style={s.flex} contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
         {cur === "Artist" && (
           <>
-            <Text style={s.q}>Who would you like?</Text>
-            <ArtistOption
-              selected={chosenArtist === null}
-              onPress={() => setChosenArtist(null)}
-              title="Let the studio choose"
-              subtitle="They’ll match you with the best available artist"
-              icon="sparkles"
-            />
-            {roster.map((r) => (
-              <RosterOption
-                key={r.id}
-                artist={r}
-                days={rosterAvail[r.id] ?? []}
-                selected={chosenArtist === r.id}
-                onPress={() => setChosenArtist(r.id)}
-              />
-            ))}
+            <Text style={s.q}>Choose your artist</Text>
+            <Text style={s.hint}>Pick who you’d like at {studio?.name ?? "this studio"} — you’ll book with them directly.</Text>
+            {roster.length === 0 ? (
+              <Text style={s.emptyRoster}>This studio has no artists available to book yet.</Text>
+            ) : (
+              roster.map((r) => (
+                <RosterOption
+                  key={r.id}
+                  artist={r}
+                  days={rosterAvail[r.id] ?? []}
+                  selected={chosenArtist === r.id}
+                  onPress={() => setChosenArtist(r.id)}
+                />
+              ))
+            )}
           </>
         )}
 
@@ -343,7 +352,7 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRe
           <>
             <Text style={s.q}>Review</Text>
             {isStudio ? <SummaryRow label="Studio" value={studio?.name ?? "—"} /> : null}
-            {isStudio ? <SummaryRow label="Artist" value={chosenArtistName ?? "Studio’s choice"} /> : <SummaryRow label="Artist" value={profileQ.data?.displayName ?? "—"} />}
+            {isStudio ? <SummaryRow label="Artist" value={chosenArtistName ?? "—"} /> : <SummaryRow label="Artist" value={profileQ.data?.displayName ?? "—"} />}
             <SummaryRow label="Idea" value={title || "—"} />
             {description ? <SummaryRow label="Notes" value={description} /> : null}
             {effectivePlacement ? <SummaryRow label="Placement" value={effectivePlacement} /> : null}
@@ -406,19 +415,6 @@ export function BookingRequestFlow({ artistId, studioSlug, presetTitle, presetRe
       {/* Zoom a reference photo */}
       <ImageZoomModal visible={!!zoomUri} uri={zoomUri ?? ""} onClose={() => setZoomUri(null)} label="Reference photo" />
     </KeyboardAvoidingView>
-  );
-}
-
-function ArtistOption({ selected, onPress, title, subtitle, icon }: { selected: boolean; onPress: () => void; title: string; subtitle: string; icon: keyof typeof Ionicons.glyphMap }) {
-  return (
-    <Pressable style={[s.optionCard, selected && s.optionCardActive]} onPress={onPress}>
-      <View style={s.optionIcon}><Ionicons name={icon} size={20} color="#E5484D" /></View>
-      <View style={{ flex: 1 }}>
-        <Text style={s.optionTitle}>{title}</Text>
-        <Text style={s.optionSub}>{subtitle}</Text>
-      </View>
-      <Ionicons name={selected ? "radio-button-on" : "radio-button-off"} size={22} color={selected ? "#E5484D" : "#D4D4D8"} />
-    </Pressable>
   );
 }
 
@@ -506,7 +502,7 @@ const s = StyleSheet.create({
   savedImg: { width: "100%", height: "100%" },
   optionCard: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 16, padding: 12, marginTop: 10 },
   optionCardActive: { borderColor: "#E5484D", backgroundColor: "#FEF2F2" },
-  optionIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center" },
+  emptyRoster: { color: "#A1A1AA", fontSize: 14, marginTop: 14, lineHeight: 20 },
   optionAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#1F1B2E", alignItems: "center", justifyContent: "center", overflow: "hidden" },
   optionAvatarImg: { width: "100%", height: "100%" },
   optionAvatarInitial: { color: "#fff", fontWeight: "800", fontSize: 18 },
