@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import type { FlashListItem } from "@inkora/data-access";
 import type { HomeArtist, IdeaCard, NearbyStudio, Promotion, StyleCard } from "@inkora/domain";
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -138,6 +139,27 @@ export function IdeaTile({ idea, uri, onPress }: { idea: IdeaCard; uri?: string;
   );
 }
 
+/** Masonry tile for a flash design — mirrors IdeaTile but square, badged
+ *  "Flash", and captioned with the design/artist. */
+export function FlashTile({ flash, uri, onPress }: { flash: FlashListItem; uri?: string; onPress: () => void }) {
+  return (
+    <Pressable style={s.tile} onPress={onPress} accessibilityRole="button" accessibilityLabel={flash.caption ?? `Flash by ${flash.artistName}`}>
+      <View>
+        {uri ? (
+          <Image source={{ uri }} style={[s.tileImg, { aspectRatio: 1 }]} contentFit="cover" transition={150} />
+        ) : (
+          <View style={[s.tileImg, s.tileFallback, { aspectRatio: 1 }]} />
+        )}
+        <View style={s.tileFlash}>
+          <Ionicons name="sparkles" size={10} color="#fff" />
+          <Text style={s.tileFlashText}>Flash</Text>
+        </View>
+      </View>
+      <Text style={s.tileTitle} numberOfLines={1}>{flash.caption ?? flash.artistName}</Text>
+    </Pressable>
+  );
+}
+
 const s = StyleSheet.create({
   search: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginHorizontal: 12, marginBottom: 8 },
   searchIcon: { fontSize: 18, color: "#71717A" },
@@ -170,5 +192,7 @@ const s = StyleSheet.create({
   tileFallback: { backgroundColor: "#E4E4E7" },
   tileSaves: { position: "absolute", left: 6, bottom: 6, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
   tileSavesText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  tileFlash: { position: "absolute", left: 6, top: 6, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(229,72,77,0.92)", borderRadius: 999, paddingHorizontal: 7, paddingVertical: 3 },
+  tileFlashText: { color: "#fff", fontSize: 10, fontWeight: "800" },
   tileTitle: { fontSize: 12, fontWeight: "600", marginTop: 4 },
 });

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  useFeaturedArtists, useIdeaFeed, useMyLocation, useMyStyleSlugs, useNearbyStudios,
-  usePromotions, useRecommendedForMe, useStyleDeck, useTrendingArtists,
+  type FlashListItem, useFeaturedArtists, useFlashFeed, useIdeaFeed, useMyLocation, useMyStyleSlugs,
+  useNearbyStudios, usePromotions, useRecommendedForMe, useStyleDeck, useTrendingArtists,
 } from "@inkora/data-access";
 import type { HomeArtist, IdeaCard } from "@inkora/domain";
 import { MasonryFlashList } from "@shopify/flash-list";
@@ -17,7 +17,7 @@ import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { NotificationBell } from "../notifications/NotificationBell";
 import { CategoryPickerModal } from "./CategoryPickerModal";
-import { ArtistCard, CategoryCard, IdeaTile, PromoCard, SearchBar, SectionHeader, StudioCard } from "./components";
+import { ArtistCard, CategoryCard, FlashTile, IdeaTile, PromoCard, SearchBar, SectionHeader, StudioCard } from "./components";
 import { StyleFilterSheet } from "./StyleFilterSheet";
 
 const img = imageUrl;
@@ -40,10 +40,12 @@ export function HomeScreen() {
   // in Discover (the top search bar routes there) to avoid a duplicate input.
   const [exploreStyles, setExploreStyles] = useState<string[]>([]);
   const [exploreSort, setExploreSort] = useState<"recent" | "popular">("recent");
+  const [exploreFlashes, setExploreFlashes] = useState(false);
   const [styleSheetOpen, setStyleSheetOpen] = useState(false);
   const [locSheetOpen, setLocSheetOpen] = useState(false);
   const feedFilters = useMemo(() => ({ styleSlugs: exploreStyles, sort: exploreSort }), [exploreStyles, exploreSort]);
-  const feed = useIdeaFeed(supabase, feedFilters);
+  const feed = useIdeaFeed(supabase, feedFilters, !exploreFlashes);
+  const flashesQ = useFlashFeed(supabase, exploreFlashes);
   const filtersActive = exploreStyles.length > 0;
   const toggleExploreStyle = (slug: string) =>
     setExploreStyles((prev) => (prev.includes(slug) ? prev.filter((x) => x !== slug) : [...prev, slug]));
@@ -75,6 +77,8 @@ export function HomeScreen() {
   }, [router, scrollToExplore]);
 
   const ideas = feed.data?.pages.flatMap((p) => p.items) ?? [];
+  const flashes = flashesQ.data?.pages.flatMap((p) => p.items) ?? [];
+  const exploreItems: (IdeaCard | FlashListItem)[] = exploreFlashes ? flashes : ideas;
 
   const onRefresh = useCallback(() => {
     void feed.refetch();
@@ -210,7 +214,8 @@ export function HomeScreen() {
       {/* One controls row: sort toggle on the left, Filters (styles) on the right.
           Typed search lives in Discover. */}
       <View style={s.exploreControls}>
-        <View style={s.sortSeg}>
+        {/* Sort applies to ideas only — disabled while browsing flashes. */}
+        <View style={[s.sortSeg, exploreFlashes && s.disabled]} pointerEvents={exploreFlashes ? "none" : "auto"}>
           {(["recent", "popular"] as const).map((so) => (
             <Pressable
               key={so}
@@ -223,16 +228,29 @@ export function HomeScreen() {
             </Pressable>
           ))}
         </View>
-        <Pressable
-          style={[s.filterBtn, exploreStyles.length > 0 && s.filterBtnActive]}
-          onPress={() => setStyleSheetOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel={exploreStyles.length > 0 ? `Filters, ${exploreStyles.length} active` : "Filters"}
-        >
-          <Text style={[s.filterText, exploreStyles.length > 0 && s.filterTextActive]}>
-            Filters{exploreStyles.length > 0 ? ` (${exploreStyles.length})` : ""}
-          </Text>
-        </Pressable>
+        <View style={s.exploreRight}>
+          <Pressable
+            style={[s.flashToggle, exploreFlashes && s.flashToggleActive]}
+            onPress={() => setExploreFlashes((v) => !v)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: exploreFlashes }}
+            accessibilityLabel="Show flash designs"
+          >
+            <Ionicons name={exploreFlashes ? "sparkles" : "sparkles-outline"} size={14} color={exploreFlashes ? "#fff" : "#E5484D"} />
+            <Text style={[s.flashToggleText, exploreFlashes && s.flashToggleTextActive]}>Flashes</Text>
+          </Pressable>
+          <Pressable
+            style={[s.filterBtn, exploreStyles.length > 0 && s.filterBtnActive, exploreFlashes && s.disabled]}
+            onPress={() => setStyleSheetOpen(true)}
+            disabled={exploreFlashes}
+            accessibilityRole="button"
+            accessibilityLabel={exploreStyles.length > 0 ? `Filters, ${exploreStyles.length} active` : "Filters"}
+          >
+            <Text style={[s.filterText, exploreStyles.length > 0 && s.filterTextActive]}>
+              Filters{exploreStyles.length > 0 ? ` (${exploreStyles.length})` : ""}
+            </Text>
+          </Pressable>
+        </View>
       </View>
       </View>
     </View>
@@ -242,21 +260,32 @@ export function HomeScreen() {
     <SafeAreaView style={s.safe} edges={["top"]}>
       <MasonryFlashList
         ref={listRef}
-        data={ideas}
+        data={exploreItems}
         numColumns={2}
         estimatedItemSize={220}
-        keyExtractor={(item: IdeaCard) => item.id}
-        renderItem={({ item }) => (
-          <IdeaTile idea={item} uri={img(item.imagePath, 180)} onPress={() => router.push(`/idea/${item.id}`)} />
-        )}
+        keyExtractor={(item) => (item as { id: string }).id}
+        renderItem={({ item }) => {
+          if (exploreFlashes) {
+            const f = item as FlashListItem;
+            return <FlashTile flash={f} uri={img(f.imagePath, 180)} onPress={() => router.push(`/portfolio/${f.id}`)} />;
+          }
+          const idea = item as IdeaCard;
+          return <IdeaTile idea={idea} uri={img(idea.imagePath, 180)} onPress={() => router.push(`/idea/${idea.id}`)} />;
+        }}
         ListHeaderComponent={Header}
         onEndReached={() => {
-          if (feed.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage();
+          if (exploreFlashes) {
+            if (flashesQ.hasNextPage && !flashesQ.isFetchingNextPage) void flashesQ.fetchNextPage();
+          } else if (feed.hasNextPage && !feed.isFetchingNextPage) {
+            void feed.fetchNextPage();
+          }
         }}
         onEndReachedThreshold={0.6}
         refreshControl={<RefreshControl refreshing={feed.isRefetching} onRefresh={onRefresh} />}
         ListEmptyComponent={
-          feed.isLoading ? (
+          exploreFlashes ? (
+            flashesQ.isLoading ? <TileGridSkeleton /> : <EmptyState icon="sparkles-outline" title="No flashes yet" message="Flash designs from artists will show up here." compact />
+          ) : feed.isLoading ? (
             <TileGridSkeleton />
           ) : filtersActive ? (
             <EmptyState icon="options-outline" title="No ideas match these filters" message="Try removing a style to see more." actionLabel="Clear filters" onAction={() => setExploreStyles([])} compact />
@@ -264,7 +293,7 @@ export function HomeScreen() {
             <EmptyState icon="images-outline" title="No inspiration yet" message="Check back soon — new designs land here." compact />
           )
         }
-        ListFooterComponent={feed.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
+        ListFooterComponent={(exploreFlashes ? flashesQ.isFetchingNextPage : feed.isFetchingNextPage) ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
         contentContainerStyle={{ paddingHorizontal: 4, paddingBottom: 24 }}
       />
 
@@ -307,6 +336,12 @@ const s = StyleSheet.create({
   filterBtnActive: { backgroundColor: "#E5484D", borderColor: "#E5484D" },
   filterText: { fontWeight: "700", fontSize: 13, color: "#18181B" },
   filterTextActive: { color: "#fff" },
+  exploreRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  flashToggle: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1.5, borderColor: "#E5484D" },
+  flashToggleActive: { backgroundColor: "#E5484D" },
+  flashToggleText: { fontWeight: "800", fontSize: 13, color: "#E5484D" },
+  flashToggleTextActive: { color: "#fff" },
+  disabled: { opacity: 0.4 },
   quizCta: { flexDirection: "row", alignItems: "center", gap: 12, marginHorizontal: 16, marginBottom: 8, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: "#F1D6D7", backgroundColor: "#FFF5F5" },
   quizIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#FDECEC", alignItems: "center", justifyContent: "center" },
   quizTitle: { fontSize: 15, fontWeight: "800", color: "#18181B" },

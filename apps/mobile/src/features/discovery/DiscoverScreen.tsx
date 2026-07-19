@@ -1,5 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import {
-  useArtistSearch, useDebouncedValue, useIdeaFeed, useMyLocation, useStudioSearch, useStyleDeck,
+  type FlashListItem, useArtistSearch, useDebouncedValue, useFlashFeed, useIdeaFeed, useMyLocation,
+  useStudioSearch, useStyleDeck,
 } from "@inkora/data-access";
 import {
   activeFilterCount, activeStudioFilterCount, type ArtistSearchParams, type ArtistSort,
@@ -16,7 +18,7 @@ import { SetLocationSheet } from "../../components/SetLocationSheet";
 import { RowSkeleton, TileGridSkeleton } from "../../components/Skeleton";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
-import { IdeaTile } from "../home/components";
+import { FlashTile, IdeaTile } from "../home/components";
 import { StyleFilterSheet } from "../home/StyleFilterSheet";
 import { ArtistResultRow, Chip, StudioResultRow } from "./components";
 import { FilterSheet } from "./FilterSheet";
@@ -81,13 +83,17 @@ export function DiscoverScreen() {
 
   const [ideaSort, setIdeaSort] = useState<"recent" | "popular">("recent");
   const [ideaStyles, setIdeaStyles] = useState<string[]>([]);
+  const [ideaFlashes, setIdeaFlashes] = useState(false);
   const [ideaSheetOpen, setIdeaSheetOpen] = useState(false);
   const toggleIdeaStyle = (slug: string) =>
     setIdeaStyles((prev) => (prev.includes(slug) ? prev.filter((x) => x !== slug) : [...prev, slug]));
   const artistSearch = useArtistSearch(supabase, artistParams, !isStudios && !isIdeas);
   const studioSearch = useStudioSearch(supabase, studioParams, isStudios);
-  const ideaFeed = useIdeaFeed(supabase, { q, sort: ideaSort, styleSlugs: ideaStyles }, isIdeas);
+  const ideaFeed = useIdeaFeed(supabase, { q, sort: ideaSort, styleSlugs: ideaStyles }, isIdeas && !ideaFlashes);
   const ideas: IdeaCard[] = ideaFeed.data?.pages.flatMap((p) => p.items) ?? [];
+  const flashesQ = useFlashFeed(supabase, isIdeas && ideaFlashes);
+  const flashes = flashesQ.data?.pages.flatMap((p) => p.items) ?? [];
+  const ideaItems: (IdeaCard | FlashListItem)[] = ideaFlashes ? flashes : ideas;
   const search = isStudios ? studioSearch : artistSearch;
   const results: (SearchArtist | SearchStudio)[] = search.data?.pages.flat() ?? [];
   const filterCount = isStudios ? activeStudioFilterCount(studioParams) : activeFilterCount(artistParams);
@@ -170,25 +176,39 @@ export function DiscoverScreen() {
       </ScrollView>
       )}
 
-      {/* Designs: sort toggle on the left, style filter on the right. */}
+      {/* Designs: sort toggle + a Flashes switch on the left, style filter on the
+          right. Sort/style apply to ideas only, so they're disabled for flashes. */}
       {isIdeas && (
         <View style={s.ideaControls}>
-          <View style={s.sortSeg}>
-            {(["recent", "popular"] as const).map((so) => (
-              <Pressable
-                key={so}
-                style={[s.sortSegBtn, ideaSort === so && s.sortSegBtnActive]}
-                onPress={() => setIdeaSort(so)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: ideaSort === so }}
-              >
-                <Text style={[s.sortSegText, ideaSort === so && s.sortSegTextActive]}>{so === "recent" ? "Recent" : "Popular"}</Text>
-              </Pressable>
-            ))}
+          <View style={s.ideaLeft}>
+            <View style={[s.sortSeg, ideaFlashes && s.disabled]} pointerEvents={ideaFlashes ? "none" : "auto"}>
+              {(["recent", "popular"] as const).map((so) => (
+                <Pressable
+                  key={so}
+                  style={[s.sortSegBtn, ideaSort === so && s.sortSegBtnActive]}
+                  onPress={() => setIdeaSort(so)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: ideaSort === so }}
+                >
+                  <Text style={[s.sortSegText, ideaSort === so && s.sortSegTextActive]}>{so === "recent" ? "Recent" : "Popular"}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              style={[s.flashToggle, ideaFlashes && s.flashToggleActive]}
+              onPress={() => setIdeaFlashes((v) => !v)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: ideaFlashes }}
+              accessibilityLabel="Show flash designs"
+            >
+              <Ionicons name={ideaFlashes ? "sparkles" : "sparkles-outline"} size={14} color={ideaFlashes ? "#fff" : "#E5484D"} />
+              <Text style={[s.flashToggleText, ideaFlashes && s.flashToggleTextActive]}>Flashes</Text>
+            </Pressable>
           </View>
           <Pressable
-            style={[s.filterBtn, ideaStyles.length > 0 && s.filterBtnActive]}
+            style={[s.filterBtn, ideaStyles.length > 0 && s.filterBtnActive, ideaFlashes && s.disabled]}
             onPress={() => setIdeaSheetOpen(true)}
+            disabled={ideaFlashes}
             accessibilityRole="button"
             accessibilityLabel={ideaStyles.length > 0 ? `Filters, ${ideaStyles.length} active` : "Filters"}
           >
@@ -202,26 +222,38 @@ export function DiscoverScreen() {
       {/* Results */}
       {isIdeas ? (
         <MasonryFlashList
-          data={ideas}
+          data={ideaItems}
           numColumns={2}
           estimatedItemSize={220}
-          keyExtractor={(item) => (item as IdeaCard).id}
+          keyExtractor={(item) => (item as { id: string }).id}
           contentContainerStyle={{ paddingHorizontal: 8, paddingTop: 4 }}
           renderItem={({ item }) => {
+            if (ideaFlashes) {
+              const f = item as FlashListItem;
+              return <FlashTile flash={f} uri={img(f.imagePath, 300)} onPress={() => router.push(`/portfolio/${f.id}`)} />;
+            }
             const idea = item as IdeaCard;
             return <IdeaTile idea={idea} uri={img(idea.imagePath, 300)} onPress={() => router.push(`/idea/${idea.id}`)} />;
           }}
           onEndReached={() => {
-            if (ideaFeed.hasNextPage && !ideaFeed.isFetchingNextPage) void ideaFeed.fetchNextPage();
+            if (ideaFlashes) {
+              if (flashesQ.hasNextPage && !flashesQ.isFetchingNextPage) void flashesQ.fetchNextPage();
+            } else if (ideaFeed.hasNextPage && !ideaFeed.isFetchingNextPage) {
+              void ideaFeed.fetchNextPage();
+            }
           }}
           onEndReachedThreshold={0.6}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
-            ideaFeed.isLoading
-              ? <TileGridSkeleton />
-              : <EmptyState icon="images-outline" title="No designs found" message={q ? "Try a different search or fewer style filters." : "Try a different style filter."} compact />
+            ideaFlashes ? (
+              flashesQ.isLoading ? <TileGridSkeleton /> : <EmptyState icon="sparkles-outline" title="No flashes yet" message="Flash designs from artists will show up here." compact />
+            ) : ideaFeed.isLoading ? (
+              <TileGridSkeleton />
+            ) : (
+              <EmptyState icon="images-outline" title="No designs found" message={q ? "Try a different search or fewer style filters." : "Try a different style filter."} compact />
+            )
           }
-          ListFooterComponent={ideaFeed.isFetchingNextPage ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
+          ListFooterComponent={(ideaFlashes ? flashesQ.isFetchingNextPage : ideaFeed.isFetchingNextPage) ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
         />
       ) : (
         <FlashList
@@ -304,6 +336,12 @@ const s = StyleSheet.create({
   controls: { flexGrow: 0, marginBottom: 8 },
   controlsContent: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12 },
   ideaControls: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 12, marginBottom: 8 },
+  ideaLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  flashToggle: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5, borderColor: "#E5484D" },
+  flashToggleActive: { backgroundColor: "#E5484D" },
+  flashToggleText: { fontWeight: "800", fontSize: 13, color: "#E5484D" },
+  flashToggleTextActive: { color: "#fff" },
+  disabled: { opacity: 0.4 },
   sortSeg: { flexDirection: "row", backgroundColor: "#F4F4F5", borderRadius: 999, padding: 3 },
   sortSegBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999 },
   sortSegBtnActive: { backgroundColor: "#18181B" },

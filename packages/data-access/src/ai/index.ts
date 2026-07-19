@@ -1,8 +1,8 @@
 import type {
-  AiPreview, AiPreviewId, AiPreviewInput, AiPreviewStatus, ArtistId, IdeaId, PortfolioImageId,
+  AiPreview, AiPreviewId, AiPreviewInput, AiPreviewStatus, ArtistId, IdeaId, Page, PortfolioImageId,
   ProfileId, StyleId, TattooTryOnInput,
 } from "@inkora/domain";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
@@ -113,27 +113,51 @@ interface FlashRow {
   image_path: string;
   caption: string | null;
   artist_id: string;
+  created_at: string;
   artists: { profiles: { display_name: string; avatar_path: string | null } | null } | null;
 }
-/** Recent flash designs across artists — the catalog for "try one on". */
-export async function listFlashes(client: InkoraClient, limit = 40): Promise<FlashListItem[]> {
-  const { data, error } = await client
-    .from("portfolio_images")
-    .select("id, image_path, caption, artist_id, artists!inner(profiles!inner(display_name, avatar_path))")
-    .eq("kind", "flash")
-    .neq("moderation_status", "rejected")
-    .order("created_at", { ascending: false })
-    .limit(limit)
-    .returns<FlashRow[]>();
-  if (error) throw toAppError(error);
-  return (data ?? []).map((r) => ({
+function mapFlashRow(r: FlashRow): FlashListItem {
+  return {
     id: r.id as PortfolioImageId,
     imagePath: r.image_path,
     caption: r.caption,
     artistId: r.artist_id as ArtistId,
     artistName: r.artists?.profiles?.display_name ?? "Artist",
     artistAvatarPath: r.artists?.profiles?.avatar_path ?? null,
-  }));
+  };
+}
+/** Recent flash designs across artists — the catalog for "try one on". */
+export async function listFlashes(client: InkoraClient, limit = 40): Promise<FlashListItem[]> {
+  const { data, error } = await client
+    .from("portfolio_images")
+    .select("id, image_path, caption, artist_id, created_at, artists!inner(profiles!inner(display_name, avatar_path))")
+    .eq("kind", "flash")
+    .neq("moderation_status", "rejected")
+    .order("created_at", { ascending: false })
+    .limit(limit)
+    .returns<FlashRow[]>();
+  if (error) throw toAppError(error);
+  return (data ?? []).map(mapFlashRow);
+}
+
+/** One page of the flash browse feed — keyset-paginated by created_at (newest
+ *  first), so the flashes grid can scroll infinitely like the idea feed. */
+export async function fetchFlashFeedPage(client: InkoraClient, cursor: string | undefined, limit = 18): Promise<Page<FlashListItem>> {
+  let q = client
+    .from("portfolio_images")
+    .select("id, image_path, caption, artist_id, created_at, artists!inner(profiles!inner(display_name, avatar_path))")
+    .eq("kind", "flash")
+    .neq("moderation_status", "rejected")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (cursor) q = q.lt("created_at", cursor);
+  const { data, error } = await q.returns<FlashRow[]>();
+  if (error) throw toAppError(error);
+  const rows = data ?? [];
+  const items = rows.map(mapFlashRow);
+  const hasMore = rows.length === limit;
+  const nextCursor = hasMore ? rows[rows.length - 1]!.created_at : null;
+  return { items, nextCursor, hasMore };
 }
 
 /**
@@ -195,4 +219,16 @@ export function useAiPreview(client: InkoraClient, id: string) {
 }
 export function useFlashes(client: InkoraClient) {
   return useQuery({ queryKey: aiKeys.flashes, queryFn: () => listFlashes(client) });
+}
+
+/** Infinite flash browse feed (newest first) for the Explore/Discover Flashes toggle. */
+export function useFlashFeed(client: InkoraClient, enabled = true) {
+  return useInfiniteQuery({
+    queryKey: ["flash-feed"],
+    queryFn: ({ pageParam }: { pageParam?: string }) => fetchFlashFeedPage(client, pageParam),
+    enabled,
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last: Page<FlashListItem>) => last.nextCursor ?? undefined,
+    placeholderData: keepPreviousData,
+  });
 }
