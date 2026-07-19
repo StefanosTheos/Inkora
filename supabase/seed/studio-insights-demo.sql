@@ -102,5 +102,48 @@ begin
        'completed', v_price, v_end, 'insights-demo');
   end loop;
 
-  raise notice 'insights-demo: seeded % completed bookings for Iron Lotus', array_length(v_offsets, 1);
+  -- Upcoming bookings over the next ~30 days, so the calendar's "upcoming" side
+  -- is populated too (scheduled, with the odd rescheduled). No completed_at.
+  for i in 1..16 loop
+    v_off   := 1 + trunc(random() * 30)::int;                                     -- days into the future
+    v_art   := v_artists[1 + trunc(random() * array_length(v_artists, 1))::int];
+    v_cli   := v_clients[1 + trunc(random() * array_length(v_clients, 1))::int];
+    v_dur   := durations[1 + trunc(random() * array_length(durations, 1))::int];
+    v_hh    := 10 + trunc(random() * 7)::int;
+    v_mm    := (array[0, 30])[1 + trunc(random() * 2)::int];
+    v_rate  := 80 + trunc(random() * 70)::int;
+    v_price := round((v_dur / 60.0) * v_rate / 5.0) * 5;
+    v_start := date_trunc('day', now()) + (v_off || ' days')::interval
+               + make_interval(hours => v_hh, mins => v_mm);
+    v_end   := v_start + make_interval(mins => v_dur);
+
+    insert into public.appointment_requests
+      (id, client_id, artist_id, studio_id, title, description, placement, approx_size, is_color, status, created_at)
+    values
+      (gen_random_uuid(), v_cli, v_art, v_studio,
+       titles[1 + trunc(random() * array_length(titles, 1))::int],
+       'insights-demo-req',
+       placements[1 + trunc(random() * array_length(placements, 1))::int],
+       sizes[1 + trunc(random() * array_length(sizes, 1))::int],
+       random() < 0.5,
+       'converted',
+       now())
+    returning id into v_req;
+
+    -- Active bookings are guarded by the appointments_no_overlap exclusion
+    -- constraint; if this artist already has an overlapping slot, skip this one
+    -- (and drop its now-orphaned request) rather than aborting the whole seed.
+    begin
+      insert into public.appointments
+        (id, request_id, client_id, artist_id, studio_id, scheduled_start, scheduled_end,
+         status, price_amount, notes)
+      values
+        (gen_random_uuid(), v_req, v_cli, v_art, v_studio, v_start, v_end,
+         case when random() < 0.2 then 'rescheduled' else 'scheduled' end, v_price, 'insights-demo');
+    exception when exclusion_violation then
+      delete from public.appointment_requests where id = v_req;
+    end;
+  end loop;
+
+  raise notice 'insights-demo: seeded % completed + 16 upcoming bookings for Iron Lotus', array_length(v_offsets, 1);
 end $$;

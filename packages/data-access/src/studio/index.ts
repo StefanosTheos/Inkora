@@ -1,6 +1,7 @@
 import type {
   ArtistId, PortfolioImage, PortfolioImageId, ProfileId, ReviewId, ReviewItem, StatsPeriod, StudioApplication,
-  StudioArtistStat, StudioBookingDetail, StudioEditInput, StudioId, StudioOverview, StudioPeriodStat, StudioProfile,
+  StudioArtistStat, StudioBookingDetail, StudioCalendarBooking, StudioEditInput, StudioId, StudioOverview,
+  StudioPeriodStat, StudioProfile,
 } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
@@ -537,6 +538,48 @@ export function useStudioCompletedBookings(client: InkoraClient, studioId: strin
   return useQuery({
     queryKey: ["studio-completed-bookings", studioId, startISO, endISO],
     queryFn: () => getStudioCompletedBookings(client, studioId, startISO, endISO),
+    enabled: !!studioId && !!startISO && !!endISO,
+  });
+}
+
+/** Upcoming (scheduled/rescheduled) + completed bookings for the studio owner's
+ *  calendar, within [start, end). */
+export async function getStudioCalendarBookings(
+  client: InkoraClient,
+  studioId: string,
+  startISO: string,
+  endISO: string,
+): Promise<StudioCalendarBooking[]> {
+  const { data, error } = await client.rpc("studio_calendar_bookings", {
+    p_studio_id: studioId,
+    p_start: startISO,
+    p_end: endISO,
+  });
+  if (error) throw toAppError(error);
+  return (data ?? []).map((r) => ({
+    appointmentId: r.appointment_id,
+    scheduledStart: r.scheduled_start,
+    scheduledEnd: r.scheduled_end,
+    status: r.status as StudioCalendarBooking["status"],
+    durationMinutes: Math.max(0, Math.round((new Date(r.scheduled_end).getTime() - new Date(r.scheduled_start).getTime()) / 60000)),
+    priceAmount: r.price_amount == null ? null : Number(r.price_amount),
+    artistId: r.artist_id as ProfileId,
+    artistName: r.artist_name,
+    artistAvatarPath: r.artist_avatar,
+    clientId: r.client_id as ProfileId,
+    clientName: r.client_name,
+    clientAvatarPath: r.client_avatar,
+    title: r.title,
+    placement: r.placement,
+    approxSize: r.approx_size,
+    isColor: r.is_color,
+  }));
+}
+
+export function useStudioCalendarBookings(client: InkoraClient, studioId: string, startISO: string, endISO: string) {
+  return useQuery({
+    queryKey: ["studio-calendar-bookings", studioId, startISO, endISO],
+    queryFn: () => getStudioCalendarBookings(client, studioId, startISO, endISO),
     enabled: !!studioId && !!startISO && !!endISO,
   });
 }

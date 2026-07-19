@@ -22,9 +22,12 @@ interface Props {
   enabledWeekdays?: number[];
   /** ISO dates to badge with a dot (e.g. days with appointments). */
   markedDates?: Set<string>;
+  /** Allow navigating to and selecting past months/days (e.g. a studio owner
+   *  reviewing completed bookings). Booking flows leave this off. */
+  allowPast?: boolean;
 }
 
-export function MonthCalendar({ selected, onSelect, enabledWeekdays, markedDates }: Props) {
+export function MonthCalendar({ selected, onSelect, enabledWeekdays, markedDates, allowPast }: Props) {
   const today = startOfToday();
   const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
 
@@ -40,7 +43,7 @@ export function MonthCalendar({ selected, onSelect, enabledWeekdays, markedDates
     return out;
   }, [cursor]);
 
-  const canGoBack = cursor > new Date(today.getFullYear(), today.getMonth(), 1);
+  const canGoBack = allowPast || cursor > new Date(today.getFullYear(), today.getMonth(), 1);
 
   return (
     <View>
@@ -70,7 +73,7 @@ export function MonthCalendar({ selected, onSelect, enabledWeekdays, markedDates
           const iso = toIsoDate(d);
           const isPast = d < today;
           const disabledDay = enabledWeekdays ? !enabledWeekdays.includes(d.getDay()) : false;
-          const disabled = isPast || disabledDay;
+          const disabled = (isPast && !allowPast) || disabledDay;
           const isSelected = selected === iso;
           const marked = markedDates?.has(iso);
           return (

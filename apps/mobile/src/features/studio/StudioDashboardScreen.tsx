@@ -139,6 +139,9 @@ export function StudioDashboardScreen() {
         <View style={s.topbar}>
           <Text style={s.topTitle} accessibilityRole="header">Studio</Text>
           <View style={s.topActions}>
+            <Pressable onPress={() => router.push("/studio-calendar")} hitSlop={10} accessibilityRole="button" accessibilityLabel="Calendar">
+              <Ionicons name="calendar-outline" size={24} color="#18181B" />
+            </Pressable>
             <Pressable onPress={() => router.push("/notifications")} hitSlop={10} accessibilityRole="button" accessibilityLabel={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}>
               <Ionicons name="notifications-outline" size={24} color="#18181B" />
               {unread > 0 ? <View style={s.bellDot} /> : null}
@@ -190,7 +193,12 @@ export function StudioDashboardScreen() {
             </Pressable>
           ))}
         </View>
-        <View style={s.hero}>
+        <Pressable
+          style={s.hero}
+          onPress={() => router.push(`/studio-insights?g=${period === "wtd" ? "week" : "month"}`)}
+          accessibilityRole="button"
+          accessibilityLabel="View studio insights"
+        >
           <View style={s.heroBloom} />
           <HeroStat text={String(ov?.activeArtists ?? 0)} label="Artists" />
           <View style={s.heroDivider} />
@@ -201,7 +209,7 @@ export function StudioDashboardScreen() {
           />
           <View style={s.heroDivider} />
           <HeroStat text={ov && ov.ratingCount > 0 ? `★${ov.ratingAvg.toFixed(1)}` : "—"} label="Rating" />
-        </View>
+        </Pressable>
         {/* Drill into every completed booking (artist, client, price, length),
             filterable per day/week/month. Opens at the selected period's grain. */}
         <Pressable

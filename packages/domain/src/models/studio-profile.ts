@@ -1,3 +1,4 @@
+import type { AppointmentStatus } from "../enums";
 import type { ArtistId, ProfileId, StudioId } from "../ids";
 
 export interface StudioRosterArtist {
@@ -108,6 +109,11 @@ export interface StudioBookingDetail {
   placement: string | null;
   approxSize: string | null;
   isColor: boolean | null;
+}
+
+/** A booking on the studio owner's calendar — upcoming or completed. */
+export interface StudioCalendarBooking extends StudioBookingDetail {
+  status: AppointmentStatus;
 }
 
 /** A pending artist application to join a studio (owner's inbox). */
