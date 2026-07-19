@@ -7,8 +7,10 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useConfirm } from "../../components/ConfirmDialog";
 import { ImageZoomModal } from "../../components/ImageZoomModal";
 import { useToast } from "../../components/Toast";
+import { sendDesignToConversation } from "../../lib/chat-designs";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { Avatar } from "../booking/components/ui";
@@ -16,6 +18,7 @@ import { Avatar } from "../booking/components/ui";
 export function PortfolioDesignScreen({ id }: { id: string }) {
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const { ctx } = useAuth();
   // Save / Try-on / Request-booking are client actions — hidden for the studio
   // owner, who browses designs but books nothing.
@@ -23,6 +26,7 @@ export function PortfolioDesignScreen({ id }: { id: string }) {
   const detail = usePortfolioDesign(supabase, id);
   const save = usePortfolioSaved(supabase, id);
   const [zoom, setZoom] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const d = detail.data;
   const more = useMoreFromArtist(supabase, d?.artist?.id ?? "", id);
@@ -71,6 +75,26 @@ export function PortfolioDesignScreen({ id }: { id: string }) {
     }
   }
 
+  async function sendToArtist() {
+    if (!artist || !ctx.userId || !d) return;
+    const ok = await confirm({
+      title: `Send this design to ${artist.displayName}?`,
+      message: "It'll be shared as a photo in a chat with the artist.",
+      confirmLabel: "Send",
+    });
+    if (!ok) return;
+    setSending(true);
+    try {
+      const cid = await startDirectConversation(supabase, artist.id);
+      await sendDesignToConversation(cid, ctx.userId, d.imagePath);
+      router.push(`/chats/${cid}`);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
       <TopBar onBack={() => router.back()} onShare={() => void onShare()} />
@@ -112,32 +136,54 @@ export function PortfolioDesignScreen({ id }: { id: string }) {
           {/* Client actions — hidden for studio owners (business account). */}
           {!isStudioOwner ? (
             <>
-              <View style={s.actions}>
-                <Pressable
-                  style={[s.actionBtn, save.saved && s.actionBtnActive]}
-                  onPress={onToggleSave}
-                  disabled={save.isToggling}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: save.saved }}
-                  accessibilityLabel={save.saved ? "Saved. Tap to remove from your designs" : "Save design"}
-                >
-                  <Ionicons name={save.saved ? "heart" : "heart-outline"} size={20} color={save.saved ? "#E5484D" : "#18181B"} />
-                  <Text style={[s.actionText, save.saved && { color: "#E5484D" }]}>{save.saved ? "Saved" : "Save"}</Text>
-                </Pressable>
-
-                {/* Try-on is a flash-only feature (clean line art composites cleanly). */}
-                {d.kind === "flash" ? (
-                  <Pressable
-                    style={s.actionBtn}
+              {d.kind === "flash" ? (
+                // A flash has three secondary actions (Save / Try on / Send) — as
+                // compact icon tiles they sit cleanly in one row above the primary
+                // booking CTA, instead of stacking full-width buttons.
+                <View style={s.tileRow}>
+                  <ActionTile
+                    icon={save.saved ? "heart" : "heart-outline"}
+                    label={save.saved ? "Saved" : "Save"}
+                    active={save.saved}
+                    busy={save.isToggling}
+                    onPress={onToggleSave}
+                  />
+                  <ActionTile
+                    icon="sparkles-outline"
+                    label="Try on"
                     onPress={() => router.push({ pathname: "/create/new", params: { flashPath: d.imagePath, flashId: d.id, artistName: artist?.displayName ?? "", caption: d.caption ?? "" } })}
+                  />
+                  {canMessage ? (
+                    <ActionTile icon="paper-plane-outline" label={sending ? "…" : "Send"} busy={sending} onPress={() => void sendToArtist()} />
+                  ) : null}
+                </View>
+              ) : (
+                <View style={s.actions}>
+                  <Pressable
+                    style={[s.actionBtn, save.saved && s.actionBtnActive]}
+                    onPress={onToggleSave}
+                    disabled={save.isToggling}
                     accessibilityRole="button"
-                    accessibilityLabel="Try this design on you"
+                    accessibilityState={{ selected: save.saved }}
+                    accessibilityLabel={save.saved ? "Saved. Tap to remove from your designs" : "Save design"}
                   >
-                    <Ionicons name="sparkles-outline" size={20} color="#18181B" />
-                    <Text style={s.actionText}>Try on you</Text>
+                    <Ionicons name={save.saved ? "heart" : "heart-outline"} size={20} color={save.saved ? "#E5484D" : "#18181B"} />
+                    <Text style={[s.actionText, save.saved && { color: "#E5484D" }]}>{save.saved ? "Saved" : "Save"}</Text>
                   </Pressable>
-                ) : null}
-              </View>
+                  {canMessage ? (
+                    <Pressable
+                      style={s.actionBtn}
+                      onPress={() => void sendToArtist()}
+                      disabled={sending}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Send this design to ${artist?.displayName ?? "the artist"}`}
+                    >
+                      <Ionicons name="paper-plane-outline" size={20} color="#18181B" />
+                      <Text style={s.actionText}>{sending ? "Sending…" : "Send to artist"}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              )}
 
               {artist ? (
                 <Pressable
@@ -186,6 +232,15 @@ export function PortfolioDesignScreen({ id }: { id: string }) {
   );
 }
 
+function ActionTile({ icon, label, active, busy, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; active?: boolean; busy?: boolean; onPress: () => void }) {
+  return (
+    <Pressable style={[s.tile, active && s.tileActive]} onPress={onPress} disabled={busy} accessibilityRole="button" accessibilityState={{ selected: active }} accessibilityLabel={label}>
+      <Ionicons name={icon} size={22} color={active ? "#E5484D" : "#18181B"} />
+      <Text style={[s.tileText, active && { color: "#E5484D" }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function TopBar({ onBack, onShare }: { onBack: () => void; onShare?: () => void }) {
   return (
     <View style={s.topbar}>
@@ -217,6 +272,10 @@ const s = StyleSheet.create({
   artistRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#F4F4F5" },
   artistInfo: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   msgBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: "#E4E4E7", alignItems: "center", justifyContent: "center" },
+  tileRow: { flexDirection: "row", gap: 10 },
+  tile: { flex: 1, alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 14, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 14 },
+  tileActive: { borderColor: "#E5484D", backgroundColor: "#FEF2F2" },
+  tileText: { fontSize: 12, fontWeight: "700", color: "#18181B" },
   artistName: { fontWeight: "800", fontSize: 15 },
   artistMeta: { color: "#71717A", fontSize: 13, marginTop: 2 },
   actions: { flexDirection: "row", gap: 10 },

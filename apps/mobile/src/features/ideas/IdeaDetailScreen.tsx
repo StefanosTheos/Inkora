@@ -7,8 +7,10 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useConfirm } from "../../components/ConfirmDialog";
 import { ImageZoomModal } from "../../components/ImageZoomModal";
 import { useToast } from "../../components/Toast";
+import { sendDesignToConversation } from "../../lib/chat-designs";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 import { Avatar } from "../booking/components/ui";
@@ -16,11 +18,13 @@ import { Avatar } from "../booking/components/ui";
 export function IdeaDetailScreen({ id }: { id: string }) {
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const { ctx } = useAuth();
   const detail = useIdeaDetail(supabase, id);
   const similar = useSimilarIdeas(supabase, id);
   const save = useIdeaSaved(supabase, id);
   const [zoom, setZoom] = useState(false);
+  const [sending, setSending] = useState(false);
 
   if (detail.isLoading) {
     return (
@@ -65,6 +69,26 @@ export function IdeaDetailScreen({ id }: { id: string }) {
       router.push(`/chats/${cid}`);
     } catch (e) {
       toast.show((e as Error).message, "error");
+    }
+  }
+
+  async function sendToArtist() {
+    if (!artist || !ctx.userId || !d) return;
+    const ok = await confirm({
+      title: `Send this design to ${artist.displayName}?`,
+      message: "It'll be shared as a photo in a chat with the artist.",
+      confirmLabel: "Send",
+    });
+    if (!ok) return;
+    setSending(true);
+    try {
+      const cid = await startDirectConversation(supabase, artist.id);
+      await sendDesignToConversation(cid, ctx.userId, d.imagePath);
+      router.push(`/chats/${cid}`);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    } finally {
+      setSending(false);
     }
   }
 
@@ -125,6 +149,18 @@ export function IdeaDetailScreen({ id }: { id: string }) {
               <Ionicons name={save.saved ? "heart" : "heart-outline"} size={20} color={save.saved ? "#E5484D" : "#18181B"} />
               <Text style={[s.actionText, save.saved && { color: "#E5484D" }]}>{save.saved ? "Saved" : "Save"}</Text>
             </Pressable>
+            {canMessage ? (
+              <Pressable
+                style={s.actionBtn}
+                onPress={() => void sendToArtist()}
+                disabled={sending}
+                accessibilityRole="button"
+                accessibilityLabel={`Send this design to ${artist?.displayName ?? "the artist"}`}
+              >
+                <Ionicons name="paper-plane-outline" size={20} color="#18181B" />
+                <Text style={s.actionText}>{sending ? "Sending…" : "Send to artist"}</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {artist ? (

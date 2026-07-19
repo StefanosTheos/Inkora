@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   bookingKeys, declineRequest, getChatSignedUrl, markEntityNotificationsRead, publicStorageUrl,
   respondStudioApplication, respondToOffer, uploadChatFile, useAuth, useBookingRequest, useChat,
-  useConversation, useConversations, useMyStudio, useMyStudioMembershipStatus, useOfferStatus, useStudioApplications,
+  useConversation, useConversations, useMyStudio, useMyStudioMembershipStatus, useOfferStatus,
+  useSavedDesigns, useStudioApplications,
 } from "@inkora/data-access";
 import { type ArtistId, type ConversationId, type Message, messageKind, TIME_OF_DAY_LABEL, type TimeOfDay } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,14 +13,15 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator, FlatList, KeyboardAvoidingView, PanResponder, Platform, Pressable,
-  StyleSheet, Text, TextInput, View,
+  ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable,
+  ScrollView, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useConfirm } from "../../components/ConfirmDialog";
 import { useToast } from "../../components/Toast";
 import { analytics } from "../../lib/analytics";
+import { uploadDesignAsChatAttachment } from "../../lib/chat-designs";
 import { env } from "../../lib/env";
 import { supabase } from "../../lib/supabase";
 import { fmtDate, fmtDateTime, money, requestChip } from "../booking/components/ui";
@@ -62,6 +64,8 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
 
   const [text, setText] = useState("");
   const [showActions, setShowActions] = useState(false);
+  const [savedOpen, setSavedOpen] = useState(false);
+  const savedDesigns = useSavedDesigns(supabase);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recElapsed, setRecElapsed] = useState(0);
   const recStart = useRef(0);
@@ -96,6 +100,18 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
       analytics.capture({ name: "first_message_sent", props: { conversationId: conversationId as ConversationId, artistId: conv.otherId as unknown as ArtistId } }, ctx);
     }
   };
+
+  // Send one of the user's saved designs into the chat — copy its image into the
+  // chat bucket, then reuse the same optimistic image send as a photo.
+  async function sendSavedDesign(imagePath: string) {
+    setSavedOpen(false);
+    try {
+      const path = await uploadDesignAsChatAttachment(conversationId, imagePath);
+      void chat.sendImage(path);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    }
+  }
 
   async function pickImage() {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7 });
@@ -220,6 +236,7 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
               <Pressable onPress={() => setShowActions((v) => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel="More actions"><Ionicons name="add-circle-outline" size={26} color="#71717A" /></Pressable>
             ) : null}
             <Pressable onPress={pickImage} hitSlop={8} accessibilityRole="button" accessibilityLabel="Attach photo"><Ionicons name="image-outline" size={24} color="#71717A" /></Pressable>
+            <Pressable onPress={() => setSavedOpen(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Send a saved design"><Ionicons name="heart-outline" size={24} color="#71717A" /></Pressable>
             <TextInput style={s.input} placeholder="Message" value={text} onChangeText={onChange} multiline />
             {text.trim().length > 0 ? (
               <Pressable onPress={onSend} hitSlop={8} accessibilityRole="button" accessibilityLabel="Send message"><Ionicons name="send" size={22} color="#E5484D" /></Pressable>
@@ -231,6 +248,37 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
           </>
         )}
       </View>
+
+      {/* Send a saved design into the chat */}
+      <Modal visible={savedOpen} animationType="slide" onRequestClose={() => setSavedOpen(false)}>
+        <View style={[s.pickerModal, { paddingTop: insets.top + 6 }]}>
+          <View style={s.pickerHeader}>
+            <Text style={s.pickerTitle} accessibilityRole="header">Saved designs</Text>
+            <Pressable onPress={() => setSavedOpen(false)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
+              <Ionicons name="close" size={26} color="#18181B" />
+            </Pressable>
+          </View>
+          {savedDesigns.isLoading ? (
+            <ActivityIndicator style={{ marginTop: 32 }} />
+          ) : (savedDesigns.data ?? []).length === 0 ? (
+            <Text style={s.pickerEmpty}>You haven&apos;t saved any designs yet. Tap the heart on a design to save it.</Text>
+          ) : (
+            <ScrollView contentContainerStyle={s.pickerGrid}>
+              {(savedDesigns.data ?? []).map((item) => (
+                <Pressable
+                  key={`${item.targetType}-${item.id}`}
+                  style={s.pickerItem}
+                  onPress={() => void sendSavedDesign(item.imagePath)}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.title ? `Send ${item.title}` : "Send saved design"}
+                >
+                  <Image source={{ uri: img(item.imagePath) }} style={s.pickerImg} contentFit="cover" />
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -773,4 +821,11 @@ const s = StyleSheet.create({
   recBar: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FEF2F2", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 11 },
   recDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#E5484D" },
   recText: { color: "#B91C1C", fontWeight: "700", fontSize: 14, fontVariant: ["tabular-nums"] },
+  pickerModal: { flex: 1, backgroundColor: "#fff" },
+  pickerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
+  pickerTitle: { fontSize: 18, fontWeight: "800" },
+  pickerEmpty: { color: "#A1A1AA", textAlign: "center", marginTop: 40, paddingHorizontal: 32, lineHeight: 20 },
+  pickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 16 },
+  pickerItem: { width: "31%", aspectRatio: 1, borderRadius: 12, overflow: "hidden", backgroundColor: "#E4E4E7" },
+  pickerImg: { width: "100%", height: "100%" },
 });
