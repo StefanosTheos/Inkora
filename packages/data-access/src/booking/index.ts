@@ -493,15 +493,21 @@ export async function submitClientReview(client: InkoraClient, input: ClientRevi
 }
 
 export async function cancelAppointment(client: InkoraClient, id: string, reason?: string): Promise<void> {
-  const { error } = await client
+  // Only an active booking can be cancelled — guard against a terminal→terminal
+  // transition (double-tap / stale view); the DB trigger is the backstop.
+  const { data, error } = await client
     .from("appointments")
     .update({
       status: "cancelled", cancelled_at: new Date().toISOString(), cancellation_reason: reason ?? null,
       // clear any pending reschedule so a cancelled booking can't show as "pending reply"
       reschedule_status: "none", reschedule_start: null, reschedule_end: null, reschedule_by: null,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .in("status", ["scheduled", "rescheduled"])
+    .select("id")
+    .maybeSingle<{ id: string }>();
   if (error) throw toAppError(error);
+  if (!data) throw toAppError(new Error("This appointment can no longer be cancelled."));
 }
 
 // Propose (or counter) a new time. The other party must approve before the
@@ -565,19 +571,29 @@ export async function acceptReschedule(client: InkoraClient, id: string): Promis
  *  signal, surfaced in studio stats). The appt-update trigger notifies the
  *  client ("Marked as no-show"). */
 export async function markNoShow(client: InkoraClient, id: string): Promise<void> {
-  const { error } = await client
+  const { data, error } = await client
     .from("appointments")
     .update({ status: "no_show", cancelled_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .in("status", ["scheduled", "rescheduled"])
+    .select("id")
+    .maybeSingle<{ id: string }>();
   if (error) throw toAppError(error);
+  if (!data) throw toAppError(new Error("This session can no longer be marked as a no-show."));
 }
 
 export async function completeAppointment(client: InkoraClient, id: string): Promise<void> {
-  const { error } = await client
+  // Only an active booking can be completed (guards double-tap / stale view /
+  // completing a cancelled booking); the DB trigger is the backstop.
+  const { data: done, error } = await client
     .from("appointments")
     .update({ status: "completed", completed_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .in("status", ["scheduled", "rescheduled"])
+    .select("id")
+    .maybeSingle<{ id: string }>();
   if (error) throw toAppError(error);
+  if (!done) throw toAppError(new Error("This appointment can no longer be completed."));
 
   // Drop a "completed" snapshot into the chat so both parties see it (best effort).
   try {

@@ -15,8 +15,6 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # OPEN — Round 2 audit (2026-07-20)
 
 ## Tier A — Correctness & broken flows
-- [ ] **42. Terminal-state transitions are unguarded (RPC + RLS).** `cancelAppointment`/`markNoShow`/`completeAppointment` issue raw status updates with no current-status filter (contrast `markRequestReviewing`'s `.eq("status","pending")`) — either party can cancel a completed booking, complete a cancelled one, etc., losing state and firing wrong notifications. Worse, RLS `req_party_update`/`appt_party_update` grant a blanket `for update` (row check only), so a client can directly set `completed`/`no_show`/`scheduled_start`, bypassing the SECURITY DEFINER RPCs entirely. Fix: status-filter each update; add a trigger that rejects illegal transitions (the `booking.ts` transition tables in #83 already model these).
-  - Files: `packages/data-access/src/booking/index.ts:495,567,575`, `supabase/migrations/20260629121400_rls_policies.sql:128-142`.
 - [ ] **43. `submitReview` is non-atomic.** It inserts the review row, then the `ratings` rows; if the ratings insert fails, the review persists (`appointment_id` is UNIQUE) so the seeker can never retry and `getAppointmentReview` returns `scores=null` forever — the multi-dimension breakdown is silently lost. Fix: wrap in an RPC (single transaction).
   - Files: `packages/data-access/src/booking/index.ts:442`.
 - [ ] **44. `createOffer` can resurrect a dead request.** It unconditionally does `update appointment_requests set status='offered'` with no status guard and no server RPC. An artist offering on a request the client just cancelled/declined (stale view/race) revives it and posts a live, acceptable offer on a dead request. Fix: guard on `status in ('pending','reviewing')`.
@@ -119,6 +117,7 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # DONE
 
 ## Round 2 fixes
+- [x] **42.** Terminal appointment states are now final at the DB layer — a `BEFORE UPDATE` trigger rejects any status change out of cancelled/completed/no_show and only lets a reschedule acceptance move the time (closes the blanket party-update RLS hole for direct PATCH); the complete/cancel/no-show helpers also status-filter to active bookings and surface a clean error. (migration `20260720130000`, `packages/data-access/src/booking/index.ts`)
 - [x] **41.** A pending reschedule can no longer un-complete a finished booking — a `BEFORE UPDATE` trigger clears `reschedule_*` on any terminal transition (RPC, direct update, or auto-complete cron), `accept_reschedule` refuses closed appointments, + one-time backfill; the UI reschedule box is gated on `active`. (migration `20260720120000`, `BookingDetailScreen.tsx`)
 - [x] **77.** "Reschedule pending" chip no longer lingers on completed/archived bookings — resolved by the same #41 trigger clearing `reschedule_status` on close.
 
