@@ -14,10 +14,6 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 
 # OPEN — Round 2 audit (2026-07-20)
 
-## Tier B — Security / RLS
-- [ ] **48. Anyone can inject offers and be minted as the artist.** `offer_artist_write` only checks `artist_id = auth.uid()` (no `has_role('artist')`, no tie to the request's assigned artist), and `respond_offer` never verifies `offer.artist_id = request.artist_id`. A non-artist can post unsolicited offers on anyone's request and, if accepted, become the appointment's artist. Inconsistent with `artists_write_own`. Fix: require the artist role + `offer.artist_id = request.artist_id`. (See also #42 for the blanket party-update RLS.)
-  - Files: `supabase/migrations/20260629121400_rls_policies.sql:135`, `20260701120000_booking_flow.sql:160`.
-
 ## Tier C — Notifications & messaging
 - [ ] **49. Chat messages generate no push and no notification row.** Only `useConversationsRealtime` bumps the in-app badge; a recipient with the app backgrounded/closed never learns a message arrived. New-message push is entirely absent — the single biggest re-engagement gap.
   - Files: `packages/data-access/src/messaging/index.ts:256`.
@@ -105,6 +101,7 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # DONE
 
 ## Round 2 fixes
+- [x] **48.** Offer creation is locked down — `offer_artist_write` now also requires the caller to hold the `artist` role **and** be the request's assigned artist (so a non-artist can't inject a direct offer and be minted as the appointment's artist), and `respond_offer` refuses an `offer.artist_id ≠ request.artist_id` mismatch. The `create_offer` RPC (SECURITY DEFINER) and legit self-withdraw are unaffected. (migration `20260720180000`)
 - [x] **47.** `accept_reschedule` now wraps the time move in a handler that turns an overlap `exclusion_violation` (artist or client) into a clean "That time is no longer free — propose another slot." instead of a raw constraint error. (migration `20260720170000`)
 - [x] **46.** "Mark completed" now unlocks only once the scheduled **end** has passed (was: session start), so a multi-hour session can't be completed a minute in and prematurely fire reviews/rewards/journey. No-show stays gated on session start (artist-only); either party may still complete after the end (keeps the seeker unblocked). Client-only, no migration. (`BookingDetailScreen.tsx`)
 - [x] **45.** A seeker can no longer double-book themselves — added the symmetric `appointments_client_no_overlap` exclusion constraint (client + overlapping active bookings) and a friendly client-overlap pre-check in `respond_offer` (the constraint is the race backstop for both parties). The migration first auto-resolves pre-existing client overlaps (keeps the earliest) so it can be applied. (migration `20260720160000`)
