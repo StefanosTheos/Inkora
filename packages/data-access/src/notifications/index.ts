@@ -95,19 +95,23 @@ export async function markTypeEntityNotificationsRead(client: InkoraClient, type
  *  them to the Applications inbox — which distinguishes them from owner-facing
  *  roster changes (audience='owner', no artistId, routed to the Team tab) that
  *  share the same type/entity. Called when the owner opens the Applications
- *  inbox so the "new applications" badge clears. */
-export async function markStudioApplicationNotificationsRead(client: InkoraClient, studioId: string): Promise<void> {
+ *  inbox (all applications) or acts on one inline in chat (`artistId` scopes it
+ *  to that single applicant) so the "new applications" badge clears. */
+export async function markStudioApplicationNotificationsRead(client: InkoraClient, studioId: string, artistId?: string): Promise<void> {
   const { data: userRes } = await client.auth.getUser();
   const uid = userRes.user?.id;
   if (!uid) return;
-  await client
+  let q = client
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
     .eq("recipient_id", uid)
     .eq("type", "membership_request")
     .eq("entity_id", studioId)
-    .not("data->>artistId", "is", null)
     .is("read_at", null);
+  // Scope to one applicant when given (inline accept/decline); otherwise clear
+  // every new-application notification (owner opened the Applications inbox).
+  q = artistId ? q.eq("data->>artistId", artistId) : q.not("data->>artistId", "is", null);
+  await q;
 }
 
 /** Mark all the caller's unread notifications of a given type as read (best

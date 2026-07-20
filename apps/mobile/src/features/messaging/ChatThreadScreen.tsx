@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  bookingKeys, declineRequest, getChatSignedUrl, markEntityNotificationsRead, publicStorageUrl,
+  bookingKeys, declineRequest, getChatSignedUrl, markEntityNotificationsRead,
+  markStudioApplicationNotificationsRead, publicStorageUrl,
   respondStudioApplication, respondToOffer, uploadChatFile, useAuth, useBookingRequest, useChat,
   useConversation, useConversations, useMyStudio, useMyStudioMembershipStatus, useOfferStatus,
   useSavedDesigns, useStudioApplications,
@@ -734,11 +735,16 @@ function StudioApplicationCard({ message, mine }: { message: Message; mine: bool
     setBusy(true);
     try {
       await respondStudioApplication(supabase, studioId, applicantId, accept);
+      // Acting on the application clears its "new application" notification (the
+      // membership_request for this applicant), so the owner's Applications badge
+      // counts down — same as the offer card does for offers.
+      await markStudioApplicationNotificationsRead(supabase, studioId, applicantId);
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["studio-applications", studioId] }),
         qc.invalidateQueries({ queryKey: ["studio-overview", studioId] }),
         qc.invalidateQueries({ queryKey: ["studio-artist-stats", studioId] }),
         qc.invalidateQueries({ queryKey: ["my-studio", ctx.userId] }),
+        qc.invalidateQueries({ queryKey: ["notifications"] }),
       ]);
       toast.show(accept ? "Artist added to your studio" : "Application declined");
     } catch (e) {

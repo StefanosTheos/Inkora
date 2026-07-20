@@ -166,9 +166,22 @@ export async function markRead(client: InkoraClient, conversationId: string): Pr
   const { data: userRes } = await client.auth.getUser();
   const me = userRes.user?.id;
   if (!me) return;
+  // Advance the read marker to the conversation's own last_message_at — the
+  // server-set timestamp the unread comparison (last_message_at > last_read_at)
+  // is measured against — rather than the client clock. A client running behind
+  // the server would otherwise write last_read_at < last_message_at and the chat
+  // would stay flagged unread. Since last_message_at is always the newest
+  // message, this never sets the marker backwards. Fall back to the client clock
+  // only when there are no messages yet (nothing to read).
+  const { data: conv } = await client
+    .from("conversations")
+    .select("last_message_at")
+    .eq("id", conversationId)
+    .maybeSingle<{ last_message_at: string | null }>();
+  const readAt = conv?.last_message_at ?? new Date().toISOString();
   await client
     .from("conversation_participants")
-    .update({ last_read_at: new Date().toISOString() })
+    .update({ last_read_at: readAt })
     .eq("conversation_id", conversationId)
     .eq("profile_id", me);
 }
@@ -318,7 +331,15 @@ export function useChat(client: InkoraClient, conversationId: string, meId: stri
   // Opening a chat clears its unread state: the per-participant read marker AND
   // any 'message' notification for it (so the bell/inbox doesn't stay lit).
   const clearUnread = useCallback(() => {
-    void markRead(client, conversationId);
+    // Optimistically drop this conversation's unread flag in the list cache so
+    // the Chats tab badge clears immediately (the list won't refetch on its own
+    // when a chat is opened straight from a notification/deep-link); then persist
+    // the read marker and reconcile with a refetch.
+    qc.setQueryData<ConversationSummary[]>(["conversations"], (old) =>
+      old?.map((c) => (c.id === conversationId ? { ...c, unread: false } : c)));
+    void markRead(client, conversationId)
+      .then(() => qc.invalidateQueries({ queryKey: ["conversations"] }))
+      .catch(() => { /* best-effort */ });
     void markEntityNotificationsRead(client, "conversation", conversationId)
       .then(() => qc.invalidateQueries({ queryKey: ["notifications"] }))
       .catch(() => { /* best-effort */ });
