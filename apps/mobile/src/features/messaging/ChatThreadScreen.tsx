@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  bookingKeys, declineRequest, getChatSignedUrl, markEntityNotificationsRead,
+  bookingKeys, createBookingRequest, declineRequest, getChatSignedUrl, markEntityNotificationsRead,
   markStudioApplicationNotificationsRead, publicStorageUrl,
   respondStudioApplication, respondToOffer, uploadChatFile, useAuth, useBookingRequest, useChat,
   useConversation, useConversations, useMyStudio, useMyStudioMembershipStatus, useOfferStatus,
@@ -39,6 +39,7 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const qc = useQueryClient();
   const { ctx } = useAuth();
   const meId = ctx.userId;
   const chat = useChat(supabase, conversationId, meId);
@@ -55,6 +56,11 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
   // artists open their artist profile, everyone else (seekers) their seeker
   // profile — so it's correct for any viewer (incl. studio owners).
   const isStudio = ctx.roles.includes("studio_admin");
+  // Quote/consultation quick-actions are only meaningful when chatting directly
+  // with an artist: they open a real booking request the artist can act on
+  // (Accept/Edit/Decline → offer). Non-artist parties (support, studio-only
+  // conversations) can't receive one, so the actions are hidden there.
+  const canRequestBooking = !isStudio && conv?.type === "direct" && !!conv?.otherIsArtist && !!conv?.otherId;
   const canOpenProfile = !!(conv?.studioSlug || (conv?.type === "direct" && conv?.otherId));
   const openProfile = () => {
     if (conv?.studioSlug) router.push(`/studio/${conv.studioSlug}`);
@@ -101,6 +107,34 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
       analytics.capture({ name: "first_message_sent", props: { conversationId: conversationId as ConversationId, artistId: conv.otherId as unknown as ArtistId } }, ctx);
     }
   };
+
+  // Turn a "+" quick action into a real, actionable booking request. Quote and
+  // consultation asks used to be inert booking_card messages the artist couldn't
+  // respond to; routing them through createBookingRequest makes them render as a
+  // BookingRequestCard with the full Accept/Edit/Decline → offer flow. The free-
+  // text box (if any) rides along as the request description.
+  async function requestBooking(kind: "quote" | "consultation") {
+    if (!conv?.otherId) return;
+    const note = text.trim();
+    setText("");
+    setShowActions(false);
+    try {
+      const artistId = conv.otherId as unknown as ArtistId;
+      await createBookingRequest(supabase, {
+        artistId,
+        studioId: conv.studioId ?? null,
+        title: kind === "quote" ? "Quote request" : "Consultation request",
+        description: note || null,
+      });
+      analytics.capture({ name: "booking_requested", props: { artistId, hasReference: false, budgetSet: false } }, ctx);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["conversations"] }),
+        qc.invalidateQueries({ queryKey: bookingKeys.clientRequests }),
+      ]);
+    } catch (e) {
+      toast.show((e as Error).message, "error");
+    }
+  }
 
   // Send one of the user's saved designs into the chat — copy its image into the
   // chat bucket, then reuse the same optimistic image send as a photo.
@@ -206,12 +240,12 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
         />
       )}
 
-      {showActions && !isStudio && (
+      {showActions && canRequestBooking && (
         <View style={s.actions}>
-          <Pressable style={s.actionBtn} onPress={() => { void chat.sendQuote({ description: text.trim() || undefined }); setText(""); setShowActions(false); }}>
+          <Pressable style={s.actionBtn} onPress={() => { void requestBooking("quote"); }}>
             <Text style={s.actionText}>💬 Request quote</Text>
           </Pressable>
-          <Pressable style={s.actionBtn} onPress={() => { void chat.sendConsultation({ note: text.trim() || undefined }); setText(""); setShowActions(false); }}>
+          <Pressable style={s.actionBtn} onPress={() => { void requestBooking("consultation"); }}>
             <Text style={s.actionText}>📅 Request consultation</Text>
           </Pressable>
         </View>
@@ -233,7 +267,7 @@ export function ChatThreadScreen({ conversationId }: { conversationId: string })
           </>
         ) : (
           <>
-            {!isStudio ? (
+            {canRequestBooking ? (
               <Pressable onPress={() => setShowActions((v) => !v)} hitSlop={8} accessibilityRole="button" accessibilityLabel="More actions"><Ionicons name="add-circle-outline" size={26} color="#71717A" /></Pressable>
             ) : null}
             <Pressable onPress={pickImage} hitSlop={8} accessibilityRole="button" accessibilityLabel="Attach photo"><Ionicons name="image-outline" size={24} color="#71717A" /></Pressable>
