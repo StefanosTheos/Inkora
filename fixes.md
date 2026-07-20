@@ -14,10 +14,6 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 
 # OPEN — Round 2 audit (2026-07-20)
 
-## Tier A — Correctness & broken flows
-- [ ] **47. `accept_reschedule` can throw a raw `exclusion_violation`.** Moving the slot can collide with `appointments_no_overlap` if the artist was booked meanwhile; unlike `respond_offer` there's no friendly catch, so the user sees a raw constraint error. Fix: catch → "That time is no longer free."
-  - Files: `supabase/migrations/20260716220000_activate_rescheduled_status.sql:33`.
-
 ## Tier B — Security / RLS
 - [ ] **48. Anyone can inject offers and be minted as the artist.** `offer_artist_write` only checks `artist_id = auth.uid()` (no `has_role('artist')`, no tie to the request's assigned artist), and `respond_offer` never verifies `offer.artist_id = request.artist_id`. A non-artist can post unsolicited offers on anyone's request and, if accepted, become the appointment's artist. Inconsistent with `artists_write_own`. Fix: require the artist role + `offer.artist_id = request.artist_id`. (See also #42 for the blanket party-update RLS.)
   - Files: `supabase/migrations/20260629121400_rls_policies.sql:135`, `20260701120000_booking_flow.sql:160`.
@@ -109,6 +105,7 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # DONE
 
 ## Round 2 fixes
+- [x] **47.** `accept_reschedule` now wraps the time move in a handler that turns an overlap `exclusion_violation` (artist or client) into a clean "That time is no longer free — propose another slot." instead of a raw constraint error. (migration `20260720170000`)
 - [x] **46.** "Mark completed" now unlocks only once the scheduled **end** has passed (was: session start), so a multi-hour session can't be completed a minute in and prematurely fire reviews/rewards/journey. No-show stays gated on session start (artist-only); either party may still complete after the end (keeps the seeker unblocked). Client-only, no migration. (`BookingDetailScreen.tsx`)
 - [x] **45.** A seeker can no longer double-book themselves — added the symmetric `appointments_client_no_overlap` exclusion constraint (client + overlapping active bookings) and a friendly client-overlap pre-check in `respond_offer` (the constraint is the race backstop for both parties). The migration first auto-resolves pre-existing client overlaps (keeps the earliest) so it can be applied. (migration `20260720160000`)
 - [x] **44.** `createOffer` can no longer resurrect a dead request — routed through a guarded, atomic `create_offer` RPC that locks the request row, refuses a closed one (`status not in pending/reviewing`), and only lets the assigned artist offer. Partly narrows #48's offer-injection vector for the app path (the RLS direct-insert tightening remains #48). (migration `20260720150000`, `packages/data-access/src/booking/index.ts`)
