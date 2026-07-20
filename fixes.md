@@ -15,8 +15,6 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # OPEN — Round 2 audit (2026-07-20)
 
 ## Tier A — Correctness & broken flows
-- [ ] **45. A seeker can double-book themselves.** `appointments_no_overlap` keys on `artist_id` only, and `respond_offer`'s pre-check only checks the artist — nothing stops a client accepting two overlapping offers from different artists. Fix: also reject client-side overlaps.
-  - Files: `supabase/migrations/20260716230000_no_double_booking.sql:24`.
 - [ ] **46. "Mark completed" unlocks too early and for either party.** `sessionStarted = now >= scheduledStart`, so completion is available the moment a (possibly multi-hour) session begins, to client or artist — a client can complete one minute in, prematurely triggering reviews/rewards/journey. Fix: gate on `now >= scheduledEnd` (or artist-only until end).
   - Files: `BookingDetailScreen.tsx:125`.
 - [ ] **47. `accept_reschedule` can throw a raw `exclusion_violation`.** Moving the slot can collide with `appointments_no_overlap` if the artist was booked meanwhile; unlike `respond_offer` there's no friendly catch, so the user sees a raw constraint error. Fix: catch → "That time is no longer free."
@@ -113,6 +111,7 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # DONE
 
 ## Round 2 fixes
+- [x] **45.** A seeker can no longer double-book themselves — added the symmetric `appointments_client_no_overlap` exclusion constraint (client + overlapping active bookings) and a friendly client-overlap pre-check in `respond_offer` (the constraint is the race backstop for both parties). The migration first auto-resolves pre-existing client overlaps (keeps the earliest) so it can be applied. (migration `20260720160000`)
 - [x] **44.** `createOffer` can no longer resurrect a dead request — routed through a guarded, atomic `create_offer` RPC that locks the request row, refuses a closed one (`status not in pending/reviewing`), and only lets the assigned artist offer. Partly narrows #48's offer-injection vector for the app path (the RLS direct-insert tightening remains #48). (migration `20260720150000`, `packages/data-access/src/booking/index.ts`)
 - [x] **43.** `submitReview` is now atomic — a single `submit_review` SECURITY DEFINER RPC writes the review + five dimension ratings in one transaction (derives artist/studio from the appointment, validates scores, authorizes the caller), so a partial write can't strand an un-retryable review. (migration `20260720140000`, `packages/data-access/src/booking/index.ts`)
 - [x] **42.** Terminal appointment states are now final at the DB layer — a `BEFORE UPDATE` trigger rejects any status change out of cancelled/completed/no_show and only lets a reschedule acceptance move the time (closes the blanket party-update RLS hole for direct PATCH); the complete/cancel/no-show helpers also status-filter to active bookings and surface a clean error. (migration `20260720130000`, `packages/data-access/src/booking/index.ts`)
