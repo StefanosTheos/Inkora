@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
     const svc = serviceClient();
     const { data: notif } = await svc
       .from("notifications")
-      .select("recipient_id, title, body, data")
+      .select("recipient_id, title, body, data, type, entity_id, entity_type")
       .eq("id", notificationId)
       .maybeSingle();
     if (!notif) return json({ error: "notification_not_found" }, 404);
@@ -116,7 +116,15 @@ Deno.serve(async (req) => {
     const sa = JSON.parse(saJson) as ServiceAccount;
     const accessToken = await getAccessToken(sa);
 
-    const data = Object.fromEntries(Object.entries(notif.data ?? {}).map(([k, v]) => [k, String(v)]));
+    // Include type + entity so the app can deep-link the tap via notificationHref
+    // (FCM data values must be strings).
+    const rawData = {
+      ...(notif.data as Record<string, unknown> ?? {}),
+      type: notif.type,
+      entityId: notif.entity_id ?? "",
+      entityType: notif.entity_type ?? "",
+    };
+    const data = Object.fromEntries(Object.entries(rawData).map(([k, v]) => [k, String(v)]));
     let sent = 0;
     let failed = 0;
     for (const t of targets) {
