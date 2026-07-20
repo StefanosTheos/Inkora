@@ -1,49 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
-import {
-  startDirectConversation, studioSetMembership, useAuth, useMyStudio, useNotifications,
-  useStudioArtistStats, useStudioOverview, useStudioOverviewPeriod, useStudioReviews,
-} from "@inkora/data-access";
-import type { ReviewItem, StatsPeriod, StudioArtistStat, StudioRosterArtist } from "@inkora/domain";
+import { useAuth, useMyStudio, useNotifications, useStudioOverview, useStudioOverviewPeriod } from "@inkora/data-access";
+import type { StatsPeriod } from "@inkora/domain";
 import { currencySymbol, STATS_PERIOD_LABEL } from "@inkora/domain";
-import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import { useRef, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useConfirm } from "../../components/ConfirmDialog";
-import { Pager, PagerScrollProvider } from "../../components/Pager";
-import { RatingDistribution } from "../../components/RatingDistribution";
-import { ReviewReply } from "../../components/ReviewReply";
-import { useToast } from "../../components/Toast";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
-import { Avatar, fmtDate } from "../booking/components/ui";
-
-/** Artists shown per page on the roster before paging kicks in. */
-const ROSTER_PAGE_SIZE = 5;
-
-/** Roster sort options — each maps an artist (+ its stats) to a sortable
- *  number; the roster is ordered high-to-low. */
-type SortKey = "revenue" | "rating" | "bookings" | "saves" | "visits";
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "revenue", label: "Revenue" },
-  { key: "rating", label: "Rating" },
-  { key: "bookings", label: "Bookings" },
-  { key: "saves", label: "Saves" },
-  { key: "visits", label: "Visits" },
-];
-function sortValue(key: SortKey, a: StudioRosterArtist, stat?: StudioArtistStat): number {
-  switch (key) {
-    case "revenue": return stat?.revenue ?? 0;
-    case "rating": return a.ratingAvg;
-    case "bookings": return stat?.completed ?? 0;
-    case "saves": return (stat?.savedBy ?? 0) + (stat?.workSaves ?? 0);
-    case "visits": return stat?.profileVisits ?? 0;
-  }
-}
 
 /** Compact currency for headline numbers: €0, €120, €2.4k, €18k. `sym` is the
  *  studio's currency symbol (€/$/£/"SEK "). */
@@ -53,71 +20,21 @@ const compactMoney = (n: number, sym = "€"): string => {
   return `${sym}${Math.round(n)}`;
 };
 
-/** The studio-owner home: studio identity, headline stats, and the onboarded
- *  roster with per-artist performance. Business-focused — no discovery/AI. */
+/** The studio-owner home: studio identity + a headline performance overview.
+ *  Roster, reviews and account settings live on the Team tab. */
 export function StudioDashboardScreen() {
   const router = useRouter();
-  const toast = useToast();
-  const confirm = useConfirm();
-  const qc = useQueryClient();
-  const { ctx, signOut } = useAuth();
+  const { ctx } = useAuth();
   const meId = ctx.userId ?? "";
-  const [menuArtist, setMenuArtist] = useState<{ id: string; name: string } | null>(null);
-  const [suspendTarget, setSuspendTarget] = useState<{ id: string; name: string } | null>(null);
-  const [suspendReason, setSuspendReason] = useState("");
-  const [rosterPage, setRosterPage] = useState(0);
-  const [sortKey, setSortKey] = useState<SortKey>("revenue");
   const [period, setPeriod] = useState<StatsPeriod>("wtd");
-  const scrollRef = useRef<ScrollView>(null);
-  const rosterAnchor = useRef<View>(null);
   const studioQ = useMyStudio(supabase, meId);
   const st = studioQ.data;
   const overviewQ = useStudioOverview(supabase, st?.id ?? "");
   const periodQ = useStudioOverviewPeriod(supabase, st?.id ?? "", period);
-  const statsQ = useStudioArtistStats(supabase, st?.id ?? "");
-  const reviewsQ = useStudioReviews(supabase, st?.id ?? "");
   const { notifications } = useNotifications(supabase);
   const unread = notifications.filter((n) => !n.readAt).length;
   const ov = overviewQ.data;
   const pv = periodQ.data;
-  const statsById = new Map((statsQ.data ?? []).map((x) => [x.artistId, x]));
-  const roster = [...(st?.roster ?? [])].sort(
-    (a, b) => sortValue(sortKey, b, statsById.get(b.id)) - sortValue(sortKey, a, statsById.get(a.id)),
-  );
-  const rosterPages = Math.max(1, Math.ceil(roster.length / ROSTER_PAGE_SIZE));
-  const safeRosterPage = Math.min(rosterPage, rosterPages - 1);
-  const pagedRoster = roster.slice(safeRosterPage * ROSTER_PAGE_SIZE, safeRosterPage * ROSTER_PAGE_SIZE + ROSTER_PAGE_SIZE);
-
-  async function messageArtist(artistId: string) {
-    try {
-      const cid = await startDirectConversation(supabase, artistId);
-      router.push(`/chats/${cid}`);
-    } catch (e) {
-      toast.show((e as Error).message, "error");
-    }
-  }
-  async function setMembership(artistId: string, status: "active" | "suspended" | "removed", reason?: string) {
-    setMenuArtist(null);
-    try {
-      await studioSetMembership(supabase, st?.id ?? "", artistId, status, reason);
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["my-studio", meId] }),
-        qc.invalidateQueries({ queryKey: ["studio-artist-stats", st?.id] }),
-        qc.invalidateQueries({ queryKey: ["studio-overview", st?.id] }),
-      ]);
-      toast.show(status === "removed" ? "Artist removed from studio" : status === "active" ? "Artist reactivated" : "Artist suspended");
-    } catch (e) {
-      toast.show((e as Error).message, "error");
-    }
-  }
-  const confirmRemove = (artistId: string, name: string) => {
-    void confirm({ title: `Remove ${name}?`, message: "They'll be taken off your roster.", confirmLabel: "Remove", destructive: true })
-      .then((ok) => { if (ok) void setMembership(artistId, "removed"); });
-  };
-  const confirmSignOut = () => {
-    void confirm({ title: "Sign out?", message: "You'll need to sign in again to manage your studio.", confirmLabel: "Sign out", destructive: true })
-      .then((ok) => { if (ok) void signOut(); });
-  };
 
   if (studioQ.isLoading) {
     return <SafeAreaView style={s.safe} edges={["top"]}><View style={s.center}><ActivityIndicator /></View></SafeAreaView>;
@@ -134,8 +51,7 @@ export function StudioDashboardScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={["top"]}>
-      <ScrollView ref={scrollRef} contentContainerStyle={s.body}>
-        <PagerScrollProvider scrollRef={scrollRef}>
+      <ScrollView contentContainerStyle={s.body}>
         <View style={s.topbar}>
           <Text style={s.topTitle} accessibilityRole="header">Studio</Text>
           <View style={s.topActions}>
@@ -238,196 +154,7 @@ export function StudioDashboardScreen() {
         <View style={s.gridRow}>
           <BigTile label="Applications" value={ov?.pendingApplications ?? 0} icon="mail-unread-outline" alert={!!ov?.pendingApplications} onPress={() => router.push("/studio-applications")} />
         </View>
-
-        {/* Roster */}
-        <View ref={rosterAnchor} collapsable={false} />
-        <View style={s.sectionRow}>
-          <Text style={s.sectionInline} accessibilityRole="header">Artists</Text>
-          <Pressable style={s.inviteLink} onPress={() => router.push("/studio-invite")} accessibilityRole="button" accessibilityLabel="Invite an artist">
-            <Ionicons name="person-add-outline" size={15} color="#E5484D" />
-            <Text style={s.inviteLinkText}>Invite</Text>
-          </Pressable>
-        </View>
-        {roster.length > 1 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.sortRow} style={s.sortScroll}>
-            <Ionicons name="swap-vertical-outline" size={15} color="#A1A1AA" style={{ alignSelf: "center", marginRight: 2 }} />
-            {SORT_OPTIONS.map((o) => {
-              const active = o.key === sortKey;
-              return (
-                <Pressable
-                  key={o.key}
-                  style={[s.sortChip, active && s.sortChipActive]}
-                  onPress={() => { setSortKey(o.key); setRosterPage(0); }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  accessibilityLabel={`Sort by ${o.label}`}
-                >
-                  <Text style={[s.sortChipText, active && s.sortChipTextActive]}>{o.label}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        ) : null}
-        {statsQ.isLoading ? (
-          <ActivityIndicator style={{ marginTop: 12 }} />
-        ) : roster.length === 0 ? (
-          <Text style={s.muted}>No artists onboarded yet. Invite one to get started.</Text>
-        ) : (
-          <>
-            {pagedRoster.map((a) => (
-              <ArtistStatCard key={a.id} artist={a} stat={statsById.get(a.id)} currencySym={sym} onOpen={() => router.push(`/artist/${a.id}`)} onMessage={() => void messageArtist(a.id)} onMenu={() => setMenuArtist({ id: a.id, name: a.displayName })} />
-            ))}
-            <Pager page={safeRosterPage} totalPages={rosterPages} onChange={setRosterPage} anchorRef={rosterAnchor} />
-          </>
-        )}
-
-        {/* Suspended members — off the roster, still tied to the studio. */}
-        {st.suspended.length > 0 ? (
-          <>
-            <Text style={s.section} accessibilityRole="header">Suspended</Text>
-            {st.suspended.map((a) => {
-              const stat = statsById.get(a.id);
-              return (
-              <View key={a.id} style={s.card}>
-                <View style={s.cardHead}>
-                  <Pressable style={s.cardPerson} onPress={() => router.push(`/artist/${a.id}`)} accessibilityRole="button" accessibilityLabel={`View ${a.displayName}'s profile`}>
-                    <Avatar path={a.avatarPath} name={a.displayName} size={44} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.cardName} numberOfLines={1}>{a.displayName}</Text>
-                      <Text style={s.cardSub} numberOfLines={1}>{a.headline ?? "Tattoo artist"}</Text>
-                    </View>
-                  </Pressable>
-                  <Pressable onPress={() => void messageArtist(a.id)} hitSlop={8} style={s.msgBtn} accessibilityRole="button" accessibilityLabel={`Message ${a.displayName}`}>
-                    <Ionicons name="chatbubble-outline" size={18} color="#18181B" />
-                  </Pressable>
-                </View>
-
-                {/* Why they're suspended, so the reactivate call isn't blind. */}
-                <View style={s.suspendReasonBox}>
-                  <View style={s.suspendedChip}><Text style={s.suspendedChipText}>Suspended{a.suspendedAt ? ` · ${fmtDate(a.suspendedAt)}` : ""}</Text></View>
-                  <Text style={s.suspendReasonText}>{a.suspensionReason?.trim() ? a.suspensionReason : "No reason recorded"}</Text>
-                </View>
-
-                {/* Their performance while active — informs whether to bring them back. */}
-                <View style={s.metrics}>
-                  <Metric label="Revenue" value={compactMoney(stat?.revenue ?? 0, sym)} />
-                  <Metric label="Done" value={stat?.completed ?? 0} />
-                  <Metric label="Cancel" value={cancelRateLabel(stat)} alert={cancelRateValue(stat) >= 20} />
-                  <Metric label="No-show" value={stat?.noShow ?? 0} alert={(stat?.noShow ?? 0) > 0} />
-                  <Metric label="Reviews" value={stat?.ratingCount ?? 0} />
-                  <Metric label="Saves" value={(stat?.savedBy ?? 0) + (stat?.workSaves ?? 0)} />
-                  <Metric label="Visits" value={stat?.profileVisits ?? 0} />
-                </View>
-
-                <View style={s.suspendActions}>
-                  <Pressable style={[s.suspendBtn, s.reactivateBtn]} onPress={() => void setMembership(a.id, "active")} accessibilityRole="button" accessibilityLabel={`Reactivate ${a.displayName}`}>
-                    <Text style={s.reactivateText}>Reactivate</Text>
-                  </Pressable>
-                  <Pressable style={[s.suspendBtn, s.removeOutlineBtn]} onPress={() => confirmRemove(a.id, a.displayName)} accessibilityRole="button" accessibilityLabel={`Remove ${a.displayName}`}>
-                    <Text style={s.removeOutlineText}>Remove</Text>
-                  </Pressable>
-                </View>
-              </View>
-              );
-            })}
-          </>
-        ) : null}
-
-        {/* Reviews of the studio — distribution + recent, with see-all. */}
-        {(reviewsQ.data ?? []).length > 0 ? (
-          <>
-            <View style={s.sectionRow}>
-              <Text style={s.sectionInline} accessibilityRole="header">Reviews</Text>
-              {(reviewsQ.data ?? []).length > 3 ? (
-                <Pressable onPress={() => router.push(`/studio/${st.slug}?tab=reviews`)} accessibilityRole="button" accessibilityLabel={`See all ${reviewsQ.data?.length} reviews`}>
-                  <Text style={s.inviteLinkText}>See all ({reviewsQ.data?.length})</Text>
-                </Pressable>
-              ) : null}
-            </View>
-            <RatingDistribution reviews={reviewsQ.data ?? []} />
-            {(reviewsQ.data ?? []).slice(0, 3).map((rv: ReviewItem) => (
-              <View key={rv.id} style={s.reviewCard}>
-                <Pressable
-                  onPress={() => { if (rv.authorId) router.push(`/seeker/${rv.authorId}`); }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Review by ${rv.authorName}, ${rv.overallRating} stars`}
-                >
-                  <Text style={s.reviewHead}>{rv.authorName} · ★ {rv.overallRating}</Text>
-                  {rv.title ? <Text style={s.reviewTitle}>{rv.title}</Text> : null}
-                  {rv.body ? <Text style={s.reviewBody} numberOfLines={2}>{rv.body}</Text> : null}
-                  <Text style={s.reviewDate}>{fmtDate(rv.createdAt)}</Text>
-                </Pressable>
-                <ReviewReply reviewId={rv.id} reply={rv.reply} canReply onReplied={() => void reviewsQ.refetch()} />
-              </View>
-            ))}
-          </>
-        ) : null}
-
-        {/* Settings */}
-        <View style={s.settingsCard}>
-          <Pressable style={s.settingRow} onPress={() => router.push("/profile/account")} accessibilityRole="button" accessibilityLabel="Account settings">
-            <Ionicons name="settings-outline" size={20} color="#52525B" />
-            <Text style={s.settingLabel}>Account settings</Text>
-            <Ionicons name="chevron-forward" size={16} color="#D4D4D8" />
-          </Pressable>
-          <Pressable style={s.settingRow} onPress={confirmSignOut} accessibilityRole="button" accessibilityLabel="Sign out">
-            <Ionicons name="log-out-outline" size={20} color="#DC2626" />
-            <Text style={[s.settingLabel, { color: "#DC2626" }]}>Sign out</Text>
-          </Pressable>
-        </View>
-        </PagerScrollProvider>
       </ScrollView>
-
-      {/* Per-artist management sheet */}
-      <Modal visible={!!menuArtist} transparent animationType="fade" onRequestClose={() => setMenuArtist(null)}>
-        <Pressable style={s.sheetBackdrop} onPress={() => setMenuArtist(null)}>
-          <View style={s.sheet}>
-            <Text style={s.sheetTitle}>{menuArtist?.name}</Text>
-            <Pressable style={s.sheetBtn} onPress={() => { const a = menuArtist; setMenuArtist(null); if (a) { setSuspendReason(""); setSuspendTarget(a); } }} accessibilityRole="button" accessibilityLabel="Suspend artist">
-              <Ionicons name="pause-circle-outline" size={20} color="#18181B" />
-              <Text style={s.sheetBtnText}>Suspend artist</Text>
-            </Pressable>
-            <Pressable style={s.sheetBtn} onPress={() => { const a = menuArtist; setMenuArtist(null); if (a) void confirm({ title: `Remove ${a.name}?`, message: "They'll be taken off your roster.", confirmLabel: "Remove", destructive: true }).then((ok) => { if (ok) void setMembership(a.id, "removed"); }); }} accessibilityRole="button" accessibilityLabel="Remove from studio">
-              <Ionicons name="person-remove-outline" size={20} color="#DC2626" />
-              <Text style={[s.sheetBtnText, { color: "#DC2626" }]}>Remove from studio</Text>
-            </Pressable>
-            <Pressable style={[s.sheetBtn, s.sheetCancel]} onPress={() => setMenuArtist(null)} accessibilityRole="button" accessibilityLabel="Cancel">
-              <Text style={[s.sheetBtnText, { fontWeight: "800" }]}>Cancel</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
-
-      {/* Suspend with an optional reason (shown back to the owner on the card) */}
-      <Modal visible={!!suspendTarget} transparent animationType="fade" onRequestClose={() => setSuspendTarget(null)}>
-        <Pressable style={s.sheetBackdrop} onPress={() => setSuspendTarget(null)}>
-          <Pressable style={s.sheet} onPress={() => { /* swallow taps so the sheet doesn't dismiss */ }}>
-            <Text style={s.sheetTitle}>Suspend {suspendTarget?.name}</Text>
-            <Text style={s.suspendHint}>Add a reason so you remember why when reviewing them later (optional).</Text>
-            <TextInput
-              style={s.suspendInput}
-              value={suspendReason}
-              onChangeText={setSuspendReason}
-              placeholder="e.g. On leave · repeated no-shows · paused for the season"
-              placeholderTextColor="#A1A1AA"
-              multiline
-              accessibilityLabel="Suspension reason"
-            />
-            <Pressable
-              style={[s.sheetBtn, { backgroundColor: "#18181B" }]}
-              onPress={() => { const a = suspendTarget; setSuspendTarget(null); if (a) void setMembership(a.id, "suspended", suspendReason.trim() || undefined); }}
-              accessibilityRole="button"
-              accessibilityLabel="Confirm suspend"
-            >
-              <Ionicons name="pause-circle-outline" size={20} color="#fff" />
-              <Text style={[s.sheetBtnText, { color: "#fff" }]}>Suspend artist</Text>
-            </Pressable>
-            <Pressable style={[s.sheetBtn, s.sheetCancel]} onPress={() => setSuspendTarget(null)} accessibilityRole="button" accessibilityLabel="Cancel">
-              <Text style={[s.sheetBtnText, { fontWeight: "800" }]}>Cancel</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -486,61 +213,6 @@ function BigTile({ label, value, icon, alert, onPress, trend }: { label: string;
   return <View style={s.bigTile} accessible accessibilityLabel={`${value} ${label}`}>{inner}</View>;
 }
 
-function ArtistStatCard({ artist, stat, currencySym, onOpen, onMessage, onMenu }: { artist: StudioRosterArtist; stat?: StudioArtistStat; currencySym: string; onOpen: () => void; onMessage: () => void; onMenu: () => void }) {
-  return (
-    <View style={s.card}>
-      <View style={s.cardHead}>
-        <Pressable style={s.cardPerson} onPress={onOpen} accessibilityRole="button" accessibilityLabel={`View ${artist.displayName}'s profile`}>
-          <Avatar path={artist.avatarPath} name={artist.displayName} size={44} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.cardName} numberOfLines={1}>{artist.displayName}</Text>
-            <Text style={s.cardSub} numberOfLines={1}>{artist.headline ?? "Tattoo artist"}</Text>
-          </View>
-          <View style={s.rating}>
-            <Ionicons name="star" size={13} color="#E5484D" />
-            <Text style={s.ratingText}>{artist.ratingAvg > 0 ? artist.ratingAvg.toFixed(1) : "—"}</Text>
-          </View>
-        </Pressable>
-        <Pressable onPress={onMessage} hitSlop={8} style={s.msgBtn} accessibilityRole="button" accessibilityLabel={`Message ${artist.displayName}`}>
-          <Ionicons name="chatbubble-outline" size={18} color="#18181B" />
-        </Pressable>
-        <Pressable onPress={onMenu} hitSlop={8} style={s.msgBtn} accessibilityRole="button" accessibilityLabel={`Manage ${artist.displayName}`}>
-          <Ionicons name="ellipsis-horizontal" size={18} color="#18181B" />
-        </Pressable>
-      </View>
-      <View style={s.metrics}>
-        <Metric label="Revenue" value={compactMoney(stat?.revenue ?? 0, currencySym)} />
-        <Metric label="Done" value={stat?.completed ?? 0} />
-        <Metric label="Upcoming" value={stat?.scheduled ?? 0} />
-        <Metric label="Cancel" value={cancelRateLabel(stat)} alert={cancelRateValue(stat) >= 20} />
-        <Metric label="No-show" value={stat?.noShow ?? 0} alert={(stat?.noShow ?? 0) > 0} />
-        <Metric label="Reviews" value={stat?.ratingCount ?? 0} />
-        <Metric label="Saves" value={(stat?.savedBy ?? 0) + (stat?.workSaves ?? 0)} />
-        <Metric label="Visits" value={stat?.profileVisits ?? 0} />
-      </View>
-    </View>
-  );
-}
-
-/** Cancellation rate = cancelled / (completed + cancelled). "—" with no history. */
-function cancelRateValue(stat?: StudioArtistStat): number {
-  const total = (stat?.completed ?? 0) + (stat?.cancelled ?? 0);
-  return total > 0 ? Math.round(((stat?.cancelled ?? 0) / total) * 100) : 0;
-}
-function cancelRateLabel(stat?: StudioArtistStat): string {
-  const total = (stat?.completed ?? 0) + (stat?.cancelled ?? 0);
-  return total > 0 ? `${cancelRateValue(stat)}%` : "—";
-}
-
-function Metric({ label, value, alert }: { label: string; value: string | number; alert?: boolean }) {
-  return (
-    <View style={s.metric} accessible accessibilityLabel={`${value} ${label}`}>
-      <Text style={[s.metricValue, alert && { color: "#DC2626" }]} numberOfLines={1}>{value}</Text>
-      <Text style={s.metricLabel}>{label}</Text>
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 24 },
@@ -559,23 +231,6 @@ const s = StyleSheet.create({
   outlineBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1, borderColor: "#E4E4E7", borderRadius: 12, paddingVertical: 11 },
   outlineBtnText: { fontWeight: "700", fontSize: 14, color: "#18181B" },
   section: { fontSize: 18, fontWeight: "800", marginTop: 22, marginBottom: 10 },
-  sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 22, marginBottom: 10 },
-  sectionInline: { fontSize: 18, fontWeight: "800" },
-  inviteLink: { flexDirection: "row", alignItems: "center", gap: 5 },
-  inviteLinkText: { color: "#E5484D", fontWeight: "800", fontSize: 14 },
-  sortScroll: { flexGrow: 0, marginBottom: 12 },
-  sortRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  sortChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: "#F4F4F5" },
-  sortChipActive: { backgroundColor: "#18181B" },
-  sortChipText: { fontWeight: "700", color: "#52525B", fontSize: 13 },
-  sortChipTextActive: { color: "#fff" },
-  cardPerson: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
-  sheetBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
-  sheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 12, paddingBottom: 28, gap: 4 },
-  sheetTitle: { fontWeight: "800", fontSize: 15, color: "#18181B", textAlign: "center", paddingVertical: 10 },
-  sheetBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 15, borderRadius: 14, backgroundColor: "#F4F4F5" },
-  sheetBtnText: { fontWeight: "700", fontSize: 15, color: "#18181B" },
-  sheetCancel: { backgroundColor: "#fff", marginTop: 4 },
   hero: { flexDirection: "row", alignItems: "center", backgroundColor: "#18181B", borderRadius: 22, paddingTop: 33, paddingBottom: 16, paddingHorizontal: 8, overflow: "hidden", marginBottom: 10 },
   heroBloom: { position: "absolute", top: -44, right: -24, width: 160, height: 160, borderRadius: 80, backgroundColor: "#E5484D", opacity: 0.22 },
   heroStat: { flex: 1, alignItems: "center" },
@@ -599,35 +254,4 @@ const s = StyleSheet.create({
   bigValue: { fontSize: 28, fontWeight: "900", color: "#18181B", marginTop: 4 },
   bigLabelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   bigLabel: { color: "#A1A1AA", fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.7 },
-  card: { borderWidth: 1, borderColor: "#F0F0F2", borderRadius: 16, padding: 12, marginBottom: 10 },
-  cardHead: { flexDirection: "row", alignItems: "center", gap: 12 },
-  cardName: { fontWeight: "800", fontSize: 15, color: "#18181B" },
-  cardSub: { color: "#71717A", fontSize: 13, marginTop: 2 },
-  rating: { flexDirection: "row", alignItems: "center", gap: 3 },
-  ratingText: { fontWeight: "800", color: "#18181B", fontSize: 13 },
-  msgBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F4F4F5", alignItems: "center", justifyContent: "center" },
-  metrics: { flexDirection: "row", flexWrap: "wrap", rowGap: 12, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#F4F4F5" },
-  metric: { alignItems: "center", width: "25%" },
-  metricValue: { fontWeight: "800", fontSize: 15, color: "#18181B" },
-  metricLabel: { color: "#A1A1AA", fontSize: 10, fontWeight: "600", marginTop: 2 },
-  suspendedChip: { alignSelf: "flex-start", backgroundColor: "#FFF7ED", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  suspendedChipText: { color: "#C2410C", fontWeight: "800", fontSize: 12 },
-  suspendReasonBox: { marginTop: 12, gap: 6 },
-  suspendReasonText: { color: "#52525B", fontSize: 13, lineHeight: 18 },
-  suspendHint: { color: "#71717A", fontSize: 13, textAlign: "center", paddingHorizontal: 8, marginBottom: 12, lineHeight: 18 },
-  suspendInput: { backgroundColor: "#F4F4F5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, minHeight: 80, textAlignVertical: "top", marginBottom: 12 },
-  suspendActions: { flexDirection: "row", gap: 10, marginTop: 12 },
-  suspendBtn: { flex: 1, borderRadius: 12, paddingVertical: 11, alignItems: "center" },
-  reactivateBtn: { backgroundColor: "#18181B" },
-  reactivateText: { color: "#fff", fontWeight: "800", fontSize: 14 },
-  removeOutlineBtn: { borderWidth: 1, borderColor: "#E4E4E7" },
-  removeOutlineText: { color: "#DC2626", fontWeight: "800", fontSize: 14 },
-  reviewCard: { borderWidth: 1, borderColor: "#F0F0F2", borderRadius: 14, padding: 12, marginBottom: 10 },
-  reviewHead: { fontWeight: "800", fontSize: 14, color: "#18181B" },
-  reviewTitle: { fontWeight: "600", marginTop: 4, color: "#18181B" },
-  reviewBody: { color: "#3F3F46", marginTop: 2, lineHeight: 19 },
-  reviewDate: { color: "#A1A1AA", fontSize: 12, marginTop: 6 },
-  settingsCard: { borderWidth: 1, borderColor: "#F4F4F5", borderRadius: 16, overflow: "hidden", marginTop: 24 },
-  settingRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#F4F4F5" },
-  settingLabel: { flex: 1, fontWeight: "600", fontSize: 15, color: "#18181B" },
 });

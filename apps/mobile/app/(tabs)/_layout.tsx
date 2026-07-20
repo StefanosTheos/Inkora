@@ -110,6 +110,12 @@ export default function TabsLayout() {
           },
         }}
       />
+      {/* Studio owners only — the roster/reviews/settings half of the dashboard,
+          shown to the right of Chats. Hidden (href null) for everyone else. */}
+      <Tabs.Screen
+        name="team"
+        options={{ title: "Team", tabBarIcon: tabIcon("people", "people-outline"), href: isStudio ? undefined : null }}
+      />
     </Tabs>
   );
 }
