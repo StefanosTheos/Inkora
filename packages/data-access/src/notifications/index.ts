@@ -1,7 +1,7 @@
 import type { Notification, NotificationId, NotificationType, ProfileId } from "@inkora/domain";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
@@ -34,13 +34,17 @@ function mapNotif(r: NotifRow): Notification {
   };
 }
 
-export async function listNotifications(client: InkoraClient, limit = 50): Promise<Notification[]> {
-  const { data, error } = await client
+/** One page of the inbox, newest-first. Pass `before` (a notification's
+ *  created_at) to page backwards into the history. */
+export const NOTIF_PAGE = 50;
+export async function listNotifications(client: InkoraClient, opts?: { before?: string; limit?: number }): Promise<Notification[]> {
+  let q = client
     .from("notifications")
     .select("id, recipient_id, type, title, body, data, entity_type, entity_id, read_at, created_at")
     .order("created_at", { ascending: false })
-    .limit(limit)
-    .returns<NotifRow[]>();
+    .limit(opts?.limit ?? NOTIF_PAGE);
+  if (opts?.before) q = q.lt("created_at", opts.before);
+  const { data, error } = await q.returns<NotifRow[]>();
   if (error) throw toAppError(error);
   return (data ?? []).map(mapNotif);
 }
@@ -191,17 +195,64 @@ function acquireNotificationChannel(client: InkoraClient, qc: QueryClientRef): (
  */
 export function useNotifications(client: InkoraClient) {
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: NOTIF_KEY, queryFn: () => listNotifications(client) });
+  const q = useQuery({ queryKey: NOTIF_KEY, queryFn: () => listNotifications(client, { limit: NOTIF_PAGE }) });
 
   useEffect(() => acquireNotificationChannel(client, qc), [client, qc]);
 
   const notifications = useMemo(() => q.data ?? [], [q.data]);
   const unread = useMemo(() => notifications.filter((n) => !n.readAt).length, [notifications]);
 
+  // Older-page pagination over the same flat cache the bell/badges + realtime
+  // prepend read from (so a full array stays the single source of truth). The
+  // first page's size seeds hasMore once; loadOlder appends by created_at cursor.
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const inited = useRef(false);
+  useEffect(() => {
+    if (q.data && !inited.current) {
+      inited.current = true;
+      setHasMore(q.data.length >= NOTIF_PAGE);
+    }
+  }, [q.data]);
+
+  // Pull-to-refresh reloads just the newest page, so reset the pager: let the
+  // incoming first page re-seed hasMore (otherwise a list that had paged to the
+  // end would stay stuck at hasMore=false and couldn't page again).
+  const refetch = useCallback(async () => {
+    inited.current = false;
+    setHasMore(true);
+    await q.refetch();
+  }, [q]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    const current = qc.getQueryData<Notification[]>(NOTIF_KEY) ?? [];
+    const oldest = current[current.length - 1];
+    if (!oldest) return;
+    setLoadingMore(true);
+    try {
+      const older = await listNotifications(client, { before: oldest.createdAt, limit: NOTIF_PAGE });
+      if (older.length < NOTIF_PAGE) setHasMore(false);
+      if (older.length > 0) {
+        qc.setQueryData<Notification[]>(NOTIF_KEY, (old = []) => {
+          const seen = new Set(old.map((x) => x.id));
+          return [...old, ...older.filter((x) => !seen.has(x.id))];
+        });
+      }
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [client, qc, hasMore, loadingMore]);
+
   return {
     notifications,
     unread,
     isLoading: q.isLoading,
+    isRefetching: q.isRefetching,
+    refetch,
+    loadMore,
+    hasMore,
+    loadingMore,
     markRead: async (id: string) => {
       qc.setQueryData<Notification[]>(NOTIF_KEY, (old = []) => old.map((n) => (n.id === id ? { ...n, readAt: n.readAt ?? new Date().toISOString() } : n)));
       await markNotificationRead(client, id);

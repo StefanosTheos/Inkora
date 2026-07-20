@@ -3,14 +3,14 @@ import { useNotifications } from "@inkora/data-access";
 import { type Notification, NOTIFICATION_ICON, notificationHref, timeAgo } from "@inkora/domain";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { supabase } from "../../lib/supabase";
 
 export function NotificationsScreen() {
   const router = useRouter();
-  const { notifications, unread, isLoading, markRead, markAllRead } = useNotifications(supabase);
+  const { notifications, unread, isLoading, isRefetching, refetch, loadMore, hasMore, loadingMore, markRead, markAllRead } = useNotifications(supabase);
 
   function open(n: Notification) {
     void markRead(n.id);
@@ -30,6 +30,10 @@ export function NotificationsScreen() {
         data={notifications}
         estimatedItemSize={76}
         keyExtractor={(n) => n.id}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => void refetch()} />}
+        onEndReached={() => { if (hasMore) void loadMore(); }}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={loadingMore ? <ActivityIndicator style={{ marginVertical: 16 }} /> : null}
         renderItem={({ item }) => (
           <Pressable style={[s.row, !item.readAt && s.rowUnread]} onPress={() => open(item)}>
             <Text style={s.icon}>{NOTIFICATION_ICON[item.type] ?? "🔔"}</Text>
