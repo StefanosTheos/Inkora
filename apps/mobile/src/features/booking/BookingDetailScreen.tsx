@@ -230,9 +230,11 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
           onCancel={() => setRescheduling(false)}
           onPick={proposeSlot}
         />
-      ) : reschedPending ? (
-        // A reschedule is awaiting approval. The awaited party can accept,
-        // counter, or decline; the proposer waits (and may still cancel).
+      ) : reschedPending && active ? (
+        // A reschedule is awaiting approval on a still-active booking. The
+        // awaited party can accept, counter, or decline; the proposer waits
+        // (and may still cancel). Never shown on a closed appointment — a
+        // terminal transition clears reschedule_* server-side.
         <View style={s.reschedBox}>
           <View style={s.reschedHead}>
             <Ionicons name="swap-horizontal-outline" size={18} color="#B45309" />
