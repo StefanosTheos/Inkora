@@ -119,10 +119,16 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
   }, [appt.id]);
 
   const active = appt.status === "scheduled" || appt.status === "rescheduled";
-  // Either party can mark the session done once it has started, so the seeker
-  // isn't blocked from reviewing when the artist forgets. (Past-due bookings
-  // also auto-complete server-side.)
-  const sessionStarted = Date.now() >= new Date(appt.scheduledStart).getTime();
+  const now = Date.now();
+  // A no-show is knowable once the session start passes (the client didn't turn
+  // up) — artist-only.
+  const sessionStarted = now >= new Date(appt.scheduledStart).getTime();
+  // Completion only unlocks once the scheduled END has passed, so a (possibly
+  // multi-hour) session can't be marked done a minute in — prematurely firing
+  // reviews/rewards/journey. Either party may then confirm it (so the seeker
+  // isn't blocked when the artist forgets); past-due bookings also auto-complete
+  // server-side.
+  const sessionEnded = now >= new Date(appt.scheduledEnd).getTime();
 
   // Pending reschedule negotiation. Either party can propose; the other approves.
   const reschedPending = appt.rescheduleStatus !== "none";
@@ -261,8 +267,8 @@ function AppointmentDetail({ appt, meId }: { appt: AppointmentView; meId: string
         </View>
       ) : active ? (
         <View style={s.actionCard}>
-          {/* Primary happy-path action once the session has started. */}
-          {sessionStarted ? (
+          {/* Primary happy-path action once the session has ended. */}
+          {sessionEnded ? (
             <ActionBtn icon="checkmark-circle" label="Mark completed" variant="primary" disabled={busy} onPress={() => run(() => completeAppointment(supabase, appt.id))} />
           ) : null}
           {/* Secondary actions share a row. */}
