@@ -267,20 +267,21 @@ function defaultOfferExpiry(proposedStart: string): string {
 
 export async function createOffer(client: InkoraClient, input: OfferInput): Promise<void> {
   const me = await meId(client);
-  const { data: offerRow, error } = await client.from("offers").insert({
-    request_id: input.requestId,
-    artist_id: me,
-    proposed_start: input.proposedStart,
-    proposed_end: input.proposedEnd,
-    price_amount: input.priceAmount,
-    deposit_amount: input.depositAmount ?? null,
-    currency_code: input.currencyCode ?? "EUR",
-    message: input.message ?? null,
-    expires_at: input.expiresAt ?? defaultOfferExpiry(input.proposedStart),
-  }).select("id").single();
+  // Atomic + guarded: the RPC locks the request, refuses a closed one, and only
+  // the assigned artist may offer — so a stale/racing offer can't revive a dead
+  // request or leave a live offer on it.
+  const { data: offerId, error } = await client.rpc("create_offer", {
+    p_request_id: input.requestId,
+    p_proposed_start: input.proposedStart,
+    p_proposed_end: input.proposedEnd,
+    p_price_amount: input.priceAmount,
+    p_deposit_amount: input.depositAmount ?? null,
+    p_currency_code: input.currencyCode ?? "EUR",
+    p_message: input.message ?? null,
+    p_expires_at: input.expiresAt ?? defaultOfferExpiry(input.proposedStart),
+  });
   if (error) throw toAppError(error);
-  // move the request into "offered" so the client sees it's answered
-  await client.from("appointment_requests").update({ status: "offered" }).eq("id", input.requestId);
+
   // Sending an offer answers the request — clear its "new" badge.
   await markEntityNotificationsRead(client, "appointment_request", input.requestId);
 
@@ -294,7 +295,7 @@ export async function createOffer(client: InkoraClient, input: OfferInput): Prom
       body: "🏷️ Offer sent",
       metadata: {
         kind: "offer",
-        offerId: offerRow.id,
+        offerId: offerId as string,
         requestId: input.requestId,
         artistId: me,
         proposedStart: input.proposedStart,

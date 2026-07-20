@@ -2593,6 +2593,19 @@ export type Database = {
         Args: { p_appointment_id: string; p_scores: Json; p_title?: string | null; p_body?: string | null }
         Returns: string
       }
+      create_offer: {
+        Args: {
+          p_request_id: string
+          p_proposed_start: string
+          p_proposed_end: string
+          p_price_amount: number
+          p_deposit_amount?: number | null
+          p_currency_code?: string | null
+          p_message?: string | null
+          p_expires_at?: string | null
+        }
+        Returns: string
+      }
       client_reviews_for: {
         Args: { p_client_id: string }
         Returns: {
