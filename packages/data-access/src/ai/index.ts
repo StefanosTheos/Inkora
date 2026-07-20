@@ -1,5 +1,5 @@
 import type {
-  AiPreview, AiPreviewId, AiPreviewInput, AiPreviewStatus, ArtistId, IdeaId, Page, PortfolioImageId,
+  AiPreview, AiPreviewId, AiPreviewStatus, ArtistId, Page, PortfolioImageId,
   ProfileId, StyleId, TattooTryOnInput,
 } from "@inkora/domain";
 import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
@@ -7,19 +7,18 @@ import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-qu
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
 
-// NOTE: PLACEHOLDER feature. This module only PERSISTS preview requests + serves
-// the source photo. It performs NO image generation. Rows are created with
-// status 'queued' and result_image_path stays null until a real AI service
-// (behind @inkora/ai's AiPreviewService) fills them in.
+// NOTE: PLACEHOLDER feature. There is NO server-side image generation. The only
+// live flow is the mobile try-on: a flash is composited onto the user's body
+// photo ON-DEVICE and the finished mockup is saved here via saveTattooTryOn
+// (status 'completed'). This module persists + serves those composites.
 const BUCKET = "ai-previews"; // private bucket → signed URLs
 
-const COLS = "id, profile_id, source_image_path, source_idea_id, source_flash_id, prompt, style_id, placement, status, result_image_path, created_at";
+const COLS = "id, profile_id, source_image_path, source_flash_id, prompt, style_id, placement, status, result_image_path, created_at";
 
 interface PreviewRow {
   id: string;
   profile_id: string;
   source_image_path: string | null;
-  source_idea_id: string | null;
   source_flash_id: string | null;
   prompt: string | null;
   style_id: string | null;
@@ -33,7 +32,6 @@ function mapPreview(r: PreviewRow): AiPreview {
     id: r.id as AiPreviewId,
     profileId: r.profile_id as ProfileId,
     sourceImagePath: r.source_image_path,
-    sourceIdeaId: (r.source_idea_id as IdeaId | null) ?? null,
     sourceFlashId: (r.source_flash_id as PortfolioImageId | null) ?? null,
     prompt: r.prompt,
     styleId: (r.style_id as StyleId | null) ?? null,
@@ -49,15 +47,6 @@ async function meId(client: InkoraClient): Promise<string> {
   const id = data.user?.id;
   if (!id) throw toAppError({ message: "unauthenticated" });
   return id;
-}
-
-/** Upload the user's body photo to the private ai-previews bucket. Returns the object path. */
-export async function uploadPreviewSource(client: InkoraClient, body: ArrayBuffer | Blob, contentType: string, ext: string): Promise<string> {
-  const uid = await meId(client);
-  const path = `${uid}/${Date.now()}.${ext}`; // folder must be the uid (RLS)
-  const { error } = await client.storage.from(BUCKET).upload(path, body, { contentType, upsert: false });
-  if (error) throw toAppError(error);
-  return path;
 }
 
 export async function getPreviewSignedUrl(client: InkoraClient, path: string, ttlSeconds = 3600): Promise<string | null> {
@@ -158,31 +147,6 @@ export async function fetchFlashFeedPage(client: InkoraClient, cursor: string | 
   const hasMore = rows.length === limit;
   const nextCursor = hasMore ? rows[rows.length - 1]!.created_at : null;
   return { items, nextCursor, hasMore };
-}
-
-/**
- * Create a preview request. Inserts a row with status 'queued'; NO generation.
- * TODO(ai): after insert, enqueue the job via the AiPreviewService boundary
- * (e.g. a `generate-ai-preview` Edge Function). The worker flips status →
- * 'processing' → 'completed' and sets result_image_path. Nothing here runs a model.
- */
-export async function createAiPreview(client: InkoraClient, input: AiPreviewInput): Promise<AiPreview> {
-  const me = await meId(client);
-  const { data, error } = await client
-    .from("ai_previews")
-    .insert({
-      profile_id: me,
-      source_image_path: input.sourceImagePath ?? null,
-      source_idea_id: input.sourceIdeaId ?? null,
-      prompt: input.prompt ?? null,
-      style_id: input.styleId ?? null,
-      placement: input.placement ?? null,
-      status: "queued",
-    })
-    .select(COLS)
-    .single<PreviewRow>();
-  if (error) throw toAppError(error);
-  return mapPreview(data);
 }
 
 export async function listAiPreviews(client: InkoraClient): Promise<AiPreview[]> {

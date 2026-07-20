@@ -1,10 +1,10 @@
 "use client";
-// AI Preview — PLACEHOLDER (web, secondary). Persists requests only; no generation.
+// AI Preview — PLACEHOLDER (web, secondary). There is no server-side generation
+// and no in-browser compositing yet, so this screen is read-only: it explains the
+// feature, shows example styles, and lists any try-ons the user saved on mobile.
 import { MOCK_PREVIEW_EXAMPLES } from "@inkora/ai";
-import { aiKeys, createAiPreview, publicStorageUrl, uploadPreviewSource, useAiPreviews } from "@inkora/data-access";
-import { AI_PLACEMENTS, AI_PREVIEW_DISCLAIMER, AI_PREVIEW_STATUS_LABEL, type AiPreviewInput } from "@inkora/domain";
-import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { publicStorageUrl, useAiPreviews } from "@inkora/data-access";
+import { AI_PREVIEW_DISCLAIMER, AI_PREVIEW_STATUS_LABEL } from "@inkora/domain";
 
 import { env } from "../../lib/env";
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
@@ -13,32 +13,7 @@ const img = (p: string) => publicStorageUrl(env.SUPABASE_URL, p);
 
 export function AiPreviewView() {
   const client = getSupabaseBrowser();
-  const qc = useQueryClient();
   const previews = useAiPreviews(client);
-  const [file, setFile] = useState<File | null>(null);
-  const [prompt, setPrompt] = useState("");
-  const [placement, setPlacement] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function generate() {
-    if (!file) { alert("Add a photo of where you want the tattoo."); return; }
-    setBusy(true);
-    try {
-      const buf = await file.arrayBuffer();
-      const ext = file.type.includes("png") ? "png" : "jpg";
-      const sourceImagePath = await uploadPreviewSource(client, buf, file.type || "image/jpeg", ext);
-      // TODO(ai): enqueue generation via the AiPreviewService boundary. No model here.
-      const input: AiPreviewInput = { sourceImagePath, prompt: prompt.trim() || undefined, placement: placement || undefined };
-      await createAiPreview(client, input);
-      await qc.invalidateQueries({ queryKey: aiKeys.list });
-      setFile(null); setPrompt(""); setPlacement("");
-      alert("Preview requested — AI rendering is coming soon.");
-    } catch (e) {
-      alert((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
@@ -46,21 +21,12 @@ export function AiPreviewView() {
       <p className="text-zinc-600">See how a design could look on your skin.</p>
       <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-100 px-3 py-2 text-sm font-medium text-amber-800">✨ {AI_PREVIEW_DISCLAIMER}</div>
 
-      <section className="mt-6 space-y-3 rounded-2xl border p-4">
-        <h2 className="font-bold">New preview</h2>
-        <label className="block text-sm font-semibold">Your photo
-          <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="mt-1 block w-full text-sm" />
-        </label>
-        <label className="block text-sm font-semibold">Describe the tattoo
-          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={2} className="mt-1 block w-full rounded-lg border px-3 py-2" placeholder="e.g. a small fine-line wildflower" />
-        </label>
-        <label className="block text-sm font-semibold">Placement
-          <select value={placement} onChange={(e) => setPlacement(e.target.value)} className="mt-1 block w-full rounded-lg border px-3 py-2">
-            <option value="">Any</option>
-            {AI_PLACEMENTS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </label>
-        <button disabled={busy || !file} onClick={generate} className="rounded-lg bg-[#E5484D] px-4 py-2 font-semibold text-white disabled:opacity-40">{busy ? "Requesting…" : "✨ Generate preview"}</button>
+      <section className="mt-6 rounded-2xl border p-4">
+        <h2 className="font-bold">Try a design on</h2>
+        <p className="mt-1 text-sm text-zinc-600">
+          Tattoo try-on lives in the Inkora mobile app — pick a flash, drop it onto a photo,
+          and save the mockup. Your saved try-ons show up here.
+        </p>
       </section>
 
       {(previews.data ?? []).length > 0 && (

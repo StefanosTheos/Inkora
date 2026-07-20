@@ -1,5 +1,5 @@
 import type { AiPreviewStatus } from "../enums";
-import type { AiPreviewId, IdeaId, PortfolioImageId, ProfileId, StyleId } from "../ids";
+import type { AiPreviewId, PortfolioImageId, ProfileId, StyleId } from "../ids";
 
 /**
  * AI tattoo-preview model. The MVP implements the "try-on" flow: a flash design
@@ -12,7 +12,6 @@ export interface AiPreview {
   id: AiPreviewId;
   profileId: ProfileId;
   sourceImagePath: string | null;
-  sourceIdeaId: IdeaId | null;
   sourceFlashId: PortfolioImageId | null;
   prompt: string | null;
   styleId: StyleId | null;
@@ -20,14 +19,6 @@ export interface AiPreview {
   status: AiPreviewStatus;
   resultImagePath: string | null;
   createdAt: string;
-}
-
-export interface AiPreviewInput {
-  sourceImagePath?: string;
-  sourceIdeaId?: IdeaId;
-  prompt?: string;
-  styleId?: StyleId;
-  placement?: string;
 }
 
 /** Persisting a finished on-device try-on composite. */
