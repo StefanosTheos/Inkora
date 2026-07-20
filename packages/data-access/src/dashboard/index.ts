@@ -1,4 +1,4 @@
-import type { ArtistId, IdeaId, JourneyEntry, JourneyEntryId, ProfileId } from "@inkora/domain";
+import type { ArtistId } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
@@ -201,34 +201,11 @@ export async function removeSavedDesign(client: InkoraClient, id: string, target
   if (error) throw toAppError(error);
 }
 
-// ------------------------------------------------------------------ journey
-export async function getJourney(client: InkoraClient): Promise<JourneyEntry[]> {
-  const { data, error } = await client
-    .from("tattoo_journey_entries")
-    .select("id, profile_id, appointment_id, artist_id, idea_id, entry_type, title, notes, image_paths, occurred_on")
-    .order("occurred_on", { ascending: true })
-    .limit(200);
-  if (error) throw toAppError(error);
-  return (data ?? []).map((r) => ({
-    id: r.id as JourneyEntryId,
-    profileId: r.profile_id as ProfileId,
-    appointmentId: (r.appointment_id as JourneyEntry["appointmentId"]) ?? null,
-    artistId: (r.artist_id as ArtistId | null) ?? null,
-    ideaId: (r.idea_id as IdeaId | null) ?? null,
-    entryType: r.entry_type as JourneyEntry["entryType"],
-    title: r.title,
-    notes: r.notes,
-    imagePaths: r.image_paths ?? [],
-    occurredOn: r.occurred_on,
-  }));
-}
-
 // ------------------------------------------------------------------ hooks
 export const dashboardKeys = {
   profile: ["profile-summary"] as const,
   savedArtists: ["saved-artists"] as const,
   savedDesigns: ["saved-designs"] as const,
-  journey: ["journey"] as const,
   accountSettings: ["account-settings"] as const,
 };
 export function useAccountSettings(client: InkoraClient) {
@@ -242,7 +219,4 @@ export function useSavedArtists(client: InkoraClient) {
 }
 export function useSavedDesigns(client: InkoraClient) {
   return useQuery({ queryKey: dashboardKeys.savedDesigns, queryFn: () => getSavedDesigns(client) });
-}
-export function useJourney(client: InkoraClient) {
-  return useQuery({ queryKey: dashboardKeys.journey, queryFn: () => getJourney(client) });
 }

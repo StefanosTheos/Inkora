@@ -29,8 +29,6 @@ export interface SearchArtist {
   relevance: number;
 }
 
-export const EMPTY_SEARCH: ArtistSearchParams = { q: "", styleSlugs: [], sort: "relevance" };
-
 /** Count of active filters (for the "Filters (n)" badge). */
 export function activeFilterCount(p: ArtistSearchParams): number {
   let n = 0;

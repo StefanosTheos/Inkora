@@ -42,11 +42,6 @@ export function computePreferences(
     .sort((a, b) => b.weight - a.weight);
 }
 
-/** Top-N style slugs by weight (used to query recommendations). */
-export function topStyleSlugs(prefs: StylePreference[], n = 3): string[] {
-  return prefs.slice(0, n).map((p) => p.slug);
-}
-
 /** Top-N weighted preferences (slug + weight) for the recommender. */
 export function topWeightedStyles(prefs: StylePreference[], n = 6): WeightedStyle[] {
   return prefs.slice(0, n).map((p) => ({ slug: p.slug, weight: p.weight }));

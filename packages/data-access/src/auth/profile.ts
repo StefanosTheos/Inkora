@@ -3,47 +3,6 @@ import type { Result, StudioId } from "@inkora/domain";
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
 
-export interface OnboardingInput {
-  displayName: string;
-  username?: string;
-  city?: string;
-  latitude?: number;
-  longitude?: number;
-  searchRadiusKm?: number;
-}
-
-/**
- * Completes the profile created by the handle_new_user DB trigger and marks
- * onboarding done. RLS (profiles_update_own) restricts this to the caller's row.
- * Call `auth.refresh()` afterward so `isOnboarded` flips in the AuthContext.
- */
-export async function completeOnboarding(client: InkoraClient, input: OnboardingInput): Promise<Result<void>> {
-  const { data: userRes } = await client.auth.getUser();
-  const uid = userRes.user?.id;
-  if (!uid) return { ok: false, error: { code: "unauthenticated", message: "Not signed in", retriable: false } };
-
-  const { error } = await client
-    .from("profiles")
-    .update({
-      display_name: input.displayName,
-      username: input.username ?? null,
-      city: input.city ?? null,
-      search_radius_km: input.searchRadiusKm ?? 25,
-      onboarded_at: new Date().toISOString(),
-    })
-    .eq("id", uid);
-  if (error) return { ok: false, error: toAppError(error) };
-
-  // Precise coordinates live in the owner-only profiles_private table.
-  if (input.latitude != null || input.longitude != null) {
-    const { error: pErr } = await client
-      .from("profiles_private")
-      .upsert({ id: uid, latitude: input.latitude ?? null, longitude: input.longitude ?? null }, { onConflict: "id" });
-    if (pErr) return { ok: false, error: toAppError(pErr) };
-  }
-  return { ok: true, value: undefined };
-}
-
 /**
  * Self-service role elevation to ARTIST. role_grants has no client write policy,
  * so this goes through a privileged Edge Function (service_role). After success the

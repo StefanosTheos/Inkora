@@ -64,8 +64,8 @@ export function notificationHref(n: Pick<Notification, "type" | "data" | "entity
       // Owner's "new application" (has artistId) -> Applications inbox.
       if (d["artistId"]) return "/studio-applications";
       // Owner-facing roster changes (invite accepted/declined, artist joined/
-      // left) -> the studio roster.
-      if (d["audience"] === "owner") return "/studio-dashboard/roster";
+      // left) -> the studio owner's Team tab (roster + suspended + reviews).
+      if (d["audience"] === "owner") return "/team";
       // Fall back to the studio page when we have a slug…
       if (d["studioSlug"]) return `/studio/${d["studioSlug"]}`;
       // …otherwise this is an artist-facing status change (application

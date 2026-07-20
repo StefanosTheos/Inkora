@@ -15,13 +15,4 @@ export interface AuthContext {
 
 export const hasRole = (ctx: AuthContext, role: UserRole): boolean => ctx.roles.includes(role);
 
-/** Human-readable role label: "studio_admin" → "Studio Admin", "artist" → "Artist". */
-export function formatRoleLabel(role: string): string {
-  return role
-    .split(/[_\s]+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
 // TODO: add helpers `canManageStudio`, `isArtist`, etc., once membership context shape is finalized.
