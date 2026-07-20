@@ -15,8 +15,6 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # OPEN — Round 2 audit (2026-07-20)
 
 ## Tier A — Correctness & broken flows
-- [ ] **43. `submitReview` is non-atomic.** It inserts the review row, then the `ratings` rows; if the ratings insert fails, the review persists (`appointment_id` is UNIQUE) so the seeker can never retry and `getAppointmentReview` returns `scores=null` forever — the multi-dimension breakdown is silently lost. Fix: wrap in an RPC (single transaction).
-  - Files: `packages/data-access/src/booking/index.ts:442`.
 - [ ] **44. `createOffer` can resurrect a dead request.** It unconditionally does `update appointment_requests set status='offered'` with no status guard and no server RPC. An artist offering on a request the client just cancelled/declined (stale view/race) revives it and posts a live, acceptable offer on a dead request. Fix: guard on `status in ('pending','reviewing')`.
   - Files: `packages/data-access/src/booking/index.ts:282`.
 - [ ] **45. A seeker can double-book themselves.** `appointments_no_overlap` keys on `artist_id` only, and `respond_offer`'s pre-check only checks the artist — nothing stops a client accepting two overlapping offers from different artists. Fix: also reject client-side overlaps.
@@ -117,6 +115,7 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # DONE
 
 ## Round 2 fixes
+- [x] **43.** `submitReview` is now atomic — a single `submit_review` SECURITY DEFINER RPC writes the review + five dimension ratings in one transaction (derives artist/studio from the appointment, validates scores, authorizes the caller), so a partial write can't strand an un-retryable review. (migration `20260720140000`, `packages/data-access/src/booking/index.ts`)
 - [x] **42.** Terminal appointment states are now final at the DB layer — a `BEFORE UPDATE` trigger rejects any status change out of cancelled/completed/no_show and only lets a reschedule acceptance move the time (closes the blanket party-update RLS hole for direct PATCH); the complete/cancel/no-show helpers also status-filter to active bookings and surface a clean error. (migration `20260720130000`, `packages/data-access/src/booking/index.ts`)
 - [x] **41.** A pending reschedule can no longer un-complete a finished booking — a `BEFORE UPDATE` trigger clears `reschedule_*` on any terminal transition (RPC, direct update, or auto-complete cron), `accept_reschedule` refuses closed appointments, + one-time backfill; the UI reschedule box is gated on `active`. (migration `20260720120000`, `BookingDetailScreen.tsx`)
 - [x] **77.** "Reschedule pending" chip no longer lingers on completed/archived bookings — resolved by the same #41 trigger clearing `reschedule_status` on close.

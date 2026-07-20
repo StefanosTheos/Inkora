@@ -2589,6 +2589,10 @@ export type Database = {
         Args: { p_appointment_id: string }
         Returns: undefined
       }
+      submit_review: {
+        Args: { p_appointment_id: string; p_scores: Json; p_title?: string | null; p_body?: string | null }
+        Returns: string
+      }
       client_reviews_for: {
         Args: { p_client_id: string }
         Returns: {

@@ -7,6 +7,7 @@ import { REVIEW_CATEGORIES } from "@inkora/domain";
 import { useQuery } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
+import type { Json } from "../db/database.types";
 import { toAppError } from "../errors";
 import { sendMessage, startDirectConversation } from "../messaging";
 import { markEntityNotificationsRead } from "../notifications";
@@ -410,8 +411,6 @@ export interface ReviewInput {
   body?: string;
 }
 
-const scoreValues = (s: ReviewScores): number[] => REVIEW_CATEGORIES.map((c) => s[c.key]);
-
 /** The current user's review for an appointment, if they've left one. */
 export async function getAppointmentReview(client: InkoraClient, appointmentId: string): Promise<AppointmentReview | null> {
   const { data, error } = await client
@@ -428,30 +427,21 @@ export async function getAppointmentReview(client: InkoraClient, appointmentId: 
   return { id: data.id, overallRating: data.overall_rating, scores };
 }
 
-/** Leave a review. Only possible for a real appointment (reviews.appointment_id
- *  is NOT NULL + UNIQUE), so the "one review per completed booking" rule is
- *  enforced by the schema; the UI only surfaces this on completed appointments.
- *  Captures five 1-5 dimensions (stored in `ratings`); overall_rating is their
- *  rounded average. */
+/** Leave a review. Atomic via the `submit_review` RPC — the review row and its
+ *  five dimension `ratings` commit in one transaction (or roll back together),
+ *  so a partial write can't strand an un-retryable review. The RPC derives the
+ *  artist + studio from the appointment, validates the 1-5 scores, sets
+ *  `overall_rating` to their rounded average, and authorizes the caller (the
+ *  appointment's client, on a completed booking). One review per booking is
+ *  enforced by `reviews.appointment_id` UNIQUE. */
 export async function submitReview(client: InkoraClient, input: ReviewInput): Promise<void> {
-  const { data: userRes } = await client.auth.getUser();
-  const uid = userRes.user?.id;
-  if (!uid) throw toAppError(new Error("You need to sign in to leave a review."));
-  const vals = scoreValues(input.scores);
-  const overall = Math.max(1, Math.min(5, Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)));
-  const { data: rev, error } = await client.from("reviews").insert({
-    appointment_id: input.appointmentId,
-    author_id: uid,
-    artist_id: input.artistId,
-    overall_rating: overall,
-    title: input.title ?? null,
-    body: input.body ?? null,
-  }).select("id").single();
+  const { error } = await client.rpc("submit_review", {
+    p_appointment_id: input.appointmentId,
+    p_scores: input.scores as unknown as Json,
+    p_title: input.title ?? null,
+    p_body: input.body ?? null,
+  });
   if (error) throw toAppError(error);
-  // Store the per-dimension breakdown (RLS: author of the review may write).
-  const rows = REVIEW_CATEGORIES.map((c) => ({ review_id: rev.id, dimension: c.key, score: input.scores[c.key] }));
-  const { error: rErr } = await client.from("ratings").insert(rows);
-  if (rErr) throw toAppError(rErr);
 }
 
 // ------------------------------------------------------------------ client reviews (artist -> client)
