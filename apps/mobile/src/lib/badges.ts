@@ -32,6 +32,14 @@ export function useBadgeCounts() {
       (n) => n.type === "booking_request" || (n.type === "booking_update" && n.entityType === "appointment_request"),
     ).length,
     journey: unread.filter((n) => n.type === "journey").length,
+    // New artist applications awaiting the studio owner. Owner-facing
+    // membership_request notifications carry `artistId` (and no `invite`) —
+    // the same marker notificationHref uses to route them to
+    // /studio-applications — which distinguishes a new application from an
+    // artist invitation or an owner-facing roster change (audience='owner').
+    applications: unread.filter(
+      (n) => n.type === "membership_request" && !!n.data?.["artistId"] && n.data?.["invite"] !== "true",
+    ).length,
     chats: (convs.data ?? []).filter((c) => c.unread).length,
     // Seeker's own booking requests still awaiting the artist that they haven't
     // opened yet. Making a request lights the badge; opening its booking page

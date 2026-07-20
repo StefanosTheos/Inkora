@@ -9,6 +9,7 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useBadgeCounts } from "../../lib/badges";
 import { imageUrl } from "../../lib/images";
 import { supabase } from "../../lib/supabase";
 
@@ -33,6 +34,7 @@ export function StudioDashboardScreen() {
   const periodQ = useStudioOverviewPeriod(supabase, st?.id ?? "", period);
   const { notifications } = useNotifications(supabase);
   const unread = notifications.filter((n) => !n.readAt).length;
+  const { applications: newApplications } = useBadgeCounts();
   const ov = overviewQ.data;
   const pv = periodQ.data;
 
@@ -152,7 +154,7 @@ export function StudioDashboardScreen() {
           <BigTile label="Saved by" value={ov?.studioSaves ?? 0} icon="heart-outline" />
         </View>
         <View style={s.gridRow}>
-          <BigTile label="Applications" value={ov?.pendingApplications ?? 0} icon="mail-unread-outline" alert={!!ov?.pendingApplications} onPress={() => router.push("/studio-applications")} />
+          <BigTile label="Applications" value={ov?.pendingApplications ?? 0} icon="mail-unread-outline" alert={!!ov?.pendingApplications} badge={newApplications} onPress={() => router.push("/studio-applications")} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -194,10 +196,13 @@ function TrendBadge({ cur, prev, higherIsBetter = true }: { cur: number; prev: n
   );
 }
 
-function BigTile({ label, value, icon, alert, onPress, trend }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; alert?: boolean; onPress?: () => void; trend?: ReactNode }) {
+function BigTile({ label, value, icon, alert, onPress, trend, badge }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; alert?: boolean; onPress?: () => void; trend?: ReactNode; badge?: number }) {
   const inner = (
     <>
       <Ionicons name={onPress ? "chevron-forward" : icon} size={16} color="#D4D4D8" style={s.bigIcon} />
+      {badge && badge > 0 ? (
+        <View style={s.bigBadge}><Text style={s.bigBadgeText}>{badge > 99 ? "99+" : badge}</Text></View>
+      ) : null}
       <Text style={[s.bigValue, alert && { color: "#E5484D" }]}>{value}</Text>
       <View style={s.bigLabelRow}>
         <Text style={s.bigLabel}>{label}</Text>
@@ -205,12 +210,13 @@ function BigTile({ label, value, icon, alert, onPress, trend }: { label: string;
       </View>
     </>
   );
+  const badgeLabel = badge && badge > 0 ? `, ${badge} new` : "";
   if (onPress) {
     return (
-      <Pressable style={s.bigTile} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${value} ${label}, open`}>{inner}</Pressable>
+      <Pressable style={s.bigTile} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${value} ${label}${badgeLabel}, open`}>{inner}</Pressable>
     );
   }
-  return <View style={s.bigTile} accessible accessibilityLabel={`${value} ${label}`}>{inner}</View>;
+  return <View style={s.bigTile} accessible accessibilityLabel={`${value} ${label}${badgeLabel}`}>{inner}</View>;
 }
 
 const s = StyleSheet.create({
@@ -251,6 +257,8 @@ const s = StyleSheet.create({
   gridRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
   bigTile: { flex: 1, borderRadius: 18, padding: 16, backgroundColor: "#fff", borderWidth: 1, borderColor: "#EEEEF0" },
   bigIcon: { position: "absolute", top: 15, right: 15 },
+  bigBadge: { position: "absolute", top: 11, right: 38, minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, backgroundColor: "#E5484D", alignItems: "center", justifyContent: "center" },
+  bigBadgeText: { color: "#fff", fontSize: 11, fontWeight: "800" },
   bigValue: { fontSize: 28, fontWeight: "900", color: "#18181B", marginTop: 4 },
   bigLabelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
   bigLabel: { color: "#A1A1AA", fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.7 },

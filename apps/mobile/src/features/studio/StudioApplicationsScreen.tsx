@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { respondStudioApplication, useAuth, useMyStudio, useStudioApplications, useStudioPortfolio } from "@inkora/data-access";
+import { markStudioApplicationNotificationsRead, respondStudioApplication, useAuth, useMyStudio, useStudioApplications, useStudioPortfolio } from "@inkora/data-access";
 import type { PortfolioImage, StudioApplication } from "@inkora/domain";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -55,6 +55,16 @@ export function StudioApplicationsScreen() {
   const appsQ = useStudioApplications(supabase, studioId);
   const [busy, setBusy] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("expiring");
+
+  // Opening the inbox clears the "new applications" badge: mark the owner's
+  // unread new-application notifications read, then refresh the shared
+  // notifications cache the badge counts derive from.
+  useEffect(() => {
+    if (!studioId) return;
+    void markStudioApplicationNotificationsRead(supabase, studioId).then(() =>
+      qc.invalidateQueries({ queryKey: ["notifications"] }),
+    );
+  }, [studioId, qc]);
 
   const apps = useMemo(() => appsQ.data ?? [], [appsQ.data]);
   // Applicant portfolios for inline previews. Keyed off the RPC's stable order
