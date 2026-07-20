@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { InkoraClient } from "../client/types";
 import type { Json } from "../db/database.types";
 import { toAppError } from "../errors";
+import { markEntityNotificationsRead } from "../notifications";
 
 const BUCKET = "chat-attachments";
 
@@ -314,9 +315,18 @@ export function useChat(client: InkoraClient, conversationId: string, meId: stri
     [qc, conversationId], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  // Opening a chat clears its unread state: the per-participant read marker AND
+  // any 'message' notification for it (so the bell/inbox doesn't stay lit).
+  const clearUnread = useCallback(() => {
+    void markRead(client, conversationId);
+    void markEntityNotificationsRead(client, "conversation", conversationId)
+      .then(() => qc.invalidateQueries({ queryKey: ["notifications"] }))
+      .catch(() => { /* best-effort */ });
+  }, [client, conversationId, qc]);
+
   useEffect(() => {
     if (!conversationId) return;
-    void markRead(client, conversationId);
+    clearUnread();
     if (meId) void getOtherReadAt(client, conversationId, meId).then(setOtherReadAt);
     const channel = client
       .channel(`conversation:${conversationId}`)
@@ -327,7 +337,8 @@ export function useChat(client: InkoraClient, conversationId: string, meId: stri
           const m = mapMessage(payload.new as unknown as MsgRow);
           append(m);
           void qc.invalidateQueries({ queryKey: ["conversations"] });
-          if (m.senderId !== meId) void markRead(client, conversationId);
+          // A message arriving while the chat is open is already seen — clear it.
+          if (m.senderId !== meId) clearUnread();
         },
       )
       .on(
@@ -351,7 +362,7 @@ export function useChat(client: InkoraClient, conversationId: string, meId: stri
       if (typingTimer.current) clearTimeout(typingTimer.current);
       void client.removeChannel(channel);
     };
-  }, [conversationId, meId, client, qc, append]);
+  }, [conversationId, meId, client, qc, append, clearUnread]);
 
   const send = useCallback(async (fn: () => Promise<Message>) => {
     if (!meId) return;

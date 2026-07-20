@@ -15,8 +15,6 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # OPEN — Round 2 audit (2026-07-20)
 
 ## Tier C — Notifications & messaging
-- [ ] **49. Chat messages generate no push and no notification row.** Only `useConversationsRealtime` bumps the in-app badge; a recipient with the app backgrounded/closed never learns a message arrived. New-message push is entirely absent — the single biggest re-engagement gap.
-  - Files: `packages/data-access/src/messaging/index.ts:256`.
 - [ ] **50. Notification/reminder taps are never handled.** Nothing registers `addNotificationResponseReceivedListener` / `useLastNotificationResponse`, so tapping a local appointment reminder (payload `{appointmentId, kind}`) or any FCM push just opens the app to wherever it was — the deep-link `data` is ignored. Fix: a boot listener that routes via `notificationHref`.
   - Files: `apps/mobile/src/lib/notifications.ts:165`.
 - [ ] **51. Owner roster-change notifications dead-end on a removed stub.** `notificationHref` routes owner roster changes (invite accepted/declined, artist joined/left) to `/studio-dashboard/roster`, which is a "coming soon" placeholder — and after the dashboard→Team split the real roster lives on the **Team tab**. Fix: point `audience:'owner'` roster changes at `/team` (or route the tab) and delete the stub.
@@ -101,6 +99,7 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # DONE
 
 ## Round 2 fixes
+- [x] **49.** Chat messages now notify the recipient — a `trg_messages_notify` trigger inserts a `message` notification for each non-sender participant on every new message (skipping structured booking cards), which shows in the inbox and drives a push via the notify-dispatch webhook. Coalesced to one unread row per conversation (delete+insert still pushes per message). Opening a chat (or receiving one while open) clears the conversation's message notifications so the bell doesn't stay lit. (migration `20260720190000`, `packages/data-access/src/messaging/index.ts`; needs the notify-dispatch webhook wired for push — infra, per #13)
 - [x] **48.** Offer creation is locked down — `offer_artist_write` now also requires the caller to hold the `artist` role **and** be the request's assigned artist (so a non-artist can't inject a direct offer and be minted as the appointment's artist), and `respond_offer` refuses an `offer.artist_id ≠ request.artist_id` mismatch. The `create_offer` RPC (SECURITY DEFINER) and legit self-withdraw are unaffected. (migration `20260720180000`)
 - [x] **47.** `accept_reschedule` now wraps the time move in a handler that turns an overlap `exclusion_violation` (artist or client) into a clean "That time is no longer free — propose another slot." instead of a raw constraint error. (migration `20260720170000`)
 - [x] **46.** "Mark completed" now unlocks only once the scheduled **end** has passed (was: session start), so a multi-hour session can't be completed a minute in and prematurely fire reviews/rewards/journey. No-show stays gated on session start (artist-only); either party may still complete after the end (keeps the seeker unblocked). Client-only, no migration. (`BookingDetailScreen.tsx`)
