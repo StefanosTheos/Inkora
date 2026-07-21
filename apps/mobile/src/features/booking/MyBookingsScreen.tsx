@@ -23,6 +23,16 @@ type Tab = "upcoming" | "completed" | "archive" | "requests";
 
 const PAGE_SIZE = 6;
 
+// Terminal request statuses: the negotiation is over and there's nothing left
+// for the seeker to do, so these move out of Requests into the Archive.
+// ("converted" isn't here — it became an appointment shown under Upcoming.)
+const CLOSED_REQUEST_STATUSES = new Set<AppointmentRequestView["status"]>(["declined", "expired", "cancelled"]);
+
+// The Archive tab mixes both card types, so tag each item with its kind.
+type ArchiveItem =
+  | { kind: "appt"; appt: AppointmentView }
+  | { kind: "req"; req: AppointmentRequestView };
+
 export function MyBookingsScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("upcoming");
@@ -62,14 +72,23 @@ export function MyBookingsScreen() {
   // New bookings/completions carry a per-card "unread" mark (like requests):
   // the badge on the tab + a red dot on the card, cleared by tapping that card.
   // Unread requests (not yet opened) float to the top, separated from read ones.
+  // Open = still live (awaiting the artist, or an offer to answer). Closed
+  // requests move to the Archive so they don't linger in — or inflate the count
+  // of — the Requests tab.
   const openRequests = reqs
-    .filter((r) => r.status !== "converted")
+    .filter((r) => !CLOSED_REQUEST_STATUSES.has(r.status) && r.status !== "converted")
     .sort((a, b) => Number(seenSet.has(a.id)) - Number(seenSet.has(b.id)));
+  const closedReqs = reqs.filter((r) => CLOSED_REQUEST_STATUSES.has(r.status));
+  // The Archive tab collects every dead item across bookings + requests.
+  const archiveItems: ArchiveItem[] = [
+    ...archivedAppts.map((a) => ({ kind: "appt" as const, appt: a })),
+    ...closedReqs.map((r) => ({ kind: "req" as const, req: r })),
+  ];
 
   // Paginate the active tab, 6 items per page.
   const activeCount = tab === "upcoming" ? upcomingAppts.length
     : tab === "completed" ? completedAppts.length
-      : tab === "archive" ? archivedAppts.length
+      : tab === "archive" ? archiveItems.length
         : openRequests.length;
   const totalPages = Math.max(1, Math.ceil(activeCount / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
@@ -86,8 +105,8 @@ export function MyBookingsScreen() {
         <TabButton label={`Upcoming${upcomingAppts.length ? ` (${upcomingAppts.length})` : ""}`} active={tab === "upcoming"} onPress={() => goTab("upcoming")} badge={newBookings + apptReplies} />
         <TabButton label={`Completed${completedAppts.length ? ` (${completedAppts.length})` : ""}`} active={tab === "completed"} onPress={() => goTab("completed")} badge={newCompleted} />
         <TabButton label={`Requests${openRequests.length ? ` (${openRequests.length})` : ""}`} active={tab === "requests"} onPress={() => goTab("requests")} badge={offersUnread + openReqBadge} />
-        {archivedAppts.length > 0 ? (
-          <TabButton label={`Archive (${archivedAppts.length})`} active={tab === "archive"} onPress={() => goTab("archive")} />
+        {archiveItems.length > 0 ? (
+          <TabButton label={`Archive (${archiveItems.length})`} active={tab === "archive"} onPress={() => goTab("archive")} />
         ) : null}
       </ScrollView>
 
@@ -102,9 +121,11 @@ export function MyBookingsScreen() {
           completedAppts.length === 0 ? <EmptyState icon="checkmark-done-outline" title="No completed bookings yet" message="Finished sessions move here — where you can leave a review." /> :
           paged(completedAppts).map((a) => <AppointmentCard key={a.id} appt={a} unread={!seenCompletedSet.has(a.id)} onPress={() => { markCompletedSeen([a.id]); router.push(`/booking/${a.id}`); }} />)
         ) : tab === "archive" ? (
-          apptsQ.isLoading ? <ListSkeleton /> :
-          archivedAppts.length === 0 ? <EmptyState icon="archive-outline" title="Nothing archived" message="Cancelled bookings and no-shows land here." /> :
-          paged(archivedAppts).map((a) => <AppointmentCard key={a.id} appt={a} onPress={() => router.push(`/booking/${a.id}`)} />)
+          apptsQ.isLoading || reqsQ.isLoading ? <ListSkeleton /> :
+          archiveItems.length === 0 ? <EmptyState icon="archive-outline" title="Nothing archived" message="Cancelled bookings, no-shows and closed requests land here." /> :
+          paged(archiveItems).map((it) => it.kind === "appt"
+            ? <AppointmentCard key={`a-${it.appt.id}`} appt={it.appt} onPress={() => router.push(`/booking/${it.appt.id}`)} />
+            : <RequestCard key={`r-${it.req.id}`} req={it.req} onPress={() => router.push(`/booking/${it.req.id}`)} />)
         ) : (
           reqsQ.isLoading ? <ListSkeleton /> :
           openRequests.length === 0 ? <EmptyState icon="paper-plane-outline" title="No open requests" message="Find an artist and tap “Request booking” to get started." actionLabel="Find an artist" onAction={() => router.push("/discover")} /> :
