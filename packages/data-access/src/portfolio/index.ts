@@ -151,6 +151,7 @@ export function usePortfolioSaved(client: InkoraClient, imageId: string) {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: key });
       void qc.invalidateQueries({ queryKey: ["saved-designs"] });
+      void qc.invalidateQueries({ queryKey: ["saved-count"] }); // dashboardKeys.savedCount
     },
   });
   return { saved, isLoading: q.isLoading, isToggling: mutation.isPending, toggle: () => mutation.mutate(!saved) };

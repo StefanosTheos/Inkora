@@ -140,17 +140,22 @@ export function StudioDashboardScreen() {
           <Text style={s.insightsCtaText}>See all completed bookings</Text>
           <Ionicons name="chevron-forward" size={16} color="#A1A1AA" />
         </Pressable>
-        <Text style={s.periodNote}>Revenue, completed, cancelled &amp; visits shown for {STATS_PERIOD_LABEL[period].toLowerCase()}</Text>
+        {/* Period-scoped tiles (from the wtd/mtd/ytd view) — these track the
+            toggle above. */}
+        <Text style={s.periodNote}>Revenue, completed, cancelled, no-shows &amp; visits shown for {STATS_PERIOD_LABEL[period].toLowerCase()}</Text>
         <View style={s.gridRow}>
           <BigTile label="Completed" value={pv?.completed ?? 0} icon="checkmark-done-outline" trend={<TrendBadge cur={pv?.completed ?? 0} prev={pv?.prevCompleted ?? 0} />} />
-          <BigTile label="Scheduled" value={ov?.scheduledBookings ?? 0} icon="calendar-outline" />
-        </View>
-        <View style={s.gridRow}>
           <BigTile label="Cancelled" value={pv?.cancelled ?? 0} icon="close-circle-outline" trend={<TrendBadge cur={pv?.cancelled ?? 0} prev={pv?.prevCancelled ?? 0} higherIsBetter={false} />} />
-          <BigTile label="No-shows" value={pv?.noShow ?? 0} icon="person-remove-outline" alert={!!pv?.noShow} trend={<TrendBadge cur={pv?.noShow ?? 0} prev={pv?.prevNoShow ?? 0} higherIsBetter={false} />} />
         </View>
         <View style={s.gridRow}>
+          <BigTile label="No-shows" value={pv?.noShow ?? 0} icon="person-remove-outline" alert={!!pv?.noShow} trend={<TrendBadge cur={pv?.noShow ?? 0} prev={pv?.prevNoShow ?? 0} higherIsBetter={false} />} />
           <BigTile label="Profile visits" value={pv?.profileVisits ?? 0} icon="eye-outline" trend={<TrendBadge cur={pv?.profileVisits ?? 0} prev={pv?.prevProfileVisits ?? 0} />} />
+        </View>
+        {/* Overall tiles — not tied to the period toggle: upcoming bookings, the
+            studio's all-time saves, and the current pending application count. */}
+        <Text style={s.allTimeNote}>Overall</Text>
+        <View style={s.gridRow}>
+          <BigTile label="Scheduled" value={ov?.scheduledBookings ?? 0} icon="calendar-outline" />
           <BigTile label="Saved by" value={ov?.studioSaves ?? 0} icon="heart-outline" />
         </View>
         <View style={s.gridRow}>
@@ -250,6 +255,7 @@ const s = StyleSheet.create({
   periodText: { fontSize: 13, fontWeight: "700", color: "#71717A" },
   periodTextActive: { color: "#fff" },
   periodNote: { color: "#A1A1AA", fontSize: 11.5, fontWeight: "600", marginBottom: 12, marginTop: -2 },
+  allTimeNote: { color: "#A1A1AA", fontSize: 11.5, fontWeight: "700", marginTop: 2, marginBottom: 12, textTransform: "uppercase", letterSpacing: 0.5 },
   insightsCta: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#F4F4F5", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 12 },
   insightsCtaText: { flex: 1, fontSize: 14, fontWeight: "800", color: "#18181B" },
   trendRow: { flexDirection: "row", alignItems: "center", gap: 1 },

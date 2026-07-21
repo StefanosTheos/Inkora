@@ -43,6 +43,7 @@ export function ArtistDashboardScreen() {
       try {
         await removeSavedDesign(supabase, design.id, design.targetType);
         await qc.invalidateQueries({ queryKey: dashboardKeys.savedDesigns });
+        await qc.invalidateQueries({ queryKey: dashboardKeys.savedCount });
       } catch (e) {
         toast.show((e as Error).message, "error");
       }

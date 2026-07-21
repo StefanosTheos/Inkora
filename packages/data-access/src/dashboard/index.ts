@@ -187,6 +187,19 @@ export async function getSavedDesigns(client: InkoraClient): Promise<SavedDesign
   return [...cards.values()].sort((x, y) => (order.get(x.id) ?? 0) - (order.get(y.id) ?? 0));
 }
 
+/** Exact total of saved artists + designs (RLS-scoped) — head-only, no rows
+ *  transferred. Counts the same favorite kinds the two saved lists show
+ *  (artist + idea + portfolio_image, but NOT studio saves), so the "Saved" stat
+ *  stays accurate past the lists' display caps (60 artists / 80 designs). */
+export async function countSavedItems(client: InkoraClient): Promise<number> {
+  const { count, error } = await client
+    .from("favorites")
+    .select("target_id", { count: "exact", head: true })
+    .in("target_type", ["artist", "idea", "portfolio_image"]);
+  if (error) throw toAppError(error);
+  return count ?? 0;
+}
+
 /** Remove a saved design (either an idea or a portfolio piece). */
 export async function removeSavedDesign(client: InkoraClient, id: string, targetType: "idea" | "portfolio_image"): Promise<void> {
   const { data: userRes } = await client.auth.getUser();
@@ -206,6 +219,7 @@ export const dashboardKeys = {
   profile: ["profile-summary"] as const,
   savedArtists: ["saved-artists"] as const,
   savedDesigns: ["saved-designs"] as const,
+  savedCount: ["saved-count"] as const,
   accountSettings: ["account-settings"] as const,
 };
 export function useAccountSettings(client: InkoraClient) {
@@ -219,4 +233,7 @@ export function useSavedArtists(client: InkoraClient) {
 }
 export function useSavedDesigns(client: InkoraClient) {
   return useQuery({ queryKey: dashboardKeys.savedDesigns, queryFn: () => getSavedDesigns(client) });
+}
+export function useSavedCount(client: InkoraClient) {
+  return useQuery({ queryKey: dashboardKeys.savedCount, queryFn: () => countSavedItems(client) });
 }

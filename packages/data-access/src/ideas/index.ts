@@ -176,6 +176,7 @@ export function useIdeaSaved(client: InkoraClient, ideaId: string) {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: key });
       void qc.invalidateQueries({ queryKey: ["saved-designs"] }); // dashboardKeys.savedDesigns
+      void qc.invalidateQueries({ queryKey: ["saved-count"] }); // dashboardKeys.savedCount
     },
   });
   return { saved, isLoading: q.isLoading, isToggling: mutation.isPending, toggle: () => mutation.mutate(!saved) };

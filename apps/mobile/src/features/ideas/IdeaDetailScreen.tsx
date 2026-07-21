@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { startDirectConversation, useAuth, useIdeaDetail, useIdeaSaved, useSimilarIdeas } from "@inkora/data-access";
-import type { IdeaCard } from "@inkora/domain";
+import { formatStyleSlug, type IdeaCard } from "@inkora/domain";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -113,7 +113,7 @@ export function IdeaDetailScreen({ id }: { id: string }) {
           ) : null}
           {d.styleSlugs.length > 0 && (
             <View style={s.tags}>
-              {d.styleSlugs.map((sl) => <View key={sl} style={s.tag}><Text style={s.tagText}>{sl}</Text></View>)}
+              {d.styleSlugs.map((sl) => <View key={sl} style={s.tag}><Text style={s.tagText}>{formatStyleSlug(sl)}</Text></View>)}
             </View>
           )}
 

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { SavedDesignCard } from "@inkora/data-access";
 import {
   dashboardKeys, removeSavedDesign, useAuth, useBookingJourneys, useMyAppointmentCount, useNotifications,
-  useProfileSummary, useRewards, useSavedArtists, useSavedDesigns, useUpcomingAppointments,
+  useProfileSummary, useRewards, useSavedArtists, useSavedCount, useSavedDesigns, useUpcomingAppointments,
 } from "@inkora/data-access";
 import {
   APPOINTMENT_STATUS_LABEL, fmtMonthYear, TIER_COLOR, TIER_LABEL, tierProgress,
@@ -37,6 +37,7 @@ export function UserDashboardScreen() {
   const apptCount = useMyAppointmentCount(supabase);
   const savedArtists = useSavedArtists(supabase);
   const savedDesigns = useSavedDesigns(supabase);
+  const savedCountQ = useSavedCount(supabase);
   const journeys = useBookingJourneys(supabase);
   const { notifications } = useNotifications(supabase);
   const { openRequests, newBookings, apptReplies } = useBadgeCounts();
@@ -53,7 +54,9 @@ export function UserDashboardScreen() {
     (n, j) => n + j.dueCount + (j.status === "completed" && !j.hasReview ? 1 : 0),
     0,
   );
-  const savedCount = (savedArtists.data?.length ?? 0) + (savedDesigns.data?.length ?? 0);
+  // Exact count via a head-only query — summing the two saved lists undercounts
+  // heavy savers, whose lists are capped (60 artists / 80 designs) for display.
+  const savedCount = savedCountQ.data ?? 0;
   const isArtist = ctx.roles.includes("artist");
 
   const confirmSignOut = () => {
@@ -76,6 +79,7 @@ export function UserDashboardScreen() {
       try {
         await removeSavedDesign(supabase, design.id, design.targetType);
         await qc.invalidateQueries({ queryKey: dashboardKeys.savedDesigns });
+        await qc.invalidateQueries({ queryKey: dashboardKeys.savedCount });
       } catch (e) {
         toast.show((e as Error).message, "error");
       }

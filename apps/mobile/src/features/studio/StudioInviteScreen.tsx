@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  type InviteArtist, searchArtistsForInvite, studioInviteArtist, useAuth, useMyStudio, useStyleDeck,
+  type InviteArtist, searchArtistsForInvite, studioInviteArtist, useAuth, useMyStudio,
+  useStudioMemberStatuses, useStyleDeck,
 } from "@inkora/data-access";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -32,6 +33,9 @@ export function StudioInviteScreen() {
   const meId = ctx.userId ?? "";
   const studioQ = useMyStudio(supabase, meId);
   const studioId = studioQ.data?.id ?? "";
+  // Artists already tied to this studio (active/invited/applied/suspended) — so
+  // the search shows their state instead of an Invite button the server rejects.
+  const memberStatuses = useStudioMemberStatuses(supabase, studioId).data ?? {};
 
   // Applied filters (drive the query).
   const [query, setQuery] = useState("");
@@ -96,6 +100,7 @@ export function StudioInviteScreen() {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["my-studio", meId] }),
         qc.invalidateQueries({ queryKey: ["studio-overview", studioId] }),
+        qc.invalidateQueries({ queryKey: ["studio-member-statuses", studioId] }),
       ]);
       toast.show("Invitation sent");
     } catch (e) {
@@ -142,7 +147,15 @@ export function StudioInviteScreen() {
           <>
             <Text style={s.count}>{results.length} artist{results.length === 1 ? "" : "s"}</Text>
             {results.map((a) => (
-              <ArtistRow key={a.id} artist={a} invited={invited.has(a.id)} busy={busy === a.id} onOpen={() => router.push(`/artist/${a.id}`)} onInvite={() => void invite(a.id)} />
+              <ArtistRow
+                key={a.id}
+                artist={a}
+                invited={invited.has(a.id)}
+                memberStatus={memberStatuses[a.id]}
+                busy={busy === a.id}
+                onOpen={() => router.push(`/artist/${a.id}`)}
+                onInvite={() => void invite(a.id)}
+              />
             ))}
           </>
         )}
@@ -207,9 +220,21 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
   );
 }
 
-function ArtistRow({ artist, invited, busy, onOpen, onInvite }: { artist: InviteArtist; invited: boolean; busy: boolean; onOpen: () => void; onInvite: () => void }) {
+// Resolve the invite button state. Local `invited` (this-session) and the
+// server-side membership status both make the artist un-invitable; each terminal
+// state gets its own label so the owner sees *why* they can't be invited.
+function inviteState(invited: boolean, memberStatus?: string): { label: string; disabled: boolean } {
+  if (memberStatus === "active") return { label: "On team", disabled: true };
+  if (memberStatus === "suspended") return { label: "Suspended", disabled: true };
+  if (memberStatus === "requested") return { label: "Applied", disabled: true };
+  if (invited || memberStatus === "invited") return { label: "Invited", disabled: true };
+  return { label: "Invite", disabled: false };
+}
+
+function ArtistRow({ artist, invited, memberStatus, busy, onOpen, onInvite }: { artist: InviteArtist; invited: boolean; memberStatus?: string; busy: boolean; onOpen: () => void; onInvite: () => void }) {
   const meta = [artist.ratingCount > 0 ? `★ ${artist.ratingAvg.toFixed(1)} (${artist.ratingCount})` : null, artist.city, artist.headline]
     .filter(Boolean).join(" · ");
+  const { label, disabled } = inviteState(invited, memberStatus);
   return (
     <View style={s.row}>
       <Pressable style={s.person} onPress={onOpen} accessibilityRole="button" accessibilityLabel={`View ${artist.displayName}`}>
@@ -219,8 +244,8 @@ function ArtistRow({ artist, invited, busy, onOpen, onInvite }: { artist: Invite
           <Text style={s.sub} numberOfLines={1}>{meta || "Artist"}</Text>
         </View>
       </Pressable>
-      <Pressable style={[s.inviteBtn, invited && s.inviteBtnDone]} disabled={invited || busy} onPress={onInvite} accessibilityRole="button" accessibilityLabel={`Invite ${artist.displayName}`}>
-        <Text style={[s.inviteText, invited && s.inviteTextDone]}>{invited ? "Invited" : busy ? "…" : "Invite"}</Text>
+      <Pressable style={[s.inviteBtn, disabled && s.inviteBtnDone]} disabled={disabled || busy} onPress={onInvite} accessibilityRole="button" accessibilityLabel={disabled ? `${artist.displayName}: ${label}` : `Invite ${artist.displayName}`}>
+        <Text style={[s.inviteText, disabled && s.inviteTextDone]}>{busy ? "…" : label}</Text>
       </Pressable>
     </View>
   );

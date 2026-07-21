@@ -315,6 +315,7 @@ export function useArtistSaved(client: InkoraClient, artistId: string) {
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: key });
       void qc.invalidateQueries({ queryKey: ["saved-artists"] }); // dashboardKeys.savedArtists
+      void qc.invalidateQueries({ queryKey: ["saved-count"] }); // dashboardKeys.savedCount
     },
   });
   return { saved, isLoading: q.isLoading, isToggling: mutation.isPending, toggle: () => mutation.mutate(!saved) };

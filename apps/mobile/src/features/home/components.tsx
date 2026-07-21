@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { FlashListItem } from "@inkora/data-access";
-import type { HomeArtist, IdeaCard, NearbyStudio, Promotion, StyleCard } from "@inkora/domain";
+import { formatStyleSlug, type HomeArtist, type IdeaCard, type NearbyStudio, type Promotion, type StyleCard } from "@inkora/domain";
 import { Image } from "expo-image";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -86,7 +86,7 @@ export function ArtistCard({ artist, uri, onPress }: { artist: HomeArtist; uri?:
         {artist.ratingCount > 0 ? `★ ${artist.ratingAvg.toFixed(1)}` : "New"}
         {/* Recommended cards carry the match "why": nearest studio + matched style. */}
         {artist.distanceKm != null ? ` · ${artist.distanceKm < 1 ? "<1" : Math.round(artist.distanceKm)}km` : ""}
-        {(artist.matchedStyles?.[0] ?? artist.styles[0]) ? ` · ${artist.matchedStyles?.[0] ?? artist.styles[0]}` : ""}
+        {(artist.matchedStyles?.[0] ?? artist.styles[0]) ? ` · ${formatStyleSlug(artist.matchedStyles?.[0] ?? artist.styles[0]!)}` : ""}
       </Text>
     </Pressable>
   );

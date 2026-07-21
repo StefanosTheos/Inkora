@@ -215,6 +215,25 @@ export async function getMyStudioMembershipStatus(client: InkoraClient, studioId
   return data?.status ?? null;
 }
 
+/** Map of artistId -> non-terminal membership status for ONE studio
+ *  (requested/invited/active/suspended). Lets the owner's invite search show an
+ *  "On team"/"Invited"/"Applied"/"Suspended" state instead of letting them tap
+ *  Invite on someone already tied to the studio (which the server rejects). RLS
+ *  lets the owner read their own studio's memberships. */
+export async function getStudioMemberStatuses(client: InkoraClient, studioId: string): Promise<Record<string, string>> {
+  if (!studioId) return {};
+  const { data, error } = await client
+    .from("studio_memberships")
+    .select("artist_id, status")
+    .eq("studio_id", studioId)
+    .in("status", ["requested", "invited", "active", "suspended"])
+    .returns<{ artist_id: string; status: string }[]>();
+  if (error) throw toAppError(error);
+  const map: Record<string, string> = {};
+  for (const r of data ?? []) map[r.artist_id] = r.status;
+  return map;
+}
+
 /** Artist applies to work at a studio. Returns the resulting status ('requested'). */
 export async function applyToStudio(client: InkoraClient, studioId: string): Promise<string> {
   const { data, error } = await client.rpc("apply_to_studio", { p_studio_id: studioId });
@@ -356,6 +375,14 @@ export function useMyStudioMembershipStatus(client: InkoraClient, studioId: stri
   return useQuery({
     queryKey: ["my-studio-membership-status", studioId],
     queryFn: () => getMyStudioMembershipStatus(client, studioId),
+    enabled: !!studioId,
+  });
+}
+
+export function useStudioMemberStatuses(client: InkoraClient, studioId: string) {
+  return useQuery({
+    queryKey: ["studio-member-statuses", studioId],
+    queryFn: () => getStudioMemberStatuses(client, studioId),
     enabled: !!studioId,
   });
 }

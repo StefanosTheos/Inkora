@@ -383,9 +383,14 @@ export async function listUpcomingAppointments(client: InkoraClient, limit = 3):
   return (data ?? []).map((r) => mapAppt(r, me));
 }
 
-/** Total appointment count for the current user (RLS-scoped) — head-only, no rows transferred. */
+/** Count of the current user's real bookings (RLS-scoped) — head-only, no rows
+ *  transferred. Excludes cancelled/no-shows so the "Bookings" stat reflects
+ *  actual sessions (live + completed), not abandoned requests. */
 export async function countMyAppointments(client: InkoraClient): Promise<number> {
-  const { count, error } = await client.from("appointments").select("id", { count: "exact", head: true });
+  const { count, error } = await client
+    .from("appointments")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["scheduled", "rescheduled", "completed"]);
   if (error) throw toAppError(error);
   return count ?? 0;
 }
