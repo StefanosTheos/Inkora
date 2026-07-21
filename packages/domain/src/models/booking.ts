@@ -175,7 +175,9 @@ export interface AppointmentView {
 }
 
 // ---------------------------------------------------------------- labels / colors
-// (legal-transition tables live in ../state-machines/booking)
+// Legal booking-status transitions are enforced server-side (the appointment
+// transition-guard trigger + the create_offer / respond_offer / reschedule RPCs),
+// so there's no client-side transition table to keep in sync.
 export const REQUEST_STATUS_LABEL: Record<RequestStatus, string> = {
   pending: "Pending", reviewing: "Reviewing", offered: "Offer sent",
   accepted: "Accepted", declined: "Declined", expired: "Expired",
