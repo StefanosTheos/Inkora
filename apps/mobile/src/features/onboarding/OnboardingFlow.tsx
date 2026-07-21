@@ -114,11 +114,15 @@ function RoleChoice({ onSeeker, onComplete }: { onSeeker: () => void; onComplete
     // immediately — previously they had no city/coords until a manual edit.
     if (!city) { toast.show("Enter your city so clients can find you", "error"); return; }
     setBusy(true);
-    const res = await becomeArtist(supabase, headline.trim() || undefined);
-    if (!res.ok) { setBusy(false); toast.show(res.error.message, "error"); return; }
+    // Geocode + persist the location FIRST — it only writes the user's own
+    // profile, so no role is needed. Doing it before becomeArtist means a lookup
+    // failure can't leave the user artist-but-not-onboarded: the role change only
+    // happens once we have a valid, discoverable location.
     const loc = await updateProfileLocation(supabase, city, artistCountry.trim() || undefined); // geocodes "city, country"
     if (!loc.ok) { setBusy(false); toast.show(loc.error.message, "error"); return; }
     if (!loc.value) { setBusy(false); toast.show("Couldn't locate that city — try adding the country.", "error"); return; }
+    const res = await becomeArtist(supabase, headline.trim() || undefined);
+    if (!res.ok) { setBusy(false); toast.show(res.error.message, "error"); return; }
     // Mark onboarded (no style prefs needed for artists), then re-mint the session.
     const fin = await finish.mutateAsync({});
     if (!fin.ok) { setBusy(false); toast.show(fin.error.message, "error"); return; }
@@ -420,9 +424,12 @@ function Results({
     return (
       <View style={s.center}>
         <Text style={s.question}>No favorites yet</Text>
-        <Text style={s.muted}>Give a few styles a Like or Love to get recommendations.</Text>
-        <Pressable style={[s.reactBtn, s.love, { marginTop: 16 }]} onPress={onRestart}>
+        <Text style={s.muted}>Give a few styles a Like or Love to get tailored recommendations — or skip and explore for now.</Text>
+        <Pressable style={[s.reactBtn, s.love, { marginTop: 16 }]} disabled={busy} onPress={onRestart}>
           <Text style={[s.reactText, { color: "#fff" }]}>Try again</Text>
+        </Pressable>
+        <Pressable style={s.skipBtn} disabled={busy} onPress={onFinish} accessibilityRole="button" accessibilityLabel="Skip and start exploring">
+          {busy ? <ActivityIndicator color="#71717A" /> : <Text style={s.skipText}>Skip for now</Text>}
         </Pressable>
       </View>
     );
@@ -546,6 +553,8 @@ const s = StyleSheet.create({
   back: { color: "#E5484D", fontWeight: "600", fontSize: 16 },
   disabled: { opacity: 0.3 },
   muted: { color: "#A1A1AA", fontSize: 14 },
+  skipBtn: { marginTop: 12, paddingVertical: 12, paddingHorizontal: 24, minHeight: 44, justifyContent: "center" },
+  skipText: { color: "#71717A", fontWeight: "700", fontSize: 15 },
   progressTrack: { height: 4, backgroundColor: "#E4E4E7", borderRadius: 2, overflow: "hidden", marginBottom: 16 },
   progressFill: { height: 4, backgroundColor: "#E5484D" },
   question: { fontSize: 24, fontWeight: "800", marginBottom: 16 },

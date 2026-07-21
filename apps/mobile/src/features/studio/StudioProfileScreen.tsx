@@ -221,7 +221,17 @@ export function StudioProfileScreen({ slug }: { slug: string }) {
       {/* Sticky CTA */}
       <View style={[s.cta, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         {isOwnerViewer ? (
-          <Text style={s.ctaHint} accessibilityRole="text">This is your studio&apos;s public page — edit it from your dashboard.</Text>
+          <>
+            <Text style={s.ctaHint} accessibilityRole="text">This is your studio&apos;s public page.</Text>
+            <View style={s.ctaRow}>
+              <Pressable style={s.ctaSecondary} accessibilityRole="button" accessibilityLabel="Back to your dashboard" onPress={() => router.navigate("/")}>
+                <Text style={s.ctaSecondaryText}>Dashboard</Text>
+              </Pressable>
+              <Pressable style={s.ctaPrimary} accessibilityRole="button" accessibilityLabel="Edit your studio" onPress={() => router.push("/studio-edit")}>
+                <Text style={s.ctaPrimaryText}>Edit studio</Text>
+              </Pressable>
+            </View>
+          </>
         ) : (
           <>
         {boundElsewhere && (

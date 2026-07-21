@@ -19,14 +19,10 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
   - Files: `packages/domain/src/models/notification.ts:22`, `supabase/functions/notify-dispatch/index.ts:89`.
 
 ## Tier D — UX / QoL
-- [ ] **66. Owner's own public studio page is a dead end.** Viewing their own `/studio/[slug]`, the sticky CTA is a hint only ("edit it from your dashboard") with no button — add an Edit / Back-to-dashboard action.
-  - Files: `StudioProfileScreen.tsx:222`.
 - [ ] **70. Voucher redemption idempotency key isn't stable.** `redeemVoucher(…, `${v.id}-${Date.now()}`)` changes every call, so it can't dedupe a double-submit — risks a double point spend on a money-equivalent action. Fix: derive a stable key (e.g. per voucher+day or a client-generated UUID held in state).
   - Files: `RewardsScreen.tsx:58`.
 - [ ] **71. Rewards "Redeem points" header renders with no empty state** when no vouchers are configured — an orphaned header over blank space.
   - Files: `RewardsScreen.tsx:104`.
-- [ ] **72. Onboarding gaps.** (a) A seeker who likes no style cards is hard-gated ("No favorites yet", only "Try again") with no skip — artists/studios aren't gated. (b) `onArtist` grants artist + drops seeker + re-mints the session *before* geocoding/`finish`; if `updateProfileLocation` fails the user is left artist-but-not-onboarded with no rollback.
-  - Files: `OnboardingFlow.tsx:117,419`.
 - [ ] **73. `/rewards` doesn't bounce studio owners.** The guard redirects `artist` but not `studio_admin`, so an owner deep-linking `/rewards` sees an empty seeker-only screen.
   - Files: `apps/mobile/app/rewards.tsx:11`.
 - [ ] **74. Legal copy references a nonexistent setting.** It tells users to set a "default search radius under Account settings," but no radius control exists and `profiles.search_radius_km` is never editable. Fix the copy or wire the control.
@@ -58,6 +54,8 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # DONE
 
 ## Round 2 fixes
+- [x] **72.** Closed two onboarding gaps. (a) The seeker "No favorites yet" screen now offers a **Skip for now** action (calls `onFinish` to complete onboarding) instead of only "Try again", so a seeker who likes no style cards isn't hard-gated. (b) Reordered `onArtist` so the location work (`updateProfileLocation`, which only writes the user's own profile) runs *before* `becomeArtist` — a geocode/lookup failure now aborts before the role change instead of leaving the user artist-but-not-onboarded with no rollback. (`apps/mobile/src/features/onboarding/OnboardingFlow.tsx`)
+- [x] **66.** The owner's own public studio page is no longer a dead end. The sticky CTA now shows real buttons for the owner-viewer — **Dashboard** (→ home tab) and **Edit studio** (→ `/studio-edit`) — instead of a hint that only told them to edit from the dashboard with no way to get there. (`apps/mobile/src/features/studio/StudioProfileScreen.tsx`)
 - [x] **65.** The studio calendar no longer shows false "Nothing booked" empties outside its initial window. `MonthCalendar` gained an `onMonthChange` callback; `StudioCalendarScreen` seeds a window around today and grows it (never shrinks) to always bracket the visible month with a one-month buffer, so paging past the initial range refetches to cover it. `useStudioCalendarBookings` got `placeholderData: keepPreviousData` so the current month stays visible while a widened range loads. (`apps/mobile/src/features/booking/components/MonthCalendar.tsx`, `apps/mobile/src/features/studio/StudioCalendarScreen.tsx`, `packages/data-access/src/studio/index.ts`)
 - [x] **63.** Year-to-date insights drill keeps the year. Added a `year` grain to the Studio Insights screen (window/shift/label + selector), and the dashboard's two insight CTAs now map `ytd → g=year` (was `month`), so drilling from the Year overview opens a full-year insights view instead of the current month. (`apps/mobile/src/features/studio/StudioInsightsScreen.tsx`, `apps/mobile/src/features/studio/StudioDashboardScreen.tsx`)
 - [x] **69.** The saved-design fullscreen viewer now requests a screen-width variant via `imageUrl(item.imagePath, width)` (which applies the @2x factor + quality cap) instead of `publicStorageUrl` with no size, which loaded every page's full-res original. Falls back to the original when image transforms are disabled. (`apps/mobile/app/(modals)/image-viewer.tsx`)
