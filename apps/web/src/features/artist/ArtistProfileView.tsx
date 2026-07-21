@@ -1,10 +1,11 @@
 "use client";
 import {
-  publicStorageUrl, useArtistAvailability, useArtistOffers, useArtistPortfolio,
+  publicStorageUrl, startDirectConversation, useArtistAvailability, useArtistOffers, useArtistPortfolio,
   useArtistProfile, useArtistReviews,
 } from "@inkora/data-access";
 import { type Complexity, DAY_LABELS, estimatePrice, formatAmount } from "@inkora/domain";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { env } from "../../lib/env";
@@ -23,11 +24,26 @@ export function ArtistProfileView({ id }: { id: string }) {
   const availability = useArtistAvailability(client, id);
   const [tab, setTab] = useState<Tab>("portfolio");
   const [complexity, setComplexity] = useState<Complexity>("medium");
+  const router = useRouter();
+  const [messaging, setMessaging] = useState(false);
 
   if (profile.isLoading) return <p className="p-8 text-center text-zinc-500">Loading…</p>;
   const a = profile.data;
   if (!a) return <p className="p-8 text-center text-zinc-500">Artist not found.</p>;
   const est = estimatePrice(complexity, a.hourlyRate, a.minCharge, a.currencyCode);
+
+  // Open (or create) the direct conversation with this artist and jump to it,
+  // rather than dropping the user on the generic inbox with no context.
+  async function messageArtist() {
+    setMessaging(true);
+    try {
+      const cid = await startDirectConversation(client, id);
+      router.push(`/messages/${cid}`);
+    } catch (e) {
+      alert((e as Error).message);
+      setMessaging(false);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
@@ -113,7 +129,7 @@ export function ArtistProfileView({ id }: { id: string }) {
       </div>
 
       <div className="sticky bottom-0 mt-8 flex gap-3 border-t bg-white py-3">
-        <Link href="/messages" className="flex-1 rounded-xl border py-3 text-center font-semibold">Message</Link>
+        <button onClick={messageArtist} disabled={messaging} className="flex-1 rounded-xl border py-3 text-center font-semibold disabled:opacity-50">{messaging ? "Opening…" : "Message"}</button>
         <Link href={`/booking-request?artistId=${a.id}`} className={`flex-[2] rounded-xl py-3 text-center font-semibold text-white ${a.isAccepting ? "bg-[#E5484D]" : "pointer-events-none bg-zinc-300"}`}>
           {a.isAccepting ? "Request booking" : "Not accepting"}
         </Link>
