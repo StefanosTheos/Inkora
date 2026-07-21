@@ -19,9 +19,20 @@ export interface DeviceToken {
   platform: DevicePlatform;
 }
 
+/**
+ * A user's notification delivery preferences — the flat model the readers
+ * (notify-dispatch, use-push-sync, Account settings) actually use, stored as the
+ * `notification_preferences.channels` jsonb. In-app inbox notifications are
+ * ALWAYS created regardless of these; the flags only gate outbound delivery.
+ * Both are opt-in (default off). Email is additionally gated off client-side by
+ * a feature flag until a sending domain is configured (see mobile lib/features).
+ *
+ * There is intentionally no per-`NotificationType` muting or quiet-hours model —
+ * an earlier richer shape was never wired up, so this matches what ships.
+ */
 export interface NotificationPreferences {
-  channels: Partial<Record<NotificationType, { inApp: boolean; push: boolean }>>;
-  quietHours?: { start: string; end: string; timezone: string };
+  push: boolean;
+  email: boolean;
 }
 
 /** Emoji glyph shown on an inbox row per type. */

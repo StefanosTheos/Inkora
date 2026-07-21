@@ -914,25 +914,16 @@ export type Database = {
         Row: {
           channels: Json
           profile_id: string
-          quiet_hours_end: string | null
-          quiet_hours_start: string | null
-          timezone: string
           updated_at: string
         }
         Insert: {
           channels?: Json
           profile_id: string
-          quiet_hours_end?: string | null
-          quiet_hours_start?: string | null
-          timezone?: string
           updated_at?: string
         }
         Update: {
           channels?: Json
           profile_id?: string
-          quiet_hours_end?: string | null
-          quiet_hours_start?: string | null
-          timezone?: string
           updated_at?: string
         }
         Relationships: [
