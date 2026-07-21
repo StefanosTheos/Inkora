@@ -14,16 +14,23 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const PASSWORD_MIN = 8; // matches the input hint (Supabase's own default is only 6)
+
   async function onSignUp() {
+    const mail = email.trim();
+    if (!mail) { toast.show("Enter your email", "error"); return; }
+    if (password.length < PASSWORD_MIN) { toast.show(`Password must be at least ${PASSWORD_MIN} characters`, "error"); return; }
     setBusy(true);
-    const res = await signUpWithPassword({ email: email.trim(), password, displayName: displayName.trim() });
+    const res = await signUpWithPassword({ email: mail, password, displayName: displayName.trim() });
     setBusy(false);
     if (!res.ok) {
       toast.show(res.error.message, "error");
       return;
     }
-    // Email verification is disabled — with a session returned, the root gate routes
-    // new users straight to /onboarding (handle_new_user made the profile + seeker role).
+    // Email confirmation is intentionally not used (kept disabled server-side —
+    // not worth the production email cost), so signUp always returns a session
+    // and the root gate routes new users straight to /onboarding (handle_new_user
+    // already made the profile + seeker role).
   }
 
   return (

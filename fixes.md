@@ -14,23 +14,22 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 
 # OPEN — Round 2 audit (2026-07-20)
 
-## Tier C — Notifications & messaging
-
-## Tier D — UX / QoL
+## Rewards System revamp
+Grouped for a dedicated pass — the rewards surface needs a rethink, not piecemeal patches.
+- [ ] **30. Rewards are opaque** — no "ways to earn" panel, tier benefits unexplained, `save` earn-reason contradicts saving awarding nothing, referral share has no deep link. (`RewardsScreen.tsx`, `ideas/index.ts`)
 - [ ] **70. Voucher redemption idempotency key isn't stable.** `redeemVoucher(…, `${v.id}-${Date.now()}`)` changes every call, so it can't dedupe a double-submit — risks a double point spend on a money-equivalent action. Fix: derive a stable key (e.g. per voucher+day or a client-generated UUID held in state).
   - Files: `RewardsScreen.tsx:58`.
 - [ ] **71. Rewards "Redeem points" header renders with no empty state** when no vouchers are configured — an orphaned header over blank space.
   - Files: `RewardsScreen.tsx:104`.
 - [ ] **73. `/rewards` doesn't bounce studio owners.** The guard redirects `artist` but not `studio_admin`, so an owner deep-linking `/rewards` sees an empty seeker-only screen.
   - Files: `apps/mobile/app/rewards.tsx:11`.
-- [ ] **75. Sign-up ignores email-confirmation + weak password hint.** The screen ignores `needsEmailConfirmation` (silent no-op if confirmations are enabled) and the "min 8 chars" placeholder has no client validation (Supabase default is 6).
-  - Files: `apps/mobile/app/(auth)/sign-up.tsx:20-27,41`.
+
+## Tier C — Notifications & messaging
+
+## Tier D — UX / QoL
 
 ## Tier E — Missing capabilities / additions
 - [ ] **9. No boards/collections** — saves are a flat, unorganizable list; can't group or share a collection with an artist. (`UserDashboardScreen.tsx`, `favorites`)
-- [ ] **30. Rewards are opaque** — no "ways to earn" panel, tier benefits unexplained, `save` earn-reason contradicts saving awarding nothing, referral share has no deep link. (`RewardsScreen.tsx`, `ideas/index.ts`)
-- [ ] **79. Try-on is flash-only.** Inspiration ideas (the bulk of Discover) have Save/Send/Book but no "Try on" — the headline feature is unreachable from most designs. Consider allowing any design image into the compositor.
-  - Files: `IdeaDetailScreen.tsx`, `TryOnScreen.tsx`.
 - [ ] **80. No production analytics.** Mobile uses a console no-op tracker (`createConsoleTracker(__DEV__)`), web has none, and the only real adapter (`createPostHogTracker`) is dead code — the full events taxonomy is unused. Wire a real tracker (or drop the taxonomy).
   - Files: `apps/mobile/src/lib/analytics.ts:5`, `packages/analytics/src/tracker.ts:44`.
 - [ ] **81. (KNOWN LIMITATION) apps/web business dashboards are scaffold only.** The `(artist)/dashboard` + `(studio)/dashboard` routes are empty `export {}`; both route groups resolve to `/dashboard` (a collision that only avoids a Next build error because neither exports a page), while middleware gates the non-existent `/artist-dashboard` / `/studio-dashboard` prefixes. Building these requires restructuring the route groups + porting the mobile dashboards — a multi-page feature, deferred. Consumer flows work. (The two concrete bugs in the original item — the ArtistProfileView "Message" button and web AI — are fixed; see Round 2 #81 done.)
@@ -43,6 +42,7 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # DONE
 
 ## Round 2 fixes
+- [x] **75.** Hardened the mobile sign-up screen: it now validates the password client-side against the "min 8 chars" hint (and requires an email) before calling signup, instead of silently deferring to Supabase's weaker 6-char default. The `needsEmailConfirmation` half of the original item is moot by decision — email confirmation isn't implemented (not worth the production email cost, kept disabled server-side), so signup always returns a session; a comment documents that rather than adding a "check your email" flow that would never run. (`apps/mobile/app/(auth)/sign-up.tsx`)
 - [x] **84.** Reconciled `database.types.ts` with the current schema (hand-edited to match the migrations, since there's no CLI-linked DB here). Added the `profile_visits` table, the `appointment_requests.preferred_time_of_day` column, and the missing enum values — `membership_status 'requested'`, `notification_type 'membership_request'`/`'journey'`, `reward_reason 'journey_milestone'`/`'journey_completed'` — in both the type-union and runtime `Constants` blocks. The two structural additions were verified present in the live DB via anon REST probes (`preferred_time_of_day` + `profile_visits` both resolve); enum values come straight from the `add value` migrations. All packages typecheck. (`packages/data-access/src/db/database.types.ts`)
 - [x] **83.** Deleted the unused booking transition tables (`APPOINTMENT/REQUEST/OFFER_TRANSITIONS` in `state-machines/booking.ts`) — zero importers, and transition legality is already enforced server-side (the #42 appointment transition-guard trigger + the `create_offer` / `respond_offer` / reschedule RPCs), so a client-side table would just be a second source of truth to drift. Removed the barrel export + empty dir and updated the stale pointer comment in `models/booking.ts`. All packages typecheck; domain tests green. (`packages/domain/src/{index,models/booking}.ts`, deleted `state-machines/booking.ts`)
 - [x] **52.** Simplified the notification-preferences model to match reality (email stays off — not free at production, kept disabled via the existing `EMAIL_NOTIFICATIONS_ENABLED` flag). The domain `NotificationPreferences` type no longer claims a per-`NotificationType` `{inApp,push}` map or `quietHours` (neither was ever wired up); it's now the flat `{ push, email }` the readers actually use (notify-dispatch/use-push-sync gate on `channels.push`; in-app inbox is always created). Dropped the dead `quiet_hours_start`/`quiet_hours_end`/`timezone` columns + `quiet_hours_paired` constraint (migration `20260721120000`, generated types updated). No reader/UI behavior changes — the per-type/quiet-hours model was non-functional. ⚠️ **migration needs manual application** in the Supabase SQL editor. (`packages/domain/src/models/notification.ts`, `supabase/migrations/20260721120000_notification_prefs_drop_quiet_hours.sql`, `packages/data-access/src/db/database.types.ts`)
@@ -140,6 +140,7 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 - [x] Artist availability supports **split shifts** (parity with studios).
 
 # DEFERRED
+- [~] **79.** Try-on is flash-only by design — only artists' flash designs are meant to be composited on-skin; inspiration ideas (unlicensed pins) aren't. (product: intended behaviour)
 - [~] **3.** Deposits are threatened in copy but never collected — remove the language or wire payments. (no payments yet)
 - [~] **5.** No post-onboarding role elevation ("Become an artist / Register a studio" in settings). (product: no in-app elevation)
 - [~] **7.** Delete account lives under Legal/Help, not Account Settings (GDPR/App-Store surfacing).
