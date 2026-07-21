@@ -81,13 +81,17 @@ export function HomeScreen() {
   const exploreItems: (IdeaCard | FlashListItem)[] = exploreFlashes ? flashes : ideas;
 
   const onRefresh = useCallback(() => {
-    void feed.refetch();
+    // Refresh whichever Explore feed is actually showing — the idea feed is
+    // disabled while Flashes is on, so refetching it would be a no-op — plus the
+    // home rails.
+    if (exploreFlashes) void flashesQ.refetch();
+    else void feed.refetch();
     void featured.refetch();
     void recommended.refetch();
     void trending.refetch();
     void promotions.refetch();
     void myStyles.refetch();
-  }, [feed, featured, recommended, trending, promotions, myStyles]);
+  }, [exploreFlashes, flashesQ, feed, featured, recommended, trending, promotions, myStyles]);
 
   // "See all" carries the rail's intent into Discover instead of dumping the
   // user on the default search (relevance, all styles).
@@ -281,7 +285,7 @@ export function HomeScreen() {
           }
         }}
         onEndReachedThreshold={0.6}
-        refreshControl={<RefreshControl refreshing={feed.isRefetching} onRefresh={onRefresh} />}
+        refreshControl={<RefreshControl refreshing={exploreFlashes ? flashesQ.isRefetching : feed.isRefetching} onRefresh={onRefresh} />}
         ListEmptyComponent={
           exploreFlashes ? (
             flashesQ.isLoading ? <TileGridSkeleton /> : <EmptyState icon="sparkles-outline" title="No flashes yet" message="Flash designs from artists will show up here." compact />

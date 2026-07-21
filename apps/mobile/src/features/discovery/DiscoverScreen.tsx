@@ -121,7 +121,10 @@ export function DiscoverScreen() {
         })}
       </View>
 
-      {/* Search field */}
+      {/* Search field — hidden while browsing flashes, which aren't keyword-
+          searchable (the flash feed ignores the query, so an editable box would
+          be a no-op). */}
+      {!(isIdeas && ideaFlashes) && (
       <View style={s.searchWrap}>
         <Text style={s.searchIcon}>⌕</Text>
         <TextInput
@@ -138,6 +141,7 @@ export function DiscoverScreen() {
           </Pressable>
         )}
       </View>
+      )}
 
       {/* Sort + Filters row — horizontally scrollable so the Filters button
           stays reachable even when its active-count badge widens it. Ideas have
