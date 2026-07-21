@@ -19,10 +19,6 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
   - Files: `packages/domain/src/models/notification.ts:22`, `supabase/functions/notify-dispatch/index.ts:89`.
 
 ## Tier D — UX / QoL
-- [ ] **63. Year-to-date insights drill loses the year.** Both insight CTAs pass `g=month` for `ytd`, so drilling from a Year view opens the current month only (Insights has no year grain).
-  - Files: `StudioDashboardScreen.tsx` (insights CTAs).
-- [ ] **65. Studio calendar shows false empties out of window.** It loads a fixed `[today-365, +120]` range but `MonthCalendar` pages to any month; months outside the window show "Nothing booked" even when bookings exist. Fix: fetch on month change (or clamp navigation).
-  - Files: `StudioCalendarScreen.tsx:45`.
 - [ ] **66. Owner's own public studio page is a dead end.** Viewing their own `/studio/[slug]`, the sticky CTA is a hint only ("edit it from your dashboard") with no button — add an Edit / Back-to-dashboard action.
   - Files: `StudioProfileScreen.tsx:222`.
 - [ ] **70. Voucher redemption idempotency key isn't stable.** `redeemVoucher(…, `${v.id}-${Date.now()}`)` changes every call, so it can't dedupe a double-submit — risks a double point spend on a money-equivalent action. Fix: derive a stable key (e.g. per voucher+day or a client-generated UUID held in state).
@@ -62,6 +58,8 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # DONE
 
 ## Round 2 fixes
+- [x] **65.** The studio calendar no longer shows false "Nothing booked" empties outside its initial window. `MonthCalendar` gained an `onMonthChange` callback; `StudioCalendarScreen` seeds a window around today and grows it (never shrinks) to always bracket the visible month with a one-month buffer, so paging past the initial range refetches to cover it. `useStudioCalendarBookings` got `placeholderData: keepPreviousData` so the current month stays visible while a widened range loads. (`apps/mobile/src/features/booking/components/MonthCalendar.tsx`, `apps/mobile/src/features/studio/StudioCalendarScreen.tsx`, `packages/data-access/src/studio/index.ts`)
+- [x] **63.** Year-to-date insights drill keeps the year. Added a `year` grain to the Studio Insights screen (window/shift/label + selector), and the dashboard's two insight CTAs now map `ytd → g=year` (was `month`), so drilling from the Year overview opens a full-year insights view instead of the current month. (`apps/mobile/src/features/studio/StudioInsightsScreen.tsx`, `apps/mobile/src/features/studio/StudioDashboardScreen.tsx`)
 - [x] **69.** The saved-design fullscreen viewer now requests a screen-width variant via `imageUrl(item.imagePath, width)` (which applies the @2x factor + quality cap) instead of `publicStorageUrl` with no size, which loaded every page's full-res original. Falls back to the original when image transforms are disabled. (`apps/mobile/app/(modals)/image-viewer.tsx`)
 - [x] **68.** Removed the redundant "Portfolio & flashes" row from the artist Profile/dashboard Manage list — it's an operational tool that belongs on Home (whose Manage groups Calendar/Availability/Portfolio), while the Profile Manage is for identity & account (Edit profile, Account settings, Sign out). (`apps/mobile/src/features/dashboard/ArtistDashboardScreen.tsx`)
 - [x] **67.** The studio opening-hours editor now rejects overlapping/duplicate split shifts on save, mirroring the artist availability editor: per day it sorts each day's intervals by start (zero-padded HH:MM sorts chronologically as strings) and errors ("{day}: time ranges can't overlap") if any interval starts before the previous one ends. (`apps/mobile/src/features/studio/StudioEditScreen.tsx`)

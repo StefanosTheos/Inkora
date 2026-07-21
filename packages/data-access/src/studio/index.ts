@@ -3,7 +3,7 @@ import type {
   StudioArtistStat, StudioBookingDetail, StudioCalendarBooking, StudioEditInput, StudioId, StudioOverview,
   StudioPeriodStat, StudioProfile,
 } from "@inkora/domain";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import type { InkoraClient } from "../client/types";
 import { toAppError } from "../errors";
@@ -608,6 +608,9 @@ export function useStudioCalendarBookings(client: InkoraClient, studioId: string
     queryKey: ["studio-calendar-bookings", studioId, startISO, endISO],
     queryFn: () => getStudioCalendarBookings(client, studioId, startISO, endISO),
     enabled: !!studioId && !!startISO && !!endISO,
+    // Keep the previous window on screen while a widened range loads, so paging
+    // to a new month doesn't flash "Nothing booked" during the refetch.
+    placeholderData: keepPreviousData,
   });
 }
 

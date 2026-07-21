@@ -25,11 +25,19 @@ interface Props {
   /** Allow navigating to and selecting past months/days (e.g. a studio owner
    *  reviewing completed bookings). Booking flows leave this off. */
   allowPast?: boolean;
+  /** Fired with the first day of the newly-visible month when the user pages, so
+   *  a parent can widen its data window to cover it. */
+  onMonthChange?: (visibleMonthStart: Date) => void;
 }
 
-export function MonthCalendar({ selected, onSelect, enabledWeekdays, markedDates, allowPast }: Props) {
+export function MonthCalendar({ selected, onSelect, enabledWeekdays, markedDates, allowPast, onMonthChange }: Props) {
   const today = startOfToday();
   const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+  const goMonth = (delta: number) => {
+    const next = new Date(cursor.getFullYear(), cursor.getMonth() + delta, 1);
+    setCursor(next);
+    onMonthChange?.(next);
+  };
 
   const cells = useMemo(() => {
     const year = cursor.getFullYear();
@@ -51,12 +59,12 @@ export function MonthCalendar({ selected, onSelect, enabledWeekdays, markedDates
         <Pressable
           hitSlop={10}
           disabled={!canGoBack}
-          onPress={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
+          onPress={() => goMonth(-1)}
         >
           <Ionicons name="chevron-back" size={22} color={canGoBack ? "#18181B" : "#D4D4D8"} />
         </Pressable>
         <Text style={s.headerText}>{MONTHS[cursor.getMonth()]} {cursor.getFullYear()}</Text>
-        <Pressable hitSlop={10} onPress={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}>
+        <Pressable hitSlop={10} onPress={() => goMonth(1)}>
           <Ionicons name="chevron-forward" size={22} color="#18181B" />
         </Pressable>
       </View>

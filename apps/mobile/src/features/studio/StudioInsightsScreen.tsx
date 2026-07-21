@@ -16,11 +16,12 @@ import { Avatar, money } from "../booking/components/ui";
 const RED = "#E5484D";
 const PAGE_SIZE = 5;
 
-type Grain = "day" | "week" | "month";
+type Grain = "day" | "week" | "month" | "year";
 const GRAINS: { key: Grain; label: string }[] = [
   { key: "day", label: "Day" },
   { key: "week", label: "Week" },
   { key: "month", label: "Month" },
+  { key: "year", label: "Year" },
 ];
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -37,6 +38,7 @@ const mondayOf = (d: Date) => addDays(atMidnight(d), -(((d.getDay() + 6) % 7)));
 function windowFor(grain: Grain, anchor: Date): { start: Date; end: Date } {
   if (grain === "day") { const s = atMidnight(anchor); return { start: s, end: addDays(s, 1) }; }
   if (grain === "week") { const s = mondayOf(anchor); return { start: s, end: addDays(s, 7) }; }
+  if (grain === "year") { const y = anchor.getFullYear(); return { start: new Date(y, 0, 1), end: new Date(y + 1, 0, 1) }; }
   const s = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   return { start: s, end: new Date(anchor.getFullYear(), anchor.getMonth() + 1, 1) };
 }
@@ -45,6 +47,7 @@ function windowFor(grain: Grain, anchor: Date): { start: Date; end: Date } {
 function shift(grain: Grain, anchor: Date, dir: 1 | -1): Date {
   if (grain === "day") return addDays(anchor, dir);
   if (grain === "week") return addDays(anchor, dir * 7);
+  if (grain === "year") return new Date(anchor.getFullYear() + dir, 0, 1);
   return new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1);
 }
 
@@ -64,6 +67,7 @@ function windowLabel(grain: Grain, start: Date, end: Date): string {
     const left = `${start.getDate()}${sameMonth ? "" : ` ${mon3(start.getMonth())}`}`;
     return `${left}–${last.getDate()} ${mon3(last.getMonth())} ${last.getFullYear()}`;
   }
+  if (grain === "year") return String(start.getFullYear());
   return `${mon(start.getMonth())} ${start.getFullYear()}`;
 }
 
@@ -96,7 +100,7 @@ export function StudioInsightsScreen() {
   const router = useRouter();
   const { ctx } = useAuth();
   const params = useLocalSearchParams<{ g?: string }>();
-  const initialGrain: Grain = params.g === "day" || params.g === "week" || params.g === "month" ? params.g : "week";
+  const initialGrain: Grain = params.g === "day" || params.g === "week" || params.g === "month" || params.g === "year" ? params.g : "week";
 
   const studioQ = useMyStudio(supabase, ctx.userId ?? "");
   const st = studioQ.data;

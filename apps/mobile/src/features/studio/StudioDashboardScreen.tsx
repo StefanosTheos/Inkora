@@ -113,7 +113,7 @@ export function StudioDashboardScreen() {
         </View>
         <Pressable
           style={s.hero}
-          onPress={() => router.push(`/studio-insights?g=${period === "wtd" ? "week" : "month"}`)}
+          onPress={() => router.push(`/studio-insights?g=${period === "wtd" ? "week" : period === "ytd" ? "year" : "month"}`)}
           accessibilityRole="button"
           accessibilityLabel="View studio insights"
         >
@@ -132,7 +132,7 @@ export function StudioDashboardScreen() {
             filterable per day/week/month. Opens at the selected period's grain. */}
         <Pressable
           style={s.insightsCta}
-          onPress={() => router.push(`/studio-insights?g=${period === "wtd" ? "week" : "month"}`)}
+          onPress={() => router.push(`/studio-insights?g=${period === "wtd" ? "week" : period === "ytd" ? "year" : "month"}`)}
           accessibilityRole="button"
           accessibilityLabel="See all completed bookings and details"
         >

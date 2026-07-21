@@ -3,7 +3,7 @@ import { useAuth, useMyStudio, useStudioCalendarBookings } from "@inkora/data-ac
 import type { StudioCalendarBooking } from "@inkora/domain";
 import { APPOINTMENT_STATUS_LABEL } from "@inkora/domain";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -41,15 +41,26 @@ export function StudioCalendarScreen() {
   const st = studioQ.data;
   const sym = st?.currencyCode;
 
-  // Load a wide window around today so navigating months always has data.
-  const range = useMemo(() => {
+  // Loaded window, seeded around today and grown (never shrunk) to always cover
+  // whatever month the calendar is showing — so paging past the initial range
+  // no longer shows false "Nothing booked" empties. keepPreviousData keeps the
+  // current month visible while a widened range loads.
+  const [range, setRange] = useState(() => {
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 365);
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 120);
-    return { startISO: start.toISOString(), endISO: end.toISOString() };
+    return { start: new Date(now.getFullYear(), now.getMonth() - 2, 1), end: new Date(now.getFullYear(), now.getMonth() + 3, 1) };
+  });
+  const onMonthChange = useCallback((visible: Date) => {
+    // Ensure the window brackets the visible month with a one-month buffer each side.
+    const needStart = new Date(visible.getFullYear(), visible.getMonth() - 1, 1);
+    const needEnd = new Date(visible.getFullYear(), visible.getMonth() + 2, 1);
+    setRange((r) => {
+      const start = needStart < r.start ? needStart : r.start;
+      const end = needEnd > r.end ? needEnd : r.end;
+      return start === r.start && end === r.end ? r : { start, end };
+    });
   }, []);
 
-  const bookingsQ = useStudioCalendarBookings(supabase, st?.id ?? "", range.startISO, range.endISO);
+  const bookingsQ = useStudioCalendarBookings(supabase, st?.id ?? "", range.start.toISOString(), range.end.toISOString());
   const rows = useMemo(() => bookingsQ.data ?? [], [bookingsQ.data]);
 
   const [selected, setSelected] = useState<string>(() => toIsoDate(new Date()));
@@ -70,7 +81,7 @@ export function StudioCalendarScreen() {
 
       <ScrollView contentContainerStyle={s.body}>
         <View style={s.calCard}>
-          <MonthCalendar selected={selected} onSelect={setSelected} markedDates={marked} allowPast />
+          <MonthCalendar selected={selected} onSelect={setSelected} markedDates={marked} allowPast onMonthChange={onMonthChange} />
         </View>
 
         <View style={s.dayHead}>
