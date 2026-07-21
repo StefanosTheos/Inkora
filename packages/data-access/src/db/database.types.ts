@@ -106,6 +106,7 @@ export type Database = {
           is_color: boolean | null
           placement: string | null
           preferred_dates: unknown[] | null
+          preferred_time_of_day: string | null
           reference_paths: string[]
           status: Database["public"]["Enums"]["request_status"]
           studio_id: string | null
@@ -126,6 +127,7 @@ export type Database = {
           is_color?: boolean | null
           placement?: string | null
           preferred_dates?: unknown[] | null
+          preferred_time_of_day?: string | null
           reference_paths?: string[]
           status?: Database["public"]["Enums"]["request_status"]
           studio_id?: string | null
@@ -146,6 +148,7 @@ export type Database = {
           is_color?: boolean | null
           placement?: string | null
           preferred_dates?: unknown[] | null
+          preferred_time_of_day?: string | null
           reference_paths?: string[]
           status?: Database["public"]["Enums"]["request_status"]
           studio_id?: string | null
@@ -1226,6 +1229,38 @@ export type Database = {
             columns: ["request_id"]
             isOneToOne: false
             referencedRelation: "appointment_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_visits: {
+        Row: {
+          created_at: string
+          id: string
+          target_id: string
+          target_type: string
+          viewer_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          target_id: string
+          target_type: string
+          viewer_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          target_id?: string
+          target_type?: string
+          viewer_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_visits_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2705,7 +2740,7 @@ export type Database = {
         | "milestone"
         | "completed"
       membership_role: "owner" | "manager" | "artist"
-      membership_status: "invited" | "active" | "suspended" | "removed"
+      membership_status: "invited" | "active" | "suspended" | "removed" | "requested"
       message_type: "text" | "image" | "system" | "booking_card"
       moderation_status: "pending" | "approved" | "rejected"
       notification_type:
@@ -2717,6 +2752,8 @@ export type Database = {
         | "reward"
         | "follow"
         | "system"
+        | "membership_request"
+        | "journey"
       offer_status:
         | "pending"
         | "accepted"
@@ -2742,6 +2779,8 @@ export type Database = {
         | "referral"
         | "redemption"
         | "manual_adjust"
+        | "journey_milestone"
+        | "journey_completed"
       reward_tier: "bronze" | "silver" | "gold" | "platinum"
       reward_txn_type: "earn" | "redeem" | "adjust" | "expire" | "refund"
       user_role: "seeker" | "artist" | "studio_admin" | "moderator"
@@ -3349,7 +3388,7 @@ export const Constants = {
         "completed",
       ],
       membership_role: ["owner", "manager", "artist"],
-      membership_status: ["invited", "active", "suspended", "removed"],
+      membership_status: ["invited", "active", "suspended", "removed", "requested"],
       message_type: ["text", "image", "system", "booking_card"],
       moderation_status: ["pending", "approved", "rejected"],
       notification_type: [
@@ -3361,6 +3400,8 @@ export const Constants = {
         "reward",
         "follow",
         "system",
+        "membership_request",
+        "journey",
       ],
       offer_status: ["pending", "accepted", "declined", "withdrawn", "expired"],
       request_status: [
@@ -3383,6 +3424,8 @@ export const Constants = {
         "referral",
         "redemption",
         "manual_adjust",
+        "journey_milestone",
+        "journey_completed",
       ],
       reward_tier: ["bronze", "silver", "gold", "platinum"],
       reward_txn_type: ["earn", "redeem", "adjust", "expire", "refund"],
