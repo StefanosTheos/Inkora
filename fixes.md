@@ -25,14 +25,8 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
   - Files: `RewardsScreen.tsx:104`.
 - [ ] **73. `/rewards` doesn't bounce studio owners.** The guard redirects `artist` but not `studio_admin`, so an owner deep-linking `/rewards` sees an empty seeker-only screen.
   - Files: `apps/mobile/app/rewards.tsx:11`.
-- [ ] **74. Legal copy references a nonexistent setting.** It tells users to set a "default search radius under Account settings," but no radius control exists and `profiles.search_radius_km` is never editable. Fix the copy or wire the control.
-  - Files: `LegalScreen.tsx:34`, `identity` migration.
 - [ ] **75. Sign-up ignores email-confirmation + weak password hint.** The screen ignores `needsEmailConfirmation` (silent no-op if confirmations are enabled) and the "min 8 chars" placeholder has no client validation (Supabase default is 6).
   - Files: `apps/mobile/app/(auth)/sign-up.tsx:20-27,41`.
-- [ ] **76. Idea "N saves" count goes stale after your own save.** `useIdeaSaved` invalidates `["idea-saved",id]`/`["saved-designs"]` but not `["idea",id]`, so the counter on the same detail screen doesn't update until a cold refetch.
-  - Files: `packages/data-access/src/ideas/index.ts:176`.
-- [ ] **78. `BigTile` ignores its `icon` when tappable.** With `onPress` set it always renders `chevron-forward`, so the Applications tile's `mail-unread-outline` never shows — a dead prop.
-  - Files: `StudioDashboardScreen.tsx` (`BigTile`).
 
 ## Tier E — Missing capabilities / additions
 - [ ] **9. No boards/collections** — saves are a flat, unorganizable list; can't group or share a collection with an artist. (`UserDashboardScreen.tsx`, `favorites`)
@@ -54,6 +48,9 @@ Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 # DONE
 
 ## Round 2 fixes
+- [x] **78.** `BigTile` now honors its `icon` when tappable. The top-right slot always shows the tile's own icon (so the Applications tile's `mail-unread-outline` renders), and the "open" chevron moved into the label row for tappable tiles — which never carry a trend badge, so the two don't collide. (`apps/mobile/src/features/studio/StudioDashboardScreen.tsx`)
+- [x] **76.** The idea detail's "N saves" counter now updates immediately after your own save/unsave — `useIdeaSaved`'s `onSettled` also invalidates `["idea", ideaId]` (the detail query that carries `saveCount`), not just the saved-state/list keys. (The portfolio-piece detail has no saves counter, so no twin fix was needed.) (`packages/data-access/src/ideas/index.ts`)
+- [x] **74.** Fixed the legal "Managing your account" copy that referenced a nonexistent "default search radius under Account settings" control. It now accurately says notifications are under Account settings and search distance is set per-search from the Discover filters (which do expose a Distance/km control). (`apps/mobile/src/features/legal/LegalScreen.tsx`)
 - [x] **72.** Closed two onboarding gaps. (a) The seeker "No favorites yet" screen now offers a **Skip for now** action (calls `onFinish` to complete onboarding) instead of only "Try again", so a seeker who likes no style cards isn't hard-gated. (b) Reordered `onArtist` so the location work (`updateProfileLocation`, which only writes the user's own profile) runs *before* `becomeArtist` — a geocode/lookup failure now aborts before the role change instead of leaving the user artist-but-not-onboarded with no rollback. (`apps/mobile/src/features/onboarding/OnboardingFlow.tsx`)
 - [x] **66.** The owner's own public studio page is no longer a dead end. The sticky CTA now shows real buttons for the owner-viewer — **Dashboard** (→ home tab) and **Edit studio** (→ `/studio-edit`) — instead of a hint that only told them to edit from the dashboard with no way to get there. (`apps/mobile/src/features/studio/StudioProfileScreen.tsx`)
 - [x] **65.** The studio calendar no longer shows false "Nothing booked" empties outside its initial window. `MonthCalendar` gained an `onMonthChange` callback; `StudioCalendarScreen` seeds a window around today and grows it (never shrinks) to always bracket the visible month with a one-month buffer, so paging past the initial range refetches to cover it. `useStudioCalendarBookings` got `placeholderData: keepPreviousData` so the current month stays visible while a widened range loads. (`apps/mobile/src/features/booking/components/MonthCalendar.tsx`, `apps/mobile/src/features/studio/StudioCalendarScreen.tsx`, `packages/data-access/src/studio/index.ts`)

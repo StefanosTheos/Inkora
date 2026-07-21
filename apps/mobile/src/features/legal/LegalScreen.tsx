@@ -31,7 +31,7 @@ const DOCS: Record<LegalDoc, Doc> = {
       { heading: "Reviews", body: "After a completed appointment you can leave a review from that booking's detail page. Reviews keep artist ratings honest and help other clients choose." },
       { heading: "Rewards & referrals", body: "Earn points for things like completing your profile, referring friends and daily check-ins, then redeem them for vouchers under Rewards. Share your referral code so friends can join." },
       { heading: "Design try-on", body: "“Try it on” overlays an artist's flash design onto a photo of you so you can picture it in place before booking. It's a visual mockup — it doesn't generate a tattoo or use AI; the real result depends on your artist, skin and placement." },
-      { heading: "Managing your account", body: "Update your name, photo and city under Edit profile. Control push/email notifications and your default search radius under Account settings." },
+      { heading: "Managing your account", body: "Update your name, photo and city under Edit profile, and control push/email notifications under Account settings. Set your search distance per search from the filters in Discover." },
     ],
   },
   terms: {

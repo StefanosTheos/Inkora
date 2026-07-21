@@ -204,14 +204,16 @@ function TrendBadge({ cur, prev, higherIsBetter = true }: { cur: number; prev: n
 function BigTile({ label, value, icon, alert, onPress, trend, badge }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap; alert?: boolean; onPress?: () => void; trend?: ReactNode; badge?: number }) {
   const inner = (
     <>
-      <Ionicons name={onPress ? "chevron-forward" : icon} size={16} color="#D4D4D8" style={s.bigIcon} />
+      <Ionicons name={icon} size={16} color="#D4D4D8" style={s.bigIcon} />
       {badge && badge > 0 ? (
         <View style={s.bigBadge}><Text style={s.bigBadgeText}>{badge > 99 ? "99+" : badge}</Text></View>
       ) : null}
       <Text style={[s.bigValue, alert && { color: "#E5484D" }]}>{value}</Text>
       <View style={s.bigLabelRow}>
         <Text style={s.bigLabel}>{label}</Text>
-        {trend}
+        {/* Tappable tiles show the "open" chevron here so the top-right slot can
+            keep the tile's own icon; the others may show a trend badge. */}
+        {onPress ? <Ionicons name="chevron-forward" size={14} color="#C4C4C8" /> : trend}
       </View>
     </>
   );

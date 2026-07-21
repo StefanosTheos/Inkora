@@ -175,6 +175,7 @@ export function useIdeaSaved(client: InkoraClient, ideaId: string) {
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: key });
+      void qc.invalidateQueries({ queryKey: ["idea", ideaId] }); // refresh the detail's "N saves" counter
       void qc.invalidateQueries({ queryKey: ["saved-designs"] }); // dashboardKeys.savedDesigns
       void qc.invalidateQueries({ queryKey: ["saved-count"] }); // dashboardKeys.savedCount
     },
