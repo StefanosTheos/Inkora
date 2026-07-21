@@ -130,7 +130,6 @@ export function ArtistDashboardScreen() {
         {/* Manage — identity & account (operational tools live on Home) */}
         <SectionHeader title="Manage" />
         <View style={s.card}>
-          <ActionRow icon="images-outline" label="Portfolio & flashes" onPress={() => router.push("/artist-dashboard/portfolio")} />
           <ActionRow icon="person-outline" label="Edit profile" onPress={() => router.push("/profile/settings")} />
           <ActionRow icon="settings-outline" label="Account settings" onPress={() => router.push("/profile/account")} />
           <ActionRow icon="log-out-outline" label="Sign out" danger onPress={confirmSignOut} />

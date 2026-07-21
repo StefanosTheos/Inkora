@@ -135,6 +135,14 @@ function EditForm({ studio }: { studio: StudioProfile }) {
         if (iv.from >= iv.to) { toast.show(`${label}: closing time must be after opening`, "error"); return; }
         ivs.push([iv.from, iv.to]);
       }
+      // Reject overlapping/duplicate split shifts (like the artist availability
+      // editor). Zero-padded HH:MM sorts chronologically as strings, so after
+      // sorting by start, any interval starting before the previous one ends
+      // overlaps it.
+      ivs.sort((a, b) => a[0]!.localeCompare(b[0]!));
+      for (let i = 1; i < ivs.length; i++) {
+        if (ivs[i]![0]! < ivs[i - 1]![1]!) { toast.show(`${label}: time ranges can’t overlap`, "error"); return; }
+      }
       if (ivs.length) openingHours[key] = ivs;
     }
 

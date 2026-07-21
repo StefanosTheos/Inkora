@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ZoomableImage } from "../../src/components/ImageZoomModal";
 import { env } from "../../src/lib/env";
+import { imageUrl } from "../../src/lib/images";
 import { supabase } from "../../src/lib/supabase";
 
 export default function ImageViewerModal() {
@@ -50,7 +51,10 @@ export default function ImageViewerModal() {
         getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
         onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
         renderItem={({ item }) => {
-          const uri = publicStorageUrl(env.SUPABASE_URL, item.imagePath);
+          // Request a screen-width variant (imageUrl applies the @2x factor and a
+          // quality cap) instead of the full-res original — plenty for a
+          // fullscreen zoomable view without the bandwidth/memory cost.
+          const uri = imageUrl(item.imagePath, width) ?? publicStorageUrl(env.SUPABASE_URL, item.imagePath);
           return (
             <View style={{ width, height: listH || undefined }}>
               <ZoomableImage uri={uri} label={item.title || "Saved design"} onRequestClose={close} onZoomChange={setZoomed} tapToClose={false} />
