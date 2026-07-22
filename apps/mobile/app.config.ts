@@ -17,8 +17,9 @@ const ICON = "./assets/images/inkora_icon.png"; // mark only, extra-padded — a
 const config: ExpoConfig = {
   name: "Inkora",
   slug: "inkora",
+  owner: "stefanos_theos", // EAS account that owns the project
   scheme: SCHEME, // inkora:// custom scheme (auth callbacks, push taps)
-  version: "0.0.0",
+  version: "1.0.0",
   orientation: "portrait",
   userInterfaceStyle: "automatic",
   icon: ICON,
@@ -53,6 +54,8 @@ const config: ExpoConfig = {
   extra: {
     // TODO: EXPO_PUBLIC_SUPABASE_URL / ANON_KEY surfaced via env (see src/lib/env.ts)
     router: {},
+    // EAS project link (from `eas init`). Required for `eas build`.
+    eas: { projectId: "93d41163-ac9d-47eb-81fd-d3b9f63b0559" },
   },
 };
 
