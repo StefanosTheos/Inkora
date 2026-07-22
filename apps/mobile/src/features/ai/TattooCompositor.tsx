@@ -1,4 +1,6 @@
-import { Canvas, Group, Image as SkImage, useCanvasRef, useImage } from "@shopify/react-native-skia";
+import {
+  Canvas, Group, Image as SkImage, ImageShader, Rect, Shader, Skia, useCanvasRef, useImage,
+} from "@shopify/react-native-skia";
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
   type GestureResponderEvent, type LayoutChangeEvent, PanResponder, StyleSheet, Text, View,
@@ -11,6 +13,45 @@ export interface CompositorHandle {
 
 type Transform = { tx: number; ty: number; scale: number; rot: number };
 const IDENTITY: Transform = { tx: 0, ty: 0, scale: 1, rot: 0 };
+
+// Background-key shader. Flash designs are a black or coloured design on a white
+// / pale-beige / very-light background. This makes the light background fully
+// transparent while keeping the design at its TRUE colour, so it can be dropped
+// onto skin and dragged/scaled/rotated. A pixel counts as background only when
+// it's both very bright (high luminance) AND nearly unsaturated — so a saturated
+// colour (even a bright one) is kept as design, and only genuine paper/white/
+// beige is removed. `image.eval` returns premultiplied colour; the source flash
+// is opaque, so we key on its RGB and emit premultiplied output.
+const BG_KEY = Skia.RuntimeEffect.Make(`
+uniform shader image;
+uniform float4 bounds;   // design rect: x, y, w, h (local coords)
+half4 main(float2 xy) {
+  half4 c = image.eval(xy);
+  // Unsharp mask: fine lines get averaged with the white paper when the sheet is
+  // downscaled, turning them light-grey — which the key below would drop. Pull
+  // each pixel away from its local average so thin lines darken back to solid and
+  // survive the key. Flat areas (paper, solid fills) equal their average → no change.
+  half3 blur = (image.eval(xy + float2(1.4, 0.0)).rgb + image.eval(xy - float2(1.4, 0.0)).rgb
+              + image.eval(xy + float2(0.0, 1.4)).rgb + image.eval(xy - float2(0.0, 1.4)).rgb) * 0.25;
+  half3 rgb = clamp(c.rgb + (c.rgb - blur) * 0.9, 0.0, 1.0);
+  half l = dot(rgb, half3(0.299, 0.587, 0.114));
+  half mx = max(rgb.r, max(rgb.g, rgb.b));
+  half mn = min(rgb.r, min(rgb.g, rgb.b));
+  half sat = mx - mn;
+  half bright = smoothstep(0.72, 0.93, l);          // 1 = very light
+  half mono   = 1.0 - smoothstep(0.12, 0.32, sat);  // 1 = nearly greyscale
+  half a = 1.0 - bright * mono;                       // background -> 0, design -> 1
+  // Fade the outermost ~5% of the sheet to transparent so a dashed crop-frame /
+  // border baked into the flash art (and JPEG edge ringing) doesn't read as a
+  // rectangle around the design.
+  float2 uv = (xy - bounds.xy) / bounds.zw;
+  float m = 0.05;
+  float edge = smoothstep(0.0, m, uv.x) * smoothstep(0.0, m, 1.0 - uv.x)
+             * smoothstep(0.0, m, uv.y) * smoothstep(0.0, m, 1.0 - uv.y);
+  a *= half(edge);
+  return half4(rgb * a, a);
+}
+`);
 
 function touchDistance(a: GestureResponderEvent["nativeEvent"]["touches"]): number {
   const [p, q] = a;
@@ -28,10 +69,10 @@ function touchCentroid(a: GestureResponderEvent["nativeEvent"]["touches"]): { x:
 }
 
 /**
- * On-device tattoo try-on: draws the body photo and multiply-blends the flash
- * (black-ink-on-white) over the skin so white drops out and the linework lands
- * on the body. Drag to move, pinch to scale, twist to rotate; opacity fades the
- * ink for a healed look. `capture()` returns the flattened PNG.
+ * On-device tattoo try-on: draws the body photo and lays the flash design over
+ * the skin with its light background keyed out (see BG_KEY) so only the design
+ * shows. Drag to move, pinch to scale, twist to rotate; opacity fades the ink
+ * for a healed look. `capture()` returns the flattened PNG.
  */
 export const TattooCompositor = forwardRef<CompositorHandle, {
   bodyUri: string;
@@ -40,7 +81,11 @@ export const TattooCompositor = forwardRef<CompositorHandle, {
 }>(({ bodyUri, flashUri, opacity }, ref) => {
   const canvasRef = useCanvasRef();
   const body = useImage(bodyUri);
-  const flash = useImage(flashUri);
+  // Skia's remote loader (unlike RN's <Image>) does NOT URL-encode, and the
+  // flash path often arrives with raw spaces — expo-router decodes the %20 in
+  // "blackwork%20-%201.jpg" nav params back to a space — so the fetch silently
+  // fails and the design never appears. Re-encode spaces before loading.
+  const flash = useImage(flashUri.replace(/ /g, "%20"));
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [t, setT] = useState<Transform>(IDENTITY);
 
@@ -112,8 +157,18 @@ export const TattooCompositor = forwardRef<CompositorHandle, {
         <Canvas ref={canvasRef} style={{ width: box.w, height: box.h }}>
           {body ? <SkImage image={body} x={0} y={0} width={box.w} height={box.h} fit="cover" /> : null}
           {flash && rect ? (
-            <Group transform={transform} origin={origin}>
-              <SkImage image={flash} x={rect.x} y={rect.y} width={rect.w} height={rect.h} fit="fill" blendMode="multiply" opacity={opacity} />
+            <Group transform={transform} origin={origin} opacity={opacity}>
+              {BG_KEY ? (
+                // Key the light background to transparent, keep the design's colour.
+                <Rect x={rect.x} y={rect.y} width={rect.w} height={rect.h}>
+                  <Shader source={BG_KEY} uniforms={{ bounds: [rect.x, rect.y, rect.w, rect.h] }}>
+                    <ImageShader image={flash} fit="fill" rect={{ x: rect.x, y: rect.y, width: rect.w, height: rect.h }} />
+                  </Shader>
+                </Rect>
+              ) : (
+                // Fallback if the runtime shader can't compile: multiply drops white.
+                <SkImage image={flash} x={rect.x} y={rect.y} width={rect.w} height={rect.h} fit="fill" blendMode="multiply" />
+              )}
             </Group>
           ) : null}
         </Canvas>
