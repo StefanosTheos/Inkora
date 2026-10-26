@@ -1,4 +1,11 @@
-# Inkora — UX Fixes & Improvements
+# Inkora — Historical UX audits
+
+This record preserves the original findings, IDs and completion notes formerly
+kept in root `fixes.md`. Use [the maintained roadmap](../ROADMAP.md) for current
+priorities. Historical "done" labels describe recorded code changes, not a fresh
+verification of every deployment/migration. Some entries explicitly require
+infrastructure or migration application. File pointers refer to repository-root
+paths; older line numbers may have drifted.
 
 Backlog from full-app audits of the three roles (seeker, artist, studio owner).
 **Top = open findings** (newest audit first). **Bottom = Done / Deferred** (condensed).

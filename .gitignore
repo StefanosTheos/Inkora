@@ -32,3 +32,23 @@ GoogleService-Info.plist
 .DS_Store
 *.log
 coverage/
+
+# Deployment and personal editor caches (shared .vscode settings may be kept)
+.vercel/
+.netlify/
+.idea/
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/*.local.json
+
+# Local environment overlays and Expo credentials/build output
+!**/.env.example
+credentials.json
+*.apk
+*.aab
+*.ipa
+
+# Private local planning notes
+/project_description.md

@@ -1,20 +1,9 @@
-# @inkora/ai — 🤖 PLACEHOLDER ONLY
+# Generative-preview interface and mock
 
-The AI tattoo-preview feature is a **UI placeholder** in the MVP.
+This package defines the `AiPreviewService` contract and `MockAiPreviewService`. It contains **no model, inference service or implemented generative tattoo-preview pipeline**. The mock returns a draft/queued state without a generated result image; schema and interface presence are not evidence of working AI generation.
 
-> ❌ No ML logic · ❌ No inference · ❌ No backend AI · ✅ Interfaces + mock service only
+This is distinct from **mobile try-on**, which is implemented outside this package. The mobile `TryOnScreen`/`TattooCompositor` combines an existing artist flash image with a user-selected photo on-device and can save the composite. It does not generate a new tattoo with an AI model.
 
-## Why this package exists now
-To fix the **service boundary** (`AiPreviewService`) so the Create Idea UI in both apps
-codes against the real interface. When a real model ships later, it implements the same
-interface and slots in — **zero caller changes**.
+The web preview surface is read-only: it explains mobile try-on, shows example styles and lists saved mobile results. It does not implement browser compositing or server-side generation.
 
-## Contents
-- `interfaces.ts` — `AiPreviewService` contract
-- `mock/` — `MockAiPreviewService`: returns a `draft`/`queued` preview that never completes
-  (`resultImagePath` stays null). The UI shows the "coming soon" placeholder.
-
-The DB already models this (`ai_previews` table, `ai_preview_status` enum) — the mock writes
-through the same shape so the data contract is exercised end-to-end without any inference.
-
-**TODO:** keep mock-only until AI is in scope. Do not add model/inference code here in the MVP.
+Keep the generative-service boundary explicit until a real implementation, rights review, safety behavior and evaluation are available. See [the feature matrix](../README.md) and [roadmap](../docs/ROADMAP.md).

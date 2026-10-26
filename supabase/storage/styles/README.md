@@ -30,8 +30,8 @@ lettering.jpg
 From the repo root, with your service-role key set:
 
 ```bash
-SUPABASE_URL=https://aijpxpctvzjcwworupap.supabase.co \
-SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key> \
+SUPABASE_URL="https://your-project.supabase.co" \
+SUPABASE_SERVICE_ROLE_KEY="your-service-role-key" \
 node supabase/storage/upload.mjs styles
 ```
 
