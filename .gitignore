@@ -52,3 +52,6 @@ credentials.json
 
 # Private local planning notes
 /project_description.md
+
+# Raw local screenshots; curated exports are in docs/images
+/Pics/

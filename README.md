@@ -6,9 +6,72 @@ Inkora is a mobile-first marketplace prototype connecting tattoo seekers, artist
 
 ## Preview
 
-![Placeholders for discovery, artist bookings and studio management screenshots](docs/images/app-preview-placeholder.svg)
+<table>
+  <tr>
+    <th align="center">Seeker discovery</th>
+    <th align="center">Artist workspace</th>
+    <th align="center">Studio overview</th>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/images/seeker-discovery.webp"><img src="docs/images/seeker-discovery.webp" width="240" alt="Inkora: Discover artists, styles and inspiration." /></a>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/images/artist-home.webp"><img src="docs/images/artist-home.webp" width="240" alt="Inkora: Requests, upcoming appointments and daily activity." /></a>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/images/studio-overview.webp"><img src="docs/images/studio-overview.webp" width="240" alt="Inkora: Team, revenue and booking activity." /></a>
+    </td>
+  </tr>
+</table>
 
-*Screenshot placeholders only; these panels are not application captures.* See [capture instructions](docs/images/README.md).
+
+Real Android captures with fictional demo profiles, conversations and booking activity. Click any image for full resolution.
+
+<details>
+<summary>Explore booking, messaging, try-on and team management</summary>
+
+<table>
+  <tr>
+    <th align="center">Explore designs</th>
+    <th align="center">Booking request</th>
+    <th align="center">Chat and offers</th>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/images/design-exploration.webp"><img src="docs/images/design-exploration.webp" width="240" alt="Inkora: Browse and filter tattoo inspiration." /></a>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/images/booking-review.webp"><img src="docs/images/booking-review.webp" width="240" alt="Inkora: Review placement, dates and preferences." /></a>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/images/booking-conversation.webp"><img src="docs/images/booking-conversation.webp" width="240" alt="Inkora: Discuss a design and respond to a booking offer." /></a>
+    </td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <th align="center">Seeker profile</th>
+    <th align="center">Try-on library</th>
+    <th align="center">Studio team</th>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/images/seeker-profile.webp"><img src="docs/images/seeker-profile.webp" width="240" alt="Inkora: Tattoo journey, saved artists and designs." /></a>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/images/try-on-library.webp"><img src="docs/images/try-on-library.webp" width="240" alt="Inkora: Saved composites and available artist flashes." /></a>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="docs/images/studio-team.webp"><img src="docs/images/studio-team.webp" width="240" alt="Inkora: Artist roster and performance summaries." /></a>
+    </td>
+  </tr>
+</table>
+
+Try-on uses on-device compositing of an existing flash design. The booking screen shows request review; payments are not collected in the app. See the [screenshot notes](docs/images/README.md).
+
+</details>
 
 ## Implemented features and current boundaries
 

@@ -8,7 +8,7 @@ This is the maintained entry point for current work. Detailed findings and compl
 - [x] Separate on-device try-on from mock model-generated previews.
 - [x] Document local Supabase, app-specific environment files, storage and native builds.
 - [x] Preserve the owner's proprietary code terms and separate third-party material.
-- [ ] Replace screenshot placeholders with reviewed demo captures.
+- [x] Replace screenshot placeholders with nine cropped demo captures covering seeker, artist and studio flows.
 - [ ] Complete [asset rights/provenance review](../THIRD_PARTY_NOTICES.md), including tattoo-style imagery and historic assets.
 - [ ] Validate a fresh local migration/seed/storage setup end to end.
 - [ ] Separate demo-account/data migrations before any production deployment. Some committed migrations, as well as `seed.sql`, insert demonstration users with known passwords.

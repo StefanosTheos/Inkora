@@ -8,6 +8,8 @@ The Home route selects the seeker feed, artist business Home or studio dashboard
 
 Mobile try-on composites an artist's existing flash design onto a chosen photo with an on-device renderer. It does not generate a tattoo through an AI model. The separate `ai/` package remains mock-only.
 
+See the [mobile screenshot gallery](../../README.md#preview) for the seeker, artist and studio experiences.
+
 ## Structure
 
 ```text
